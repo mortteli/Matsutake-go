@@ -286,7 +286,6 @@ const LAYER = {
 };
 const SITE_NAMES = { 1:"lehto",2:"lehtomainen kangas",3:"tuore kangas",4:"kuivahko kangas",
   5:"kuiva kangas",6:"karukkokangas",7:"kalliomaa/hietikko",8:"lakimetsä",9:"tunturikoivikko",10:"avotunturi" };
-const MAIN_NAMES = { 1:"kivennäismaa",2:"korpi",3:"räme",4:"avosuo" };
 const SPOT_COLOR = "#ff2d78";
 const R3857 = 20037508.342789244;
 
@@ -317,14 +316,6 @@ function maskMin(layerName, min, color) {
     '<ColorMap type="intervals">' +
     '<ColorMapEntry quantity="' + min + '" color="#000000" opacity="0"/>' +
     '<ColorMapEntry quantity="255" color="' + color + '" opacity="1"/>' +
-    '</ColorMap>');
-}
-// raw value readout: value v renders as gray rgb(v,v,v)
-function maskRamp(layerName) {
-  return sldWrap(layerName,
-    '<ColorMap type="ramp">' +
-    '<ColorMapEntry quantity="0" color="#000000" opacity="1"/>' +
-    '<ColorMapEntry quantity="255" color="#ffffff" opacity="1"/>' +
     '</ColorMap>');
 }
 function wmsURL(layerName, sld, bbox, w, h) {
@@ -374,13 +365,20 @@ const MatsutakeLayer = L.GridLayer.extend({
       urls.push(wmsURL(LAYER.pine, maskMin(LAYER.pine, settings.minPine, "#ff0000"), bbox, size.x, size.y));
 
     Promise.all(urls.map(loadImg)).then(imgs => {
+      const off = document.createElement("canvas");
+      off.width = size.x; off.height = size.y;
+      const octx = off.getContext("2d");
+      octx.drawImage(imgs[0], 0, 0);
+      octx.globalCompositeOperation = "destination-in"; // intersect alpha
+      for (let i = 1; i < imgs.length; i++) octx.drawImage(imgs[i], 0, 0);
+      octx.globalCompositeOperation = "source-in";      // recolor result
+      octx.fillStyle = SPOT_COLOR;
+      octx.fillRect(0, 0, size.x, size.y);
+      // dilate by 1 px so 16 m cells stay visible at berry-app zooms
       const ctx = tile.getContext("2d");
-      ctx.drawImage(imgs[0], 0, 0);
-      ctx.globalCompositeOperation = "destination-in"; // intersect alpha
-      for (let i = 1; i < imgs.length; i++) ctx.drawImage(imgs[i], 0, 0);
-      ctx.globalCompositeOperation = "source-in";      // recolor result
-      ctx.fillStyle = SPOT_COLOR;
-      ctx.fillRect(0, 0, size.x, size.y);
+      for (let dx = -1; dx <= 1; dx++)
+        for (let dy = -1; dy <= 1; dy++)
+          ctx.drawImage(off, dx, dy);
       done(null, tile);
     }).catch(err => done(err, tile));
     return tile;
@@ -456,20 +454,41 @@ function stopGps() {
 btnLocate.addEventListener("click", () => (follow ? stopGps() : startGps()));
 map.on("dragstart", () => { if (follow) stopGps(); });
 
-/* ================= tap to inspect ================= */
-async function readValue(layerName, latlng) {
-  // 3×3 px window (~50 m) around the point, value encoded as gray level
+/* ================= tap to inspect =================
+   The WMS reprojection blends a gray-ramp value readout, so instead we
+   probe with the same crisp values/intervals masks the map layer uses:
+   a probe is "true" when the styled pixel under the point is opaque. */
+async function probe(layerName, sld, latlng) {
   const p = L.CRS.EPSG3857.project(latlng);
   const half = 24;
   const bbox = [p.x - half, p.y - half, p.x + half, p.y + half];
-  const img = await loadImg(wmsURL(layerName, maskRamp(layerName), bbox, 3, 3));
+  const img = await loadImg(wmsURL(layerName, sld, bbox, 3, 3));
   const c = document.createElement("canvas");
   c.width = 3; c.height = 3;
   const ctx = c.getContext("2d");
   ctx.drawImage(img, 0, 0);
-  const d = ctx.getImageData(1, 1, 1, 1).data;
-  if (d[3] < 128 || d[0] >= 255) return null; // transparent / no data / water
-  return d[0];
+  return ctx.getImageData(1, 1, 1, 1).data[3] >= 200;
+}
+const probeValues = (layer, values, ll) =>
+  probe(layer, maskValues(layer, values, "#ff0000"), ll).catch(() => null);
+const probeMin = (layer, min, ll) =>
+  probe(layer, maskMin(layer, min, "#ff0000"), ll).catch(() => null);
+
+// exact class via parallel single-value probes; null if none match
+async function readClass(layerName, candidates, latlng) {
+  const hits = await Promise.all(candidates.map(v => probeValues(layerName, [v], latlng)));
+  const i = hits.indexOf(true);
+  return i === -1 ? null : candidates[i];
+}
+// value bracket via parallel threshold probes: [lo, hi) between steps
+async function readBracket(layerName, steps, latlng) {
+  const hits = await Promise.all(steps.map(t => probeMin(layerName, t, latlng)));
+  let lo = null, hi = null;
+  for (let i = 0; i < steps.length; i++) {
+    if (hits[i]) { lo = steps[i]; hi = i + 1 < steps.length ? steps[i + 1] : null; }
+  }
+  if (lo == null) return hits[0] === false ? { below: steps[0] } : null;
+  return { lo, hi };
 }
 
 async function readSlope(latlng) {
@@ -508,11 +527,16 @@ async function inspect(latlng) {
     '<div class="sub">' + latlng.lat.toFixed(5) + "° N, " + latlng.lng.toFixed(5) + "° E</div></div></div>";
   openSheet("sheetResult");
 
-  const [site, main, age, pine, slope] = await Promise.all([
-    readValue(LAYER.site, latlng).catch(() => null),
-    readValue(LAYER.main, latlng).catch(() => null),
-    readValue(LAYER.age, latlng).catch(() => null),
-    readValue(LAYER.pine, latlng).catch(() => null),
+  const AGE_STEPS = [20, 40, 60, 80, 100, 130, 170];
+  const PINE_STEPS = [10, 20, 40, 70, 110];
+  const [site, mineral, mire, ageOkP, pineOkP, age, pine, slope] = await Promise.all([
+    readClass(LAYER.site, [1,2,3,4,5,6,7,8,9,10], latlng),
+    probeValues(LAYER.main, [1], latlng),
+    probeValues(LAYER.main, [2,3,4], latlng),
+    probeMin(LAYER.age, settings.minAge, latlng),
+    settings.minPine > 0 ? probeMin(LAYER.pine, settings.minPine, latlng) : true,
+    readBracket(LAYER.age, AGE_STEPS, latlng),
+    readBracket(LAYER.pine, PINE_STEPS, latlng),
     readSlope(latlng),
   ]);
 
@@ -523,11 +547,16 @@ async function inspect(latlng) {
     return;
   }
 
+  const fmtBracket = (b, unit) => b == null ? "ei tietoa" :
+    b.below != null ? "alle " + b.below + " " + unit :
+    b.hi == null ? "yli " + b.lo + " " + unit :
+    b.lo + "–" + b.hi + " " + unit;
+
   const wanted = siteClasses();
-  const siteOk = site != null && wanted.includes(site) && main === 1;
-  const perfectSite = site === 5 && main === 1;
-  const ageOk = age != null && age >= settings.minAge;
-  const pineOk = pine != null && pine >= settings.minPine;
+  const siteOk = site != null && wanted.includes(site) && mineral === true;
+  const perfectSite = site === 5 && mineral === true;
+  const ageOk = ageOkP === true;
+  const pineOk = pineOkP === true;
   const slopeOk = slope && slope.deg >= 2;
   const north = latlng.lat >= 66 ? "Lappi — paras alue 🌟" :
                 latlng.lat >= 64 ? "pohjoinen — hyvä alue" :
@@ -545,13 +574,13 @@ async function inspect(latlng) {
     '<div class="checks">';
 
   html += checkRow(siteOk ? "ok" : "no", "Kasvupaikka",
-    site != null ? (SITE_NAMES[site] || "tuntematon") + (main != null && main !== 1 ? " (suo)" : "") : "ei tietoa");
-  html += checkRow(main === 1 ? "ok" : main == null ? "meh" : "no", "Maapohja",
-    main != null ? (MAIN_NAMES[main] || "?") : "ei tietoa");
-  html += checkRow(ageOk ? "ok" : "no", "Puuston ikä",
-    age != null ? age + " v" : "ei tietoa");
-  html += checkRow(pineOk ? "ok" : "no", "Mäntyä",
-    pine != null ? pine + " m³/ha" : "ei tietoa");
+    site != null ? (SITE_NAMES[site] || "tuntematon") + (mire === true ? " (suo)" : "") : "ei tietoa");
+  html += checkRow(mineral === true ? "ok" : mire === true ? "no" : "meh", "Maapohja",
+    mineral === true ? "kivennäismaa" : mire === true ? "suo" : "ei tietoa");
+  html += checkRow(ageOk ? "ok" : "no", "Puuston ikä (≥ " + settings.minAge + " v)",
+    fmtBracket(age, "v"));
+  html += checkRow(pineOk ? "ok" : "no", "Mäntyä (≥ " + settings.minPine + " m³/ha)",
+    fmtBracket(pine, "m³/ha"));
   html += checkRow(slope ? (slopeOk ? "ok" : "meh") : "meh", "Rinne",
     slope ? (slope.deg < 1 ? "tasainen" : slope.deg.toFixed(1) + "° " + slope.dir) : "ei tietoa");
   html += "</div>";
