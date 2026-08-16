@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+<title>Matsutake Go — tuoksuvalmuskan kasvupaikat</title>
+<meta name="description" content="Mobiilikartta tuoksuvalmuskan (matsutake) todennäköisille kasvupaikoille Suomessa: kuiva kangas, vanha männikkö, jäkälä, rinne." />
+<meta name="theme-color" content="#0e1512" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Matsutake Go" />
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="./icons/icon-180.png" />
+<link rel="stylesheet" href="./vendor/leaflet/leaflet.css" />
+<link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+
+<div id="map" aria-label="Kartta"></div>
+
+<!-- ── Top bar ─────────────────────────────────────────────────────── -->
+<header class="topbar" id="topbar">
+  <button class="tb-btn" id="btn-menu" aria-label="Valikko">
+    <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+  </button>
+
+  <div class="tb-status" id="status" role="status" aria-live="polite">
+    <span class="dot" id="status-dot"></span>
+    <span id="status-text">Käynnistetään…</span>
+  </div>
+
+  <button class="tb-btn" id="btn-layers" aria-label="Karttatasot">
+    <svg viewBox="0 0 24 24"><path d="M12 3 2 8l10 5 10-5-10-5Z"/><path d="M2 14l10 5 10-5"/></svg>
+  </button>
+</header>
+
+<!-- ── Legend ──────────────────────────────────────────────────────── -->
+<div class="legend" id="legend">
+  <button class="legend-toggle" id="legend-toggle" aria-label="Selite">
+    <span class="legend-title" data-i18n="legend.title">Osuvuus</span>
+    <svg viewBox="0 0 24 24" class="chev"><path d="m6 9 6 6 6-6"/></svg>
+  </button>
+  <div class="legend-body" id="legend-body">
+    <div class="lg-row"><i style="background:#ff2d6f"></i><span data-i18n="legend.s90">90+ · huippupaikka</span></div>
+    <div class="lg-row"><i style="background:#ff7a18"></i><span data-i18n="legend.s75">75–89 · erinomainen</span></div>
+    <div class="lg-row"><i style="background:#ffc531"></i><span data-i18n="legend.s60">60–74 · hyvä</span></div>
+    <div class="lg-row"><i style="background:#9ad24a"></i><span data-i18n="legend.s45">45–59 · mahdollinen</span></div>
+    <div class="lg-hint" data-i18n="legend.hint">Vain kuivat kankaat + vanha mänty näytetään.</div>
+  </div>
+</div>
+
+<!-- ── Right-side controls ─────────────────────────────────────────── -->
+<div class="fabs">
+  <button class="fab" id="btn-list" aria-label="Parhaat kohteet näkymässä">
+    <svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+    <span class="fab-badge" id="list-badge" hidden>0</span>
+  </button>
+  <button class="fab" id="btn-scan" aria-label="Etsi tältä alueelta">
+    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+  </button>
+  <button class="fab fab-primary" id="btn-locate" aria-label="Paikanna minut">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8"/></svg>
+  </button>
+</div>
+
+<!-- ── Scan button (bottom, big) ───────────────────────────────────── -->
+<button class="scan-cta" id="scan-cta" hidden>
+  <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+  <span data-i18n="cta.scan">Etsi tältä alueelta</span>
+</button>
+
+<!-- ── Bottom sheet ────────────────────────────────────────────────── -->
+<div class="sheet" id="sheet" aria-hidden="true">
+  <div class="sheet-grip" id="sheet-grip"><span></span></div>
+  <div class="sheet-content" id="sheet-content"></div>
+</div>
+<div class="scrim" id="scrim" hidden></div>
+
+<!-- ── Drawer (menu / settings) ────────────────────────────────────── -->
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <div class="drawer-head">
+    <div class="brand">
+      <img src="./icons/icon.svg" alt="" width="34" height="34" />
+      <div>
+        <strong>Matsutake&nbsp;Go</strong>
+        <small data-i18n="app.tagline">Tuoksuvalmuska · Suomi</small>
+      </div>
+    </div>
+    <button class="tb-btn" id="btn-close-drawer" aria-label="Sulje">
+      <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+
+  <div class="drawer-body">
+
+    <section class="panel">
+      <h3 data-i18n="set.filters">Hakuehdot</h3>
+
+      <label class="row">
+        <span data-i18n="set.minAge">Männikön vähimmäisikä</span>
+        <output id="out-age">60 v</output>
+      </label>
+      <input type="range" id="in-age" min="30" max="140" step="5" value="60" />
+
+      <label class="row">
+        <span data-i18n="set.minScore">Näytä pisteistä alkaen</span>
+        <output id="out-score">45</output>
+      </label>
+      <input type="range" id="in-score" min="0" max="90" step="5" value="45" />
+
+      <div class="chips" id="chips-fertility">
+        <button class="chip on" data-ft="5" data-i18n="ft.5">Kuiva kangas (CT)</button>
+        <button class="chip on" data-ft="6" data-i18n="ft.6">Karukkokangas (ClT)</button>
+        <button class="chip" data-ft="4" data-i18n="ft.4">Kuivahko kangas (VT)</button>
+      </div>
+
+      <label class="switch">
+        <input type="checkbox" id="in-pine" checked />
+        <span data-i18n="set.pineOnly">Vain männikkövaltaiset kuviot</span>
+      </label>
+      <label class="switch">
+        <input type="checkbox" id="in-slope" />
+        <span data-i18n="set.needSlope">Vaadi rinnettä (≥3°)</span>
+      </label>
+      <label class="switch">
+        <input type="checkbox" id="in-terrain" checked />
+        <span data-i18n="set.terrain">Laske rinne ja ilmansuunta korkeusmallista</span>
+      </label>
+      <label class="switch">
+        <input type="checkbox" id="in-autoscan" checked />
+        <span data-i18n="set.autoscan">Hae automaattisesti karttaa liikuttaessa</span>
+      </label>
+    </section>
+
+    <section class="panel">
+      <h3><span data-i18n="set.saved">Omat kohteet</span> <span class="count" id="wp-count">0</span></h3>
+      <div id="wp-list" class="wp-list"></div>
+      <div class="btn-row">
+        <button class="btn" id="btn-export-gpx" data-i18n="set.exportGpx">Vie GPX</button>
+        <button class="btn ghost" id="btn-clear-wp" data-i18n="set.clearWp">Tyhjennä</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h3 data-i18n="set.data">Aineistolähde</h3>
+      <p class="muted small" data-i18n="set.dataInfo">
+        Metsikkökuviot: Suomen metsäkeskuksen avoin metsävaratieto (WFS).
+        Kattaa pääosin yksityismetsät — valtion mailla (Metsähallitus) kuvioita voi puuttua.
+      </p>
+      <label class="field">
+        <span data-i18n="set.wfsUrl">WFS-osoite</span>
+        <input type="url" id="in-wfs" spellcheck="false" autocapitalize="off" />
+      </label>
+      <label class="field">
+        <span data-i18n="set.layer">Kohdetaso</span>
+        <input list="layer-list" id="in-layer" spellcheck="false" autocapitalize="off" />
+        <datalist id="layer-list"></datalist>
+      </label>
+      <div class="btn-row">
+        <button class="btn" id="btn-test" data-i18n="set.test">Testaa yhteys</button>
+        <button class="btn ghost" id="btn-reset-src" data-i18n="set.reset">Palauta oletus</button>
+      </div>
+      <div id="test-out" class="test-out"></div>
+      <label class="field">
+        <span data-i18n="set.proxy">CORS-välityspalvelin (valinnainen)</span>
+        <input type="url" id="in-proxy" placeholder="https://oma-proxy.example/?url=" spellcheck="false" autocapitalize="off" />
+      </label>
+      <label class="field">
+        <span data-i18n="set.mmlKey">Maanmittauslaitoksen API-avain (valinnainen)</span>
+        <input type="text" id="in-mml" placeholder="Avaa MML:n maastokartta ja ortokuva" spellcheck="false" autocapitalize="off" />
+      </label>
+    </section>
+
+    <section class="panel">
+      <h3 data-i18n="set.about">Tietoa</h3>
+      <p class="muted small" data-i18n="about.model">
+        Pisteytys painottaa: kasvupaikkatyyppi (kuiva kangas), männikön ikä, jäkäläisyys /
+        puuston harvuus, rinteen kaltevuus ja ilmansuunta sekä pohjoisuus. Arvio perustuu
+        paikkatietoon — maastossa ratkaisee silmä.
+      </p>
+      <p class="muted small" data-i18n="about.season">
+        Sesonki: elokuun lopusta lokakuulle, parhaimmillaan syyskuussa. Etsi jäkäläistä,
+        valoisaa harjun tai kankaan rinnettä ja vanhoja mäntyjä.
+      </p>
+      <div class="btn-row">
+        <button class="btn ghost" id="btn-lang">In English</button>
+      </div>
+      <p class="muted xsmall" id="version"></p>
+    </section>
+
+  </div>
+</aside>
+
+<!-- ── Layers sheet ────────────────────────────────────────────────── -->
+<div class="layers-pop" id="layers-pop" hidden>
+  <h4 data-i18n="layers.base">Pohjakartta</h4>
+  <div class="basemaps" id="basemaps"></div>
+  <label class="switch compact">
+    <input type="checkbox" id="in-show-habitat" checked />
+    <span data-i18n="layers.habitat">Kasvupaikkataso</span>
+  </label>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="./vendor/leaflet/leaflet.js"></script>
+<script type="module" src="./js/app.js"></script>
+</body>
+</html>

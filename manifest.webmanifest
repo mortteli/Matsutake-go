@@ -1,0 +1,19 @@
+{
+  "name": "Matsutake Go — tuoksuvalmuskan kasvupaikat",
+  "short_name": "Matsutake Go",
+  "description": "Mobiilikartta tuoksuvalmuskan todennäköisille kasvupaikoille Suomessa: kuiva kangas, vanha männikkö, jäkälä ja rinne.",
+  "lang": "fi",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0e1512",
+  "theme_color": "#0e1512",
+  "categories": ["navigation", "utilities", "lifestyle"],
+  "icons": [
+    { "src": "./icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
