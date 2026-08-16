@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#14231a">
+<meta name="description" content="Matsutake GO — kartta tuoksuvalmuskan (matsutake) potentiaalisista kasvupaikoista Suomessa: kuiva kangas, vanha männikkö.">
+<title>Matsutake GO 🍄</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<style>
+  :root {
+    --bg: #14231a;
+    --panel: #1d3227;
+    --panel2: #24402f;
+    --text: #eef7ef;
+    --muted: #a8c3ad;
+    --accent: #ff9d2e;
+    --spot: #ff2d78;
+    --good: #55d97a;
+    --bad: #ff6b6b;
+    --radius: 16px;
+    --shadow: 0 4px 18px rgba(0,0,0,.35);
+    --safe-b: env(safe-area-inset-bottom, 0px);
+    --safe-t: env(safe-area-inset-top, 0px);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; height: 100%; overscroll-behavior: none; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text);
+  }
+  #map { position: fixed; inset: 0; height: 100dvh; background: #0e1a13; z-index: 0; }
+
+  /* ---------- top bar ---------- */
+  .topbar {
+    position: fixed; top: calc(8px + var(--safe-t)); left: 50%; transform: translateX(-50%);
+    z-index: 1000; display: flex; align-items: center; gap: 8px;
+    background: var(--panel); border-radius: 999px; padding: 8px 8px 8px 16px;
+    box-shadow: var(--shadow); max-width: calc(100vw - 20px);
+  }
+  .topbar .title { font-weight: 700; font-size: 15px; white-space: nowrap; letter-spacing: .2px; }
+  .topbar .spinner {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid var(--muted); border-top-color: transparent;
+    animation: spin 1s linear infinite; opacity: 0; transition: opacity .2s;
+  }
+  .topbar .spinner.on { opacity: 1; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .iconbtn {
+    border: 0; background: var(--panel2); color: var(--text);
+    width: 34px; height: 34px; border-radius: 50%;
+    font-size: 16px; line-height: 1; cursor: pointer; flex: 0 0 auto;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+
+  /* ---------- floating action buttons ---------- */
+  .fabs {
+    position: fixed; right: 10px; bottom: calc(96px + var(--safe-b));
+    z-index: 1000; display: flex; flex-direction: column; gap: 12px;
+  }
+  .fab {
+    width: 52px; height: 52px; border-radius: 50%; border: 0; cursor: pointer;
+    background: var(--panel); color: var(--text); font-size: 22px;
+    box-shadow: var(--shadow); display: flex; align-items: center; justify-content: center;
+  }
+  .fab.active { background: var(--accent); color: #221500; }
+
+  /* ---------- legend chip ---------- */
+  .legend {
+    position: fixed; left: 10px; bottom: calc(28px + var(--safe-b)); z-index: 1000;
+    background: var(--panel); border-radius: 999px; padding: 7px 13px;
+    display: flex; align-items: center; gap: 7px; font-size: 12.5px;
+    box-shadow: var(--shadow); color: var(--muted);
+  }
+  .legend .dot { width: 12px; height: 12px; border-radius: 3px; background: var(--spot); opacity: .85; }
+
+  /* ---------- sheets ---------- */
+  .sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 2000;
+    background: var(--panel); border-radius: 20px 20px 0 0;
+    box-shadow: 0 -6px 30px rgba(0,0,0,.5);
+    padding: 10px 18px calc(18px + var(--safe-b));
+    transform: translateY(105%); transition: transform .28s ease;
+    max-height: 82dvh; overflow-y: auto;
+  }
+  .sheet.open { transform: translateY(0); }
+  .sheet .grab { width: 42px; height: 4px; border-radius: 2px; background: #3d5c48; margin: 2px auto 12px; }
+  .sheet h2 { font-size: 17px; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+  .sheet h3 { font-size: 13px; margin: 18px 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
+  .sheet p { font-size: 13.5px; line-height: 1.5; color: var(--muted); margin: 6px 0; }
+  .sheet a { color: var(--accent); }
+
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 0; font-size: 14.5px; }
+  .row label { flex: 1; }
+  .row .val { color: var(--accent); font-variant-numeric: tabular-nums; font-weight: 600; min-width: 64px; text-align: right; }
+  input[type="range"] { width: 46vw; max-width: 230px; accent-color: var(--accent); }
+  .switch { position: relative; width: 46px; height: 26px; flex: 0 0 auto; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch i {
+    position: absolute; inset: 0; border-radius: 999px; background: #3a5544; transition: .2s; cursor: pointer;
+  }
+  .switch i::after {
+    content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px;
+    border-radius: 50%; background: #cfe3d3; transition: .2s;
+  }
+  .switch input:checked + i { background: var(--accent); }
+  .switch input:checked + i::after { transform: translateX(20px); background: #221500; }
+
+  .seg { display: flex; gap: 6px; }
+  .seg button {
+    flex: 1; border: 0; border-radius: 10px; padding: 9px 4px; font-size: 13px;
+    background: var(--panel2); color: var(--muted); cursor: pointer;
+  }
+  .seg button.active { background: var(--accent); color: #221500; font-weight: 700; }
+
+  /* ---------- result card ---------- */
+  .result-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .result-head .big { font-size: 30px; }
+  .result-head .verdict { font-size: 16.5px; font-weight: 700; }
+  .result-head .sub { font-size: 12.5px; color: var(--muted); }
+  .checks { margin: 8px 0 4px; }
+  .checks .c { display: flex; align-items: baseline; gap: 9px; padding: 6.5px 0; font-size: 14px; border-bottom: 1px solid #2c4636; }
+  .checks .c:last-child { border-bottom: 0; }
+  .checks .mark { width: 20px; text-align: center; flex: 0 0 auto; }
+  .checks .ok { color: var(--good); }
+  .checks .no { color: var(--bad); }
+  .checks .meh { color: var(--muted); }
+  .checks .k { color: var(--muted); }
+  .checks .v { margin-left: auto; text-align: right; font-weight: 600; }
+  .navlink {
+    display: block; text-align: center; margin-top: 14px; padding: 12px;
+    background: var(--panel2); border-radius: 12px; color: var(--accent);
+    text-decoration: none; font-weight: 700; font-size: 14.5px;
+  }
+
+  /* ---------- toast ---------- */
+  .toast {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    bottom: calc(100px + var(--safe-b)); z-index: 3000;
+    background: rgba(20,35,26,.94); color: var(--text);
+    padding: 10px 18px; border-radius: 999px; font-size: 13.5px;
+    box-shadow: var(--shadow); opacity: 0; pointer-events: none; transition: opacity .3s;
+    max-width: 86vw; text-align: center;
+  }
+  .toast.on { opacity: 1; }
+
+  /* ---------- GPS marker ---------- */
+  .gps-dot { position: relative; }
+  .gps-dot .core {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #2e86ff; border: 3px solid #fff; box-shadow: 0 1px 6px rgba(0,0,0,.5);
+  }
+  .gps-dot .pulse {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+    width: 16px; height: 16px; border-radius: 50%; background: rgba(46,134,255,.5);
+    animation: pulse 2.2s ease-out infinite;
+  }
+  @keyframes pulse {
+    0% { transform: translate(-50%,-50%) scale(1); opacity: .8; }
+    100% { transform: translate(-50%,-50%) scale(3.4); opacity: 0; }
+  }
+
+  .leaflet-control-attribution { font-size: 9.5px !important; background: rgba(255,255,255,.75) !important; }
+  .backdrop { position: fixed; inset: 0; z-index: 1500; background: rgba(0,0,0,.35); opacity: 0; pointer-events: none; transition: opacity .25s; }
+  .backdrop.on { opacity: 1; pointer-events: auto; }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div class="topbar">
+  <span class="title">🍄 Matsutake GO</span>
+  <span class="spinner" id="spinner"></span>
+  <button class="iconbtn" id="btnInfo" aria-label="Tietoa">ℹ️</button>
+</div>
+
+<div class="fabs">
+  <button class="fab" id="btnLayers" aria-label="Asetukset">🗺️</button>
+  <button class="fab" id="btnLocate" aria-label="Paikanna">📍</button>
+</div>
+
+<div class="legend"><span class="dot"></span> matsutake-tyypin metsä</div>
+
+<div class="backdrop" id="backdrop"></div>
+<div class="toast" id="toast"></div>
+
+<!-- ============ settings sheet ============ -->
+<div class="sheet" id="sheetSettings">
+  <div class="grab"></div>
+  <h2>🗺️ Kartta ja suodattimet</h2>
+
+  <h3>Taustakartta</h3>
+  <div class="seg" id="basemapSeg">
+    <button data-bm="osm" class="active">Kartta</button>
+    <button data-bm="topo">Maasto</button>
+    <button data-bm="sat">Satelliitti</button>
+  </div>
+
+  <h3>Matsutake-suodatin</h3>
+  <div class="row">
+    <label for="rngAge">Puuston ikä vähintään</label>
+    <input type="range" id="rngAge" min="40" max="120" step="5" value="60">
+    <span class="val" id="valAge">60 v</span>
+  </div>
+  <div class="row">
+    <label for="rngPine">Mäntyä vähintään</label>
+    <input type="range" id="rngPine" min="0" max="120" step="5" value="20">
+    <span class="val" id="valPine">20 m³/ha</span>
+  </div>
+  <div class="row">
+    <label>Myös kuivahko kangas<br><small style="color:var(--muted)">löyhempi haku (puolukkatyyppi)</small></label>
+    <span class="switch"><input type="checkbox" id="chkKuivahko"><i></i></span>
+  </div>
+  <div class="row">
+    <label>Myös karukkokangas<br><small style="color:var(--muted)">jäkäläkankaat mukaan</small></label>
+    <span class="switch"><input type="checkbox" id="chkKarukko" checked><i></i></span>
+  </div>
+  <div class="row">
+    <label>Peittävyys</label>
+    <input type="range" id="rngOpacity" min="20" max="100" step="5" value="75">
+    <span class="val" id="valOpacity">75 %</span>
+  </div>
+
+  <h3>Aputasot</h3>
+  <div class="row">
+    <label>Kuiva kangas (kaikki iät)</label>
+    <span class="switch"><input type="checkbox" id="chkLayerKangas"><i></i></span>
+  </div>
+  <div class="row">
+    <label>Vanha metsä (kaikki tyypit)</label>
+    <span class="switch"><input type="checkbox" id="chkLayerVanha"><i></i></span>
+  </div>
+</div>
+
+<!-- ============ info sheet ============ -->
+<div class="sheet" id="sheetInfo">
+  <div class="grab"></div>
+  <h2>🍄 Matsutake eli tuoksuvalmuska</h2>
+  <p><b style="color:var(--text)">Tricholoma matsutake</b> kasvaa Suomessa vanhoissa männiköissä
+     kuivilla ja karuilla kankailla. Kartan pinkit alueet ovat metsiä, joissa
+     <b style="color:var(--text)">kaikki</b> valitut ehdot täyttyvät:</p>
+  <p>✔️ kasvupaikka on <b style="color:var(--text)">kuiva kangas</b> (kanervatyyppi) tai karukkokangas — kivennäismaalla<br>
+     ✔️ puusto on vanhaa (oletus ≥ 60 v)<br>
+     ✔️ mäntyä on riittävästi</p>
+  <p>Jäkäläiset, valoisat ja hieman rinteiset paikat ovat parhaita — tarkista rinne
+     napauttamalla karttaa. Mitä pohjoisempana, sitä varmempi esiintyminen:
+     Lappi ja Koillismaa ovat Suomen parasta matsutake-aluetta, mutta lajia
+     löytyy karuilta mäntykankailta koko maasta.</p>
+  <h3>Satokausi</h3>
+  <p>Pohjois-Suomi: elokuun loppu – syyskuu.<br>Etelä-Suomi: syyskuu – lokakuun alku.<br>
+     Itiöemät kasvavat usein puoliksi maan/jäkälän alla — katso kohoumia!</p>
+  <h3>Näin käytät</h3>
+  <p>📍 = oma sijainti (seuraa GPS:ää) · 🗺️ = suodattimet ja taustakartta ·
+     napauta karttaa = paikan tiedot ja arvio.</p>
+  <h3>Aineisto</h3>
+  <p>Metsätiedot: Luonnonvarakeskuksen (Luke) <a href="https://www.luke.fi/fi/luonnonvaratieto/asiantuntijapalvelut/monilahteisen-valtakunnan-metsien-inventoinnin-msvmi-karttatasot" target="_blank" rel="noopener">monilähteinen VMI 2023</a>
+     (CC BY 4.0), ruutukoko 16 m. Kartta on <b style="color:var(--text)">tilastollinen arvio metsän rakenteesta</b>,
+     ei havaintoja sienistä — maastossa ratkaisee lopulta jäkälä, maasto ja tuuri.
+     Korkeustiedot: Open-Meteo (Copernicus DEM). Taustakartat: © OpenStreetMap,
+     OpenTopoMap, Esri.</p>
+</div>
+
+<!-- ============ result sheet ============ -->
+<div class="sheet" id="sheetResult">
+  <div class="grab"></div>
+  <div id="resultBody"></div>
+</div>
+
+<script src="vendor/leaflet/leaflet.js"></script>
+<script>
+"use strict";
+
+/* ================= constants ================= */
+const WMS = "https://kartta.luke.fi/geoserver/MVMI/wms";
+const CYCLE = "1923"; // MS-NFI 2019–2023 (published 2023)
+const LAYER = {
+  site:  "MVMI:kasvupaikka_" + CYCLE, // 1 lehto … 5 kuiva kangas, 6 karukko
+  main:  "MVMI:paatyyppi_"   + CYCLE, // 1 kivennäismaa
+  age:   "MVMI:ika_"         + CYCLE, // vuosina, 255 = ei tietoa
+  pine:  "MVMI:manty_"       + CYCLE, // m³/ha, 255 = ei tietoa
+};
+const SITE_NAMES = { 1:"lehto",2:"lehtomainen kangas",3:"tuore kangas",4:"kuivahko kangas",
+  5:"kuiva kangas",6:"karukkokangas",7:"kalliomaa/hietikko",8:"lakimetsä",9:"tunturikoivikko",10:"avotunturi" };
+const MAIN_NAMES = { 1:"kivennäismaa",2:"korpi",3:"räme",4:"avosuo" };
+const SPOT_COLOR = "#ff2d78";
+const R3857 = 20037508.342789244;
+
+const settings = {
+  minAge: 60,
+  minPine: 20,
+  kuivahko: false,
+  karukko: true,
+  opacity: 0.75,
+};
+
+/* ================= SLD mask builders ================= */
+function sldWrap(layerName, colorMap) {
+  return '<?xml version="1.0" encoding="UTF-8"?>' +
+    '<StyledLayerDescriptor version="1.0.0" xmlns="http://www.opengis.net/sld">' +
+    '<NamedLayer><Name>' + layerName + '</Name><UserStyle><FeatureTypeStyle><Rule>' +
+    '<RasterSymbolizer>' + colorMap + '</RasterSymbolizer>' +
+    '</Rule></FeatureTypeStyle></UserStyle></NamedLayer></StyledLayerDescriptor>';
+}
+// pixels whose raw value is in `values` -> opaque, everything else transparent
+function maskValues(layerName, values, color) {
+  const entries = values.map(v => '<ColorMapEntry quantity="' + v + '" color="' + color + '" opacity="1"/>').join("");
+  return sldWrap(layerName, '<ColorMap type="values">' + entries + '</ColorMap>');
+}
+// pixels with raw value in [min, 255) -> opaque (255 = "no data" excluded)
+function maskMin(layerName, min, color) {
+  return sldWrap(layerName,
+    '<ColorMap type="intervals">' +
+    '<ColorMapEntry quantity="' + min + '" color="#000000" opacity="0"/>' +
+    '<ColorMapEntry quantity="255" color="' + color + '" opacity="1"/>' +
+    '</ColorMap>');
+}
+// raw value readout: value v renders as gray rgb(v,v,v)
+function maskRamp(layerName) {
+  return sldWrap(layerName,
+    '<ColorMap type="ramp">' +
+    '<ColorMapEntry quantity="0" color="#000000" opacity="1"/>' +
+    '<ColorMapEntry quantity="255" color="#ffffff" opacity="1"/>' +
+    '</ColorMap>');
+}
+function wmsURL(layerName, sld, bbox, w, h) {
+  return WMS + "?service=WMS&version=1.1.1&request=GetMap" +
+    "&layers=" + encodeURIComponent(layerName) +
+    "&srs=EPSG:3857&bbox=" + bbox.join(",") +
+    "&width=" + w + "&height=" + h +
+    "&format=image/png&transparent=true" +
+    "&SLD_BODY=" + encodeURIComponent(sld);
+}
+function siteClasses() {
+  const v = [5];
+  if (settings.kuivahko) v.push(4);
+  if (settings.karukko) v.push(6);
+  return v;
+}
+function loadImg(url) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => res(img);
+    img.onerror = () => rej(new Error("tile load failed"));
+    img.src = url;
+  });
+}
+
+/* ================= matsutake composite layer =================
+   For every map tile, fetch 4 server-styled binary masks
+   (site class, mineral soil, min age, min pine volume) and keep
+   only the pixels present in ALL of them. */
+const MatsutakeLayer = L.GridLayer.extend({
+  createTile(coords, done) {
+    const tile = document.createElement("canvas");
+    const size = this.getTileSize();
+    tile.width = size.x; tile.height = size.y;
+
+    const n = Math.pow(2, coords.z), w = 2 * R3857 / n;
+    const x0 = -R3857 + coords.x * w, y1 = R3857 - coords.y * w;
+    const bbox = [x0, y1 - w, x0 + w, y1];
+
+    const urls = [
+      wmsURL(LAYER.site, maskValues(LAYER.site, siteClasses(), "#ff0000"), bbox, size.x, size.y),
+      wmsURL(LAYER.main, maskValues(LAYER.main, [1], "#ff0000"), bbox, size.x, size.y),
+      wmsURL(LAYER.age,  maskMin(LAYER.age, settings.minAge, "#ff0000"), bbox, size.x, size.y),
+    ];
+    if (settings.minPine > 0)
+      urls.push(wmsURL(LAYER.pine, maskMin(LAYER.pine, settings.minPine, "#ff0000"), bbox, size.x, size.y));
+
+    Promise.all(urls.map(loadImg)).then(imgs => {
+      const ctx = tile.getContext("2d");
+      ctx.drawImage(imgs[0], 0, 0);
+      ctx.globalCompositeOperation = "destination-in"; // intersect alpha
+      for (let i = 1; i < imgs.length; i++) ctx.drawImage(imgs[i], 0, 0);
+      ctx.globalCompositeOperation = "source-in";      // recolor result
+      ctx.fillStyle = SPOT_COLOR;
+      ctx.fillRect(0, 0, size.x, size.y);
+      done(null, tile);
+    }).catch(err => done(err, tile));
+    return tile;
+  }
+});
+
+/* ================= map ================= */
+const map = L.map("map", { zoomControl: false, attributionControl: true })
+  .setView([65.4, 26.5], 5);
+L.control.scale({ imperial: false, position: "bottomright" }).addTo(map);
+
+const basemaps = {
+  osm: L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19, attribution: "© OpenStreetMap | Metsä: © Luke MVMI 2023 CC BY 4.0" }),
+  topo: L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
+    maxZoom: 17, attribution: "© OpenTopoMap (CC-BY-SA) | © Luke MVMI 2023 CC BY 4.0" }),
+  sat: L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+    maxZoom: 18, attribution: "© Esri | © Luke MVMI 2023 CC BY 4.0" }),
+};
+let currentBasemap = basemaps.osm.addTo(map);
+
+const spots = new MatsutakeLayer({ opacity: settings.opacity, maxZoom: 19 }).addTo(map);
+spots.on("loading", () => document.getElementById("spinner").classList.add("on"));
+spots.on("load",    () => document.getElementById("spinner").classList.remove("on"));
+
+// optional helper overlays (single-condition, server-styled)
+let layerKangas = null, layerVanha = null;
+function makeHelperLayer(layerName, sld) {
+  return L.tileLayer.wms(WMS, {
+    layers: layerName, format: "image/png", transparent: true,
+    version: "1.1.1", opacity: 0.45, SLD_BODY: sld,
+  });
+}
+
+/* ================= GPS ================= */
+let gpsMarker = null, gpsCircle = null, gpsWatch = null, follow = false, firstFix = true;
+const btnLocate = document.getElementById("btnLocate");
+
+function gpsUpdate(pos) {
+  const ll = [pos.coords.latitude, pos.coords.longitude];
+  if (!gpsMarker) {
+    gpsMarker = L.marker(ll, {
+      icon: L.divIcon({ className: "gps-dot", html: '<span class="pulse"></span><span class="core"></span>',
+        iconSize: [16, 16] }),
+      interactive: false, zIndexOffset: 1000,
+    }).addTo(map);
+    gpsCircle = L.circle(ll, { radius: pos.coords.accuracy || 0, weight: 1,
+      color: "#2e86ff", fillColor: "#2e86ff", fillOpacity: 0.12, interactive: false }).addTo(map);
+  } else {
+    gpsMarker.setLatLng(ll);
+    gpsCircle.setLatLng(ll).setRadius(pos.coords.accuracy || 0);
+  }
+  if (firstFix) { firstFix = false; map.setView(ll, Math.max(map.getZoom(), 13)); }
+  else if (follow) map.panTo(ll, { animate: true });
+}
+function gpsError(err) {
+  toast(err.code === 1 ? "Salli sijainti selaimen asetuksista 📍" : "Sijaintia ei saatu — yritä uudelleen");
+  stopGps();
+}
+function startGps() {
+  if (!navigator.geolocation) { toast("Selain ei tue paikannusta"); return; }
+  follow = true; firstFix = !gpsMarker;
+  btnLocate.classList.add("active");
+  if (gpsWatch == null)
+    gpsWatch = navigator.geolocation.watchPosition(gpsUpdate, gpsError,
+      { enableHighAccuracy: true, maximumAge: 3000, timeout: 20000 });
+  if (gpsMarker) map.setView(gpsMarker.getLatLng(), Math.max(map.getZoom(), 13));
+}
+function stopGps() {
+  follow = false;
+  btnLocate.classList.remove("active");
+}
+btnLocate.addEventListener("click", () => (follow ? stopGps() : startGps()));
+map.on("dragstart", () => { if (follow) stopGps(); });
+
+/* ================= tap to inspect ================= */
+async function readValue(layerName, latlng) {
+  // 3×3 px window (~50 m) around the point, value encoded as gray level
+  const p = L.CRS.EPSG3857.project(latlng);
+  const half = 24;
+  const bbox = [p.x - half, p.y - half, p.x + half, p.y + half];
+  const img = await loadImg(wmsURL(layerName, maskRamp(layerName), bbox, 3, 3));
+  const c = document.createElement("canvas");
+  c.width = 3; c.height = 3;
+  const ctx = c.getContext("2d");
+  ctx.drawImage(img, 0, 0);
+  const d = ctx.getImageData(1, 1, 1, 1).data;
+  if (d[3] < 128 || d[0] >= 255) return null; // transparent / no data / water
+  return d[0];
+}
+
+async function readSlope(latlng) {
+  // sample 4 points ±100 m N/S/E/W via Open-Meteo (Copernicus DEM ~30 m)
+  const dLat = 100 / 111320;
+  const dLon = 100 / (111320 * Math.cos(latlng.lat * Math.PI / 180));
+  const lats = [latlng.lat + dLat, latlng.lat - dLat, latlng.lat, latlng.lat].map(v => v.toFixed(6)).join(",");
+  const lons = [latlng.lng, latlng.lng, latlng.lng + dLon, latlng.lng - dLon].map(v => v.toFixed(6)).join(",");
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 6000);
+  try {
+    const r = await fetch("https://api.open-meteo.com/v1/elevation?latitude=" + lats + "&longitude=" + lons,
+      { signal: ctrl.signal });
+    const j = await r.json();
+    const [zN, zS, zE, zW] = j.elevation;
+    const dzdy = (zN - zS) / 200, dzdx = (zE - zW) / 200;
+    const deg = Math.atan(Math.hypot(dzdx, dzdy)) * 180 / Math.PI;
+    let bearing = Math.atan2(-dzdx, -dzdy) * 180 / Math.PI; // downslope direction
+    bearing = (bearing + 360) % 360;
+    const dirs = ["pohjoiseen","koilliseen","itään","kaakkoon","etelään","lounaaseen","länteen","luoteeseen"];
+    return { deg, dir: dirs[Math.round(bearing / 45) % 8] };
+  } catch { return null; }
+  finally { clearTimeout(t); }
+}
+
+function checkRow(state, label, value) {
+  const mark = state === "ok" ? "✔" : state === "no" ? "✘" : "•";
+  return '<div class="c"><span class="mark ' + state + '">' + mark + '</span>' +
+         '<span class="k">' + label + '</span><span class="v">' + value + '</span></div>';
+}
+
+async function inspect(latlng) {
+  const body = document.getElementById("resultBody");
+  body.innerHTML = '<div class="result-head"><span class="big">🔎</span>' +
+    '<div><div class="verdict">Tutkitaan paikkaa…</div>' +
+    '<div class="sub">' + latlng.lat.toFixed(5) + "° N, " + latlng.lng.toFixed(5) + "° E</div></div></div>";
+  openSheet("sheetResult");
+
+  const [site, main, age, pine, slope] = await Promise.all([
+    readValue(LAYER.site, latlng).catch(() => null),
+    readValue(LAYER.main, latlng).catch(() => null),
+    readValue(LAYER.age, latlng).catch(() => null),
+    readValue(LAYER.pine, latlng).catch(() => null),
+    readSlope(latlng),
+  ]);
+
+  if (site == null && age == null) {
+    body.innerHTML = '<div class="result-head"><span class="big">🌊</span>' +
+      '<div><div class="verdict">Ei metsätietoa tässä kohdassa</div>' +
+      '<div class="sub">vesistö, pelto, rakennettu alue — tai yhteysvirhe</div></div></div>';
+    return;
+  }
+
+  const wanted = siteClasses();
+  const siteOk = site != null && wanted.includes(site) && main === 1;
+  const perfectSite = site === 5 && main === 1;
+  const ageOk = age != null && age >= settings.minAge;
+  const pineOk = pine != null && pine >= settings.minPine;
+  const slopeOk = slope && slope.deg >= 2;
+  const north = latlng.lat >= 66 ? "Lappi — paras alue 🌟" :
+                latlng.lat >= 64 ? "pohjoinen — hyvä alue" :
+                latlng.lat >= 62 ? "keskimaa — mahdollinen" : "etelä — harvinaisempi";
+
+  let icon, verdict;
+  if (siteOk && ageOk && pineOk) {
+    icon = "🍄"; verdict = perfectSite ? "Lupaava matsutake-paikka!" : "Lupaava paikka (karu kangas)";
+  } else if (siteOk) { icon = "🌲"; verdict = "Oikea metsätyyppi — puusto ei täytä ehtoja"; }
+  else { icon = "❌"; verdict = "Ei matsutake-tyyppiä"; }
+
+  let html = '<div class="result-head"><span class="big">' + icon + '</span>' +
+    '<div><div class="verdict">' + verdict + '</div>' +
+    '<div class="sub">' + latlng.lat.toFixed(5) + "° N, " + latlng.lng.toFixed(5) + "° E · " + north + '</div></div></div>' +
+    '<div class="checks">';
+
+  html += checkRow(siteOk ? "ok" : "no", "Kasvupaikka",
+    site != null ? (SITE_NAMES[site] || "tuntematon") + (main != null && main !== 1 ? " (suo)" : "") : "ei tietoa");
+  html += checkRow(main === 1 ? "ok" : main == null ? "meh" : "no", "Maapohja",
+    main != null ? (MAIN_NAMES[main] || "?") : "ei tietoa");
+  html += checkRow(ageOk ? "ok" : "no", "Puuston ikä",
+    age != null ? age + " v" : "ei tietoa");
+  html += checkRow(pineOk ? "ok" : "no", "Mäntyä",
+    pine != null ? pine + " m³/ha" : "ei tietoa");
+  html += checkRow(slope ? (slopeOk ? "ok" : "meh") : "meh", "Rinne",
+    slope ? (slope.deg < 1 ? "tasainen" : slope.deg.toFixed(1) + "° " + slope.dir) : "ei tietoa");
+  html += "</div>";
+
+  html += '<a class="navlink" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=' +
+    latlng.lat.toFixed(6) + "," + latlng.lng.toFixed(6) + '&travelmode=driving">🧭 Navigoi tänne</a>';
+
+  body.innerHTML = html;
+}
+map.on("click", e => inspect(e.latlng));
+
+/* ================= UI plumbing ================= */
+const sheets = ["sheetSettings", "sheetInfo", "sheetResult"];
+const backdrop = document.getElementById("backdrop");
+function openSheet(id) {
+  sheets.forEach(s => document.getElementById(s).classList.toggle("open", s === id));
+  backdrop.classList.add("on");
+}
+function closeSheets() {
+  sheets.forEach(s => document.getElementById(s).classList.remove("open"));
+  backdrop.classList.remove("on");
+}
+backdrop.addEventListener("click", closeSheets);
+document.getElementById("btnLayers").addEventListener("click", () => openSheet("sheetSettings"));
+document.getElementById("btnInfo").addEventListener("click", () => openSheet("sheetInfo"));
+
+let toastTimer = null;
+function toast(msg) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.classList.add("on");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("on"), 3500);
+}
+
+// settings wiring — redraw the composite layer when filters change
+let redrawTimer = null;
+function refreshSpots() {
+  clearTimeout(redrawTimer);
+  redrawTimer = setTimeout(() => spots.redraw(), 350);
+}
+const rngAge = document.getElementById("rngAge");
+rngAge.addEventListener("input", () => {
+  settings.minAge = +rngAge.value;
+  document.getElementById("valAge").textContent = settings.minAge + " v";
+  refreshSpots();
+});
+const rngPine = document.getElementById("rngPine");
+rngPine.addEventListener("input", () => {
+  settings.minPine = +rngPine.value;
+  document.getElementById("valPine").textContent = settings.minPine + " m³/ha";
+  refreshSpots();
+});
+document.getElementById("chkKuivahko").addEventListener("change", e => {
+  settings.kuivahko = e.target.checked; refreshSpots();
+});
+document.getElementById("chkKarukko").addEventListener("change", e => {
+  settings.karukko = e.target.checked; refreshSpots();
+});
+const rngOpacity = document.getElementById("rngOpacity");
+rngOpacity.addEventListener("input", () => {
+  settings.opacity = +rngOpacity.value / 100;
+  document.getElementById("valOpacity").textContent = rngOpacity.value + " %";
+  spots.setOpacity(settings.opacity);
+});
+
+document.getElementById("basemapSeg").addEventListener("click", e => {
+  const btn = e.target.closest("button"); if (!btn) return;
+  document.querySelectorAll("#basemapSeg button").forEach(b => b.classList.toggle("active", b === btn));
+  map.removeLayer(currentBasemap);
+  currentBasemap = basemaps[btn.dataset.bm].addTo(map);
+  currentBasemap.bringToBack();
+});
+
+document.getElementById("chkLayerKangas").addEventListener("change", e => {
+  if (e.target.checked) {
+    layerKangas = layerKangas || makeHelperLayer(LAYER.site, maskValues(LAYER.site, [5], "#ff9d2e"));
+    layerKangas.addTo(map);
+  } else if (layerKangas) map.removeLayer(layerKangas);
+});
+document.getElementById("chkLayerVanha").addEventListener("change", e => {
+  if (e.target.checked) {
+    layerVanha = layerVanha || makeHelperLayer(LAYER.age, maskMin(LAYER.age, 60, "#2e86ff"));
+    layerVanha.addTo(map);
+  } else if (layerVanha) map.removeLayer(layerVanha);
+});
+
+// zoom hint
+let hinted = false;
+map.on("zoomend", () => {
+  if (!hinted && map.getZoom() >= 6 && map.getZoom() < 10) {
+    hinted = true;
+    toast("Lähennä karttaa — pinkit alueet tarkentuvat 16 m ruutuihin 🔍");
+  }
+});
+setTimeout(() => toast("Napauta karttaa tutkiaksesi paikkaa 🍄"), 1500);
+</script>
+</body>
+</html>

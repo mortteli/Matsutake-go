@@ -1,0 +1,12 @@
+{
+  "name": "Matsutake GO",
+  "short_name": "Matsutake GO",
+  "description": "Kartta tuoksuvalmuskan (matsutake) potentiaalisista kasvupaikoista Suomessa",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#14231a",
+  "theme_color": "#14231a",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
