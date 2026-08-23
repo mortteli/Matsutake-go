@@ -59,6 +59,13 @@ Sovellus pyytää jokaiselle karttatiilelle neljä binäärimaskia
 kuvan, jossa rasterin raaka-arvo on koodattu harmaasävyksi (`ramp 0→255`),
 ja lukee arvon pikselistä.
 
+## Mihin ehdot perustuvat
+
+Kartan suodatinehdot on käyty läpi julkaistua kirjallisuutta vasten
+tiedostossa [SOURCES.md](SOURCES.md): mitkä oletusarvot saavat lähdetukea,
+mitkä eivät, ja kuinka suuri MVMI-aineiston kuva-alkiotason virhe on
+kynnysarvoihin nähden.
+
 ## Aineistot ja lisenssit
 
 - Metsävaratiedot: Luonnonvarakeskus (Luke), monilähteisen valtakunnan metsien
