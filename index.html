@@ -94,7 +94,11 @@
   .sheet a { color: var(--accent); }
 
   .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 0; font-size: 14.5px; }
-  .row label { flex: 1; }
+  .row > label, .row > .lbl { flex: 1; }
+  /* the checkbox itself is 0x0, so the whole row has to be the hit target —
+     without this the switches are untappable on touch devices */
+  label.row { cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; }
+  label.row:active { background: #ffffff0d; border-radius: 8px; }
   .row .val { color: var(--accent); font-variant-numeric: tabular-nums; font-weight: 600; min-width: 64px; text-align: right; }
   input[type="range"] { width: 46vw; max-width: 230px; accent-color: var(--accent); }
   .switch { position: relative; width: 46px; height: 26px; flex: 0 0 auto; }
@@ -108,6 +112,11 @@
   }
   .switch input:checked + i { background: var(--accent); }
   .switch input:checked + i::after { transform: translateX(20px); background: #221500; }
+  .switch input:focus-visible + i { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  .legend { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 2px; }
+  .legend .lv { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--muted); }
+  .legend .sw { width: 28px; height: 12px; border-radius: 3px; flex: 0 0 auto; }
 
   .seg { display: flex; gap: 6px; }
   .seg button {
@@ -212,29 +221,39 @@
     <input type="range" id="rngPine" min="0" max="120" step="5" value="20">
     <span class="val" id="valPine">20 m³/ha</span>
   </div>
-  <div class="row">
-    <label>Myös kuivahko kangas<br><small style="color:var(--muted)">löyhempi haku (puolukkatyyppi)</small></label>
-    <span class="switch"><input type="checkbox" id="chkKuivahko"><i></i></span>
-  </div>
-  <div class="row">
-    <label>Myös karukkokangas<br><small style="color:var(--muted)">jäkäläkankaat mukaan</small></label>
+  <label class="row" for="chkKarukko">
+    <span class="lbl">Myös karukkokangas<br><small style="color:var(--muted)">jäkäläkankaat — MVMI antaa tätä luokkaa hyvin harvoin</small></span>
     <span class="switch"><input type="checkbox" id="chkKarukko" checked><i></i></span>
-  </div>
+  </label>
+  <label class="row" for="chkKuivahko">
+    <span class="lbl">Myös kuivahko kangas<br><small style="color:var(--muted)">puolukkatyyppi — nostaa kattavuuden 56 %:sta 85 %:iin</small></span>
+    <span class="switch"><input type="checkbox" id="chkKuivahko" checked><i></i></span>
+  </label>
+  <label class="row" for="chkKallio">
+    <span class="lbl">Myös kalliomaat ja hietikot<br><small style="color:var(--muted)">karut kalliomänniköt ja harjut — Etelä-Suomen päähabitaatti</small></span>
+    <span class="switch"><input type="checkbox" id="chkKallio" checked><i></i></span>
+  </label>
   <div class="row">
     <label>Peittävyys</label>
     <input type="range" id="rngOpacity" min="20" max="100" step="5" value="75">
     <span class="val" id="valOpacity">75 %</span>
   </div>
 
+  <h3>Värit</h3>
+  <div class="legend" id="legend"></div>
+  <p style="font-size:12.5px">Kaikki värilliset ruudut täyttävät perusehdot.
+     Väri kertoo kuinka vahvasti: kasvupaikkaluokka ja puuston ikä
+     pisteytetään portaittain.</p>
+
   <h3>Aputasot</h3>
-  <div class="row">
-    <label>Kuiva kangas (kaikki iät)</label>
+  <label class="row" for="chkLayerKangas">
+    <span class="lbl">Kuiva kangas (kaikki iät)</span>
     <span class="switch"><input type="checkbox" id="chkLayerKangas"><i></i></span>
-  </div>
-  <div class="row">
-    <label>Vanha metsä (kaikki tyypit)</label>
+  </label>
+  <label class="row" for="chkLayerVanha">
+    <span class="lbl">Vanha metsä (kaikki tyypit)</span>
     <span class="switch"><input type="checkbox" id="chkLayerVanha"><i></i></span>
-  </div>
+  </label>
 </div>
 
 <!-- ============ info sheet ============ -->
@@ -242,18 +261,42 @@
   <div class="grab"></div>
   <h2>🍄 Matsutake eli tuoksuvalmuska</h2>
   <p><b style="color:var(--text)">Tricholoma matsutake</b> kasvaa Suomessa vanhoissa männiköissä
-     kuivilla ja karuilla kankailla. Kartan pinkit alueet ovat metsiä, joissa
+     kuivilla ja karuilla kankailla. Kartan värilliset alueet ovat metsiä, joissa
      <b style="color:var(--text)">kaikki</b> valitut ehdot täyttyvät:</p>
-  <p>✔️ kasvupaikka on <b style="color:var(--text)">kuiva kangas</b> (kanervatyyppi) tai karukkokangas — kivennäismaalla<br>
-     ✔️ puusto on vanhaa (oletus ≥ 60 v)<br>
+  <p>✔️ kasvupaikka on <b style="color:var(--text)">kuiva kangas</b>, karukkokangas,
+     kalliomaa tai kuivahko kangas — kivennäismaalla<br>
+     ✔️ puusto on vanhaa (alaraja ≥ 60 v)<br>
      ✔️ mäntyä on riittävästi</p>
-  <p>Jäkäläiset, valoisat ja hieman rinteiset paikat ovat parhaita — tarkista rinne
-     napauttamalla karttaa. Mitä pohjoisempana, sitä varmempi esiintyminen:
-     Lappi ja Koillismaa ovat Suomen parasta matsutake-aluetta, mutta lajia
-     löytyy karuilta mäntykankailta koko maasta.</p>
+  <h3>Mitä värit tarkoittavat</h3>
+  <p>Kaikki värilliset ruudut täyttävät perusehdot. Väri kertoo <b style="color:var(--text)">kuinka
+     vahvasti</b>: ydinluokat (kuiva kangas, karukkokangas, kalliomaa) painavat
+     enemmän kuin reunaluokka (kuivahko kangas), ja mitä vanhempi puusto, sitä
+     korkeampi pistemäärä. Ruotsalaisaineistossa tyypillinen esiintymä on
+     115–148-vuotiaassa metsikössä, joten 60 v on alaraja eikä tavoite.
+     Ylin luokka (4/4) on varattu 63° N:n pohjoispuolelle: Risbergin
+     tärkeysjärjestyksessä leveysaste menee puuston iän edelle, ja MVMI:n
+     ikäarviot ovat vanhimmillaan etelässä — ilman tätä kartta värittäisi
+     Uudenmaan kirkkaimmin ja Lapin tummimmin, juuri toisin päin kuin
+     havainnot ovat.
+     Portaat (85 v, 110 v) on viritetty MVMI-aineiston omaan jakaumaan:
+     ikä on siinä mallinnettu arvio, joka vetää ääripäät kohti keskiarvoa,
+     joten kentältä mitattuja ikälukemia ei voi käyttää sellaisenaan.</p>
+  <h3>Tarkkuus — lue tämä</h3>
+  <p>Yksi 16 m ruutu on <b style="color:var(--text)">arvaus, ei mittaus</b>. Luken oma
+     virhearvio yhdelle ruudulle on ±32 v (etelä) tai ±49 v (pohjoinen) puuston iässä
+     ja ±41–63 m³/ha mäntytilavuudessa, ja kasvupaikkaluokka osuu maastoluokitukseen
+     noin puolessa ruuduista. Yksittäinen värillinen ruutu on siis kohinaa;
+     <b style="color:var(--text)">rypäs on signaali</b>.</p>
   <h3>Satokausi</h3>
-  <p>Pohjois-Suomi: elokuun loppu – syyskuu.<br>Etelä-Suomi: syyskuu – lokakuun alku.<br>
+  <p>Pohjois-Suomi: elokuun loppu – syyskuu.<br>
+     Etelä-Suomi: heinäkuun loppu – syyskuu (Vaario ym. 2015).<br>
      Itiöemät kasvavat usein puoliksi maan/jäkälän alla — katso kohoumia!</p>
+  <p>Mitä pohjoisempana, sitä varmempi esiintyminen: Lappi ja Koillismaa ovat
+     Suomen parasta matsutake-aluetta, mutta lajia löytyy karuilta
+     mäntykankailta koko maasta. Leveysaste vaikuttaa väriin vain ylimmän
+     luokan rajauksen kautta (ks. yllä). Rinteisyys ja "valoisuus" näkyvät napautustiedoissa, mutta niitä ei
+     pisteytetä — pohjoismaisessa aineistossa ne eivät saa tukea
+     (ks. <a href="https://github.com/mortteli/Matsutake-go/blob/main/SOURCES.md" target="_blank" rel="noopener">SOURCES.md</a>).</p>
   <h3>Näin käytät</h3>
   <p>📍 = oma sijainti (seuraa GPS:ää) · 🗺️ = suodattimet ja taustakartta ·
      napauta karttaa = paikan tiedot ja arvio.</p>
@@ -289,11 +332,56 @@ const SITE_NAMES = { 1:"lehto",2:"lehtomainen kangas",3:"tuore kangas",4:"kuivah
 const SPOT_COLOR = "#ff2d78";
 const R3857 = 20037508.342789244;
 
+/* ---- scoring ----------------------------------------------------------
+   Two of the criteria are ordinal rather than yes/no, so instead of one
+   binary "all conditions met" mask the tiles carry a score:
+
+     score = site weight x age weight        (both in 0..1)
+
+   Site: kuiva kangas, karukkokangas and kalliomaat/hietikot are all primary
+   habitat in the Nordic surveys — northern finds sit on glaciofluvial sand,
+   southern ones almost entirely on rocky pine ground — so they share the top
+   weight. Kuivahko kangas is the margin that carries the last third of the
+   records, so it costs one level. Age: 60 v is the floor (the lowest
+   stand age in Risberg's 72-stand survey was 51 v) but the typical stand
+   is 115-148 v, so older stands score higher. See SOURCES.md. */
+const W_SITE_CORE = 1.00;  // kuiva kangas (5), karukkokangas (6), kalliomaa (7)
+const W_SITE_EDGE = 0.60;  // kuivahko kangas (4) — the margin, one level cheaper
+const W_AGE = [0.45, 0.72, 1.0];
+
+/* score -> colour, dark to bright; below the first stop the pixel is dropped.
+   The six reachable products (0.27 0.43 0.45 0.60 0.72 1.00) sit at least
+   0.08 away from every stop, so 8-bit rounding cannot shift a level. */
+const LEVELS = [
+  { min: 0.20, rgb: [142,  47, 143], name: "reunatapaus" },
+  { min: 0.36, rgb: [208,  49, 111], name: "kohtalainen" },
+  { min: 0.53, rgb: [255,  61,  90], name: "hyvä" },
+  { min: 0.85, rgb: [255, 176,  32], name: "paras luokka" },
+];
+function levelOf(alpha /* 0..255 */) {
+  const v = alpha / 255;
+  let l = 0;
+  for (let i = 0; i < LEVELS.length; i++) if (v >= LEVELS[i].min) l = i + 1;
+  return l; // 0 = not shown
+}
+const levelCss = l => "rgb(" + LEVELS[l - 1].rgb.join(",") + ")";
+
+/* Latitude is the one factor Risberg ranks ABOVE stand age (jordmån >
+   breddgrad > beståndsålder), and MVMI's age estimates run oldest in the
+   south — so scoring on forest structure alone would paint Uusimaa gold and
+   Lapland purple, the exact inverse of where the finds are. Rather than
+   erase southern habitat (FinBIF has 31 records for Uusimaa, as many as
+   Kainuu) the top class is simply reserved for the north. */
+const LAT_TOP_CLASS = 63;
+const capForLat = lat => (lat >= LAT_TOP_CLASS ? 4 : 3);
+const latOf3857 = y => (2 * Math.atan(Math.exp(y / 6378137)) - Math.PI / 2) * 180 / Math.PI;
+
 const settings = {
   minAge: 60,
   minPine: 20,
-  kuivahko: false,
+  kuivahko: true,   // 85 % of surveyed stands are VT or poorer, so this is on
   karukko: true,
+  kallio: true,     // ~46 % of dry mineral ground in southern Finland
   opacity: 0.75,
 };
 
@@ -326,11 +414,68 @@ function wmsURL(layerName, sld, bbox, w, h) {
     "&format=image/png&transparent=true" +
     "&SLD_BODY=" + encodeURIComponent(sld);
 }
+// same masks as above, but alpha carries a 0..1 weight instead of on/off;
+// the tile compositor multiplies the layers together to get the score
+function gradedValues(layerName, groups) {
+  const entries = groups.map(g => g.values.map(v =>
+    '<ColorMapEntry quantity="' + v + '" color="' + SPOT_COLOR + '" opacity="' + g.w + '"/>'
+  ).join("")).join("");
+  return sldWrap(layerName, '<ColorMap type="values">' + entries + '</ColorMap>');
+}
+// stops: [[upperBound, weight], …]; anything at or below the first bound drops out
+function gradedIntervals(layerName, stops) {
+  const entries = stops.map(st =>
+    '<ColorMapEntry quantity="' + st[0] + '" color="' + SPOT_COLOR + '" opacity="' + st[1] + '"/>'
+  ).join("");
+  return sldWrap(layerName, '<ColorMap type="intervals">' + entries + '</ColorMap>');
+}
+
+function siteGroups() {
+  const core = [5];
+  if (settings.karukko) core.push(6);
+  if (settings.kallio)  core.push(7);
+  const margin = [];
+  if (settings.kuivahko) margin.push(4);
+  return { core, margin };
+}
 function siteClasses() {
-  const v = [5];
-  if (settings.kuivahko) v.push(4);
-  if (settings.karukko) v.push(6);
-  return v;
+  const g = siteGroups();
+  return g.core.concat(g.margin);
+}
+function siteGradeSLD() {
+  const g = siteGroups();
+  return gradedValues(LAYER.site, [
+    { values: g.core,   w: W_SITE_CORE },
+    { values: g.margin, w: W_SITE_EDGE },
+  ].filter(x => x.values.length));
+}
+/* [floor, second tier, top tier] — kept strictly increasing at any slider value.
+   The tiers are calibrated to the MVMI raster, not to field ages. Sampled at
+   native 16 m resolution over Lapland, Kainuu and southern Finland, stands
+   passing the site + mineral-soil gate split roughly 50 / 30 / 15 / 5 across
+   60-85 / 85-110 / 110-140 / 140+ v. MVMI age is a regression estimate and
+   pulls extremes toward the mean, so the 115-148 v that the field surveys
+   report for real matsutake stands simply does not occur here at those
+   frequencies. What the ramp encodes is the ordering, not the year count. */
+function ageTiers() {
+  const a1 = settings.minAge;
+  return [a1, Math.max(a1 + 15, 85), Math.max(a1 + 30, 110)];
+}
+function ageGradeSLD() {
+  const t = ageTiers();
+  return gradedIntervals(LAYER.age, [
+    [t[0], 0], [t[1], W_AGE[0]], [t[2], W_AGE[1]], [255, W_AGE[2]],
+  ]);
+}
+// the score a tap-inspected point gets, from its exact site class and age bracket
+function scoreAt(siteClass, ageLo) {
+  const g = siteGroups();
+  const sw = g.core.includes(siteClass) ? W_SITE_CORE
+           : g.margin.includes(siteClass) ? W_SITE_EDGE : 0;
+  if (!sw || ageLo == null) return 0;
+  const t = ageTiers();
+  if (ageLo < t[0]) return 0;
+  return sw * (ageLo >= t[2] ? W_AGE[2] : ageLo >= t[1] ? W_AGE[1] : W_AGE[0]);
 }
 function loadImg(url) {
   return new Promise((res, rej) => {
@@ -342,10 +487,47 @@ function loadImg(url) {
   });
 }
 
+/* Colour the composited alpha (= product of the graded masks) through the
+   ramp, dilating by one cell so 16 m pixels stay visible at browsing zooms.
+   Dilation takes the strongest neighbour, so cores never get overdrawn. */
+function paintScore(ctx, src, w, h, bbox) {
+  const a = src.data, n = w * h;
+  const yTop = bbox[3], mPerPx = (bbox[3] - bbox[1]) / h;
+  const lvl = new Uint8Array(n);
+  let any = 0;
+  for (let i = 0; i < n; i++) any |= (lvl[i] = levelOf(a[i * 4 + 3]));
+  if (!any) return;
+
+  const out = ctx.createImageData(w, h), o = out.data;
+  for (let y = 0; y < h; y++) {
+    const cap = capForLat(latOf3857(yTop - (y + 0.5) * mPerPx));
+    for (let x = 0; x < w; x++) {
+      let best = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        const yy = y + dy;
+        if (yy < 0 || yy >= h) continue;
+        for (let dx = -1; dx <= 1; dx++) {
+          const xx = x + dx;
+          if (xx < 0 || xx >= w) continue;
+          const v = lvl[yy * w + xx];
+          if (v > best) best = v;
+        }
+      }
+      if (!best) continue;
+      if (best > cap) best = cap;
+      const c = LEVELS[best - 1].rgb, j = (y * w + x) * 4;
+      o[j] = c[0]; o[j + 1] = c[1]; o[j + 2] = c[2]; o[j + 3] = 255;
+    }
+  }
+  ctx.putImageData(out, 0, 0);
+}
+
 /* ================= matsutake composite layer =================
-   For every map tile, fetch 4 server-styled binary masks
-   (site class, mineral soil, min age, min pine volume) and keep
-   only the pixels present in ALL of them. */
+   For every map tile, fetch 4 server-styled masks (site class, mineral
+   soil, min age, min pine volume). Mineral soil and pine volume are plain
+   on/off gates; site class and age carry graded alpha. Multiplying the
+   alphas keeps only pixels present in ALL of them, and the surviving alpha
+   is the score. */
 const MatsutakeLayer = L.GridLayer.extend({
   createTile(coords, done) {
     const tile = document.createElement("canvas");
@@ -357,9 +539,9 @@ const MatsutakeLayer = L.GridLayer.extend({
     const bbox = [x0, y1 - w, x0 + w, y1];
 
     const urls = [
-      wmsURL(LAYER.site, maskValues(LAYER.site, siteClasses(), "#ff0000"), bbox, size.x, size.y),
+      wmsURL(LAYER.age,  ageGradeSLD(),  bbox, size.x, size.y),  // graded
+      wmsURL(LAYER.site, siteGradeSLD(), bbox, size.x, size.y),  // graded
       wmsURL(LAYER.main, maskValues(LAYER.main, [1], "#ff0000"), bbox, size.x, size.y),
-      wmsURL(LAYER.age,  maskMin(LAYER.age, settings.minAge, "#ff0000"), bbox, size.x, size.y),
     ];
     if (settings.minPine > 0)
       urls.push(wmsURL(LAYER.pine, maskMin(LAYER.pine, settings.minPine, "#ff0000"), bbox, size.x, size.y));
@@ -369,16 +551,9 @@ const MatsutakeLayer = L.GridLayer.extend({
       off.width = size.x; off.height = size.y;
       const octx = off.getContext("2d");
       octx.drawImage(imgs[0], 0, 0);
-      octx.globalCompositeOperation = "destination-in"; // intersect alpha
+      octx.globalCompositeOperation = "destination-in"; // multiply alpha
       for (let i = 1; i < imgs.length; i++) octx.drawImage(imgs[i], 0, 0);
-      octx.globalCompositeOperation = "source-in";      // recolor result
-      octx.fillStyle = SPOT_COLOR;
-      octx.fillRect(0, 0, size.x, size.y);
-      // dilate by 1 px so 16 m cells stay visible at berry-app zooms
-      const ctx = tile.getContext("2d");
-      for (let dx = -1; dx <= 1; dx++)
-        for (let dy = -1; dy <= 1; dy++)
-          ctx.drawImage(off, dx, dy);
+      paintScore(tile.getContext("2d"), octx.getImageData(0, 0, size.x, size.y), size.x, size.y, bbox);
       done(null, tile);
     }).catch(err => done(err, tile));
     return tile;
@@ -527,7 +702,9 @@ async function inspect(latlng) {
     '<div class="sub">' + latlng.lat.toFixed(5) + "° N, " + latlng.lng.toFixed(5) + "° E</div></div></div>";
   openSheet("sheetResult");
 
-  const AGE_STEPS = [20, 40, 60, 80, 100, 130, 170];
+  // include the scoring tiers so the reported bracket lines up with the score
+  const AGE_STEPS = [...new Set([20, 40, 60, 80, 100, 130, 170, ...ageTiers()])]
+    .sort((a, b) => a - b);
   const PINE_STEPS = [10, 20, 40, 70, 110];
   const [site, mineral, mire, ageOkP, pineOkP, age, pine, slope] = await Promise.all([
     readClass(LAYER.site, [1,2,3,4,5,6,7,8,9,10], latlng),
@@ -554,25 +731,32 @@ async function inspect(latlng) {
 
   const wanted = siteClasses();
   const siteOk = site != null && wanted.includes(site) && mineral === true;
-  const perfectSite = site === 5 && mineral === true;
   const ageOk = ageOkP === true;
   const pineOk = pineOkP === true;
-  const slopeOk = slope && slope.deg >= 2;
   const north = latlng.lat >= 66 ? "Lappi — paras alue 🌟" :
                 latlng.lat >= 64 ? "pohjoinen — hyvä alue" :
                 latlng.lat >= 62 ? "keskimaa — mahdollinen" : "etelä — harvinaisempi";
 
+  // same score the map colours with, from the exact class and the age bracket
+  const gated = siteOk && ageOk && pineOk;
+  const score = gated ? scoreAt(site, age && age.lo != null ? age.lo : null) : 0;
+  const lvl = score ? Math.min(levelOf(Math.round(score * 255)), capForLat(latlng.lat)) : 0;
+
   let icon, verdict;
-  if (siteOk && ageOk && pineOk) {
-    icon = "🍄"; verdict = perfectSite ? "Lupaava matsutake-paikka!" : "Lupaava paikka (karu kangas)";
-  } else if (siteOk) { icon = "🌲"; verdict = "Oikea metsätyyppi — puusto ei täytä ehtoja"; }
-  else { icon = "❌"; verdict = "Ei matsutake-tyyppiä"; }
+  if (lvl >= 3)     { icon = "🍄"; verdict = lvl === 4 ? "Parasta luokkaa!" : "Lupaava matsutake-paikka"; }
+  else if (lvl > 0) { icon = "🍄"; verdict = "Ehdot täyttyvät niukasti"; }
+  else if (siteOk)  { icon = "🌲"; verdict = "Oikea metsätyyppi — puusto ei täytä ehtoja"; }
+  else              { icon = "❌"; verdict = "Ei matsutake-tyyppiä"; }
 
   let html = '<div class="result-head"><span class="big">' + icon + '</span>' +
     '<div><div class="verdict">' + verdict + '</div>' +
     '<div class="sub">' + latlng.lat.toFixed(5) + "° N, " + latlng.lng.toFixed(5) + "° E · " + north + '</div></div></div>' +
     '<div class="checks">';
 
+  if (lvl > 0)
+    html += '<div class="c"><span class="mark" style="color:' + levelCss(lvl) + '">■</span>' +
+            '<span class="k">Kokonaisarvio</span>' +
+            '<span class="v">' + LEVELS[lvl - 1].name + " (" + lvl + "/4)" + '</span></div>';
   html += checkRow(siteOk ? "ok" : "no", "Kasvupaikka",
     site != null ? (SITE_NAMES[site] || "tuntematon") + (mire === true ? " (suo)" : "") : "ei tietoa");
   html += checkRow(mineral === true ? "ok" : mire === true ? "no" : "meh", "Maapohja",
@@ -581,9 +765,11 @@ async function inspect(latlng) {
     fmtBracket(age, "v"));
   html += checkRow(pineOk ? "ok" : "no", "Mäntyä (≥ " + settings.minPine + " m³/ha)",
     fmtBracket(pine, "m³/ha"));
-  html += checkRow(slope ? (slopeOk ? "ok" : "meh") : "meh", "Rinne",
+  html += checkRow("meh", "Rinne (ei pisteytetä)",
     slope ? (slope.deg < 1 ? "tasainen" : slope.deg.toFixed(1) + "° " + slope.dir) : "ei tietoa");
   html += "</div>";
+  html += '<p style="font-size:12px;margin:6px 0 0">Yksi 16 m ruutu on epävarma ' +
+          '(Luken ilmoittama ikävirhe 32–49 v). Luota ryppäisiin, älä yksittäiseen ruutuun.</p>';
 
   html += '<a class="navlink" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=' +
     latlng.lat.toFixed(6) + "," + latlng.lng.toFixed(6) + '&travelmode=driving">🧭 Navigoi tänne</a>';
@@ -640,6 +826,13 @@ document.getElementById("chkKuivahko").addEventListener("change", e => {
 document.getElementById("chkKarukko").addEventListener("change", e => {
   settings.karukko = e.target.checked; refreshSpots();
 });
+document.getElementById("chkKallio").addEventListener("change", e => {
+  settings.kallio = e.target.checked; refreshSpots();
+});
+
+document.getElementById("legend").innerHTML = LEVELS.map((l, i) =>
+  '<div class="lv"><span class="sw" style="background:' + levelCss(i + 1) + '"></span>' +
+  (i + 1) + "/4 — " + l.name + "</div>").reverse().join("");
 const rngOpacity = document.getElementById("rngOpacity");
 rngOpacity.addEventListener("input", () => {
   settings.opacity = +rngOpacity.value / 100;
@@ -673,7 +866,7 @@ let hinted = false;
 map.on("zoomend", () => {
   if (!hinted && map.getZoom() >= 6 && map.getZoom() < 10) {
     hinted = true;
-    toast("Lähennä karttaa — pinkit alueet tarkentuvat 16 m ruutuihin 🔍");
+    toast("Lähennä karttaa — värialueet tarkentuvat 16 m ruutuihin 🔍");
   }
 });
 setTimeout(() => toast("Napauta karttaa tutkiaksesi paikkaa 🍄"), 1500);

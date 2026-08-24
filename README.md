@@ -4,31 +4,42 @@ Mobiilikäyttöön tehty karttasovellus, joka näyttää **tuoksuvalmuskan (mats
 _Tricholoma matsutake_) potentiaaliset kasvupaikat koko Suomessa** — samaan
 tyyliin kuin Mustikka GO ja muut marjakartat.
 
-Pinkit alueet kartalla ovat metsiä, joissa **kaikki** ehdot täyttyvät
+Värilliset alueet kartalla ovat metsiä, joissa **kaikki** perusehdot täyttyvät
 (Luken monilähteisen VMI:n 16 m rasteriaineistosta, inventointi 2019–2023):
 
 | Ehto | Oletus | Aineistotaso |
 |---|---|---|
-| Kasvupaikka on **kuiva kangas** (lisäksi valittavissa karukko- ja kuivahko kangas) | luokka 5 (+6) | `kasvupaikka_1923` |
+| Kasvupaikka on kuiva kangas, karukkokangas, kalliomaa tai kuivahko kangas | luokat 4–7 | `kasvupaikka_1923` |
 | Maapohja on kivennäismaata (ei suota) | luokka 1 | `paatyyppi_1923` |
 | Puusto on **vanhaa** | ≥ 60 v (säädettävä 40–120) | `ika_1923` |
 | **Mäntyä** on riittävästi | ≥ 20 m³/ha (säädettävä) | `manty_1923` |
 
-Jäkäläisyys korreloi vahvasti karukko-/kuivan kankaan kanssa, joten
-jäkäläkankaat tulevat mukaan kasvupaikkaluokkien kautta. Rinteisyyden voi
-tarkistaa paikkakohtaisesti napauttamalla karttaa (korkeusmalli: Open-Meteo /
-Copernicus DEM) tai silmäilemällä Maasto-taustakartan korkeuskäyriä.
+**Väri kertoo kuinka vahvasti ehdot täyttyvät.** Kaksi ehdoista on
+järjestysasteikollisia, joten kartta ei ole kaksiarvoinen vaan pisteyttää:
+
+| Luokka | Väri | Mitä se tarkoittaa |
+|---|---|---|
+| 4/4 paras | 🟧 oranssi | ydinkasvupaikka + yli 110 v puusto, 63° N pohjoispuolella |
+| 3/4 hyvä | 🟥 punainen | ydinkasvupaikka + yli 85 v, tai reunaluokka + yli 110 v |
+| 2/4 kohtalainen | 🟪 magenta | ydinkasvupaikka nuoremmalla puustolla, tai reunaluokka + yli 85 v |
+| 1/4 reunatapaus | 🟣 violetti | reunaluokka (kuivahko kangas) + 60–85 v |
+
+Ydinkasvupaikkoja ovat kuiva kangas, karukkokangas ja kalliomaat/hietikot;
+reunaluokka on kuivahko kangas. Perustelut ja lähteet: [SOURCES.md](SOURCES.md).
+Rinteisyyden voi tarkistaa napauttamalla karttaa (korkeusmalli: Open-Meteo /
+Copernicus DEM), mutta sitä **ei pisteytetä** — pohjoismaisessa aineistossa
+rinteisyys tai ilmansuunta ei saa tukea.
 
 ## Ominaisuudet
 
 - 📍 **GPS-piste** joka seuraa laitteen sijaintia (seuranta katkeaa kun karttaa
   raahaa, palaa päälle napista)
 - 🍄 **Matsutake-taso**: neljä WMS-rasterimaskia yhdistetään selaimessa
-  canvas-kompositiolla → näkyviin jäävät vain ruudut, joissa kaikki ehdot
-  täyttyvät. Suodattimet (ikä, mäntymäärä, kasvupaikkaluokat) säädettävissä
-  livenä.
-- 🔎 **Napauta karttaa** → paikan kasvupaikka, ikä, mäntytilavuus, rinteen
-  jyrkkyys ja suunta, pohjoisuusarvio sekä kokonaisarvio + navigointilinkki.
+  canvas-kompositiolla. Kasvupaikka- ja ikämaskit kantavat painon alfakanavassa,
+  joten maskien kertolasku antaa suoraan pistemäärän, joka väritetään
+  neliportaisella asteikolla. Suodattimet säädettävissä livenä.
+- 🔎 **Napauta karttaa** → kokonaisarvio (sama pistemäärä kuin kartalla),
+  kasvupaikka, ikä, mäntytilavuus, rinne ja pohjoisuusarvio + navigointilinkki.
 - 🗺️ Taustakartat: OpenStreetMap, OpenTopoMap (korkeuskäyrät) ja Esri-satelliitti.
 - 📲 PWA-manifesti → "Lisää aloitusnäytölle" toimii sovelluksen tavoin.
 

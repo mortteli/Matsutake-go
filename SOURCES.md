@@ -264,8 +264,8 @@ kynnykseen nähden. Luokkamuuttujat eivät ole parempia:
 - Luke korostaa, että aluetason pinta-alaestimaattien virheet ovat näitä
   pienempiä `[L9]`.
 
-> **Seuraus kartalle:** yksittäinen pinkki pikseli on kohinaa. **Rypäs**
-> pinkkiä pikseliä on signaali. Tämä kannattaa sanoa infotekstissä suoraan, ja
+> **Seuraus kartalle:** yksittäinen värillinen pikseli on kohinaa. **Rypäs**
+> värillistä pikseliä on signaali. Tämä kannattaa sanoa infotekstissä suoraan, ja
 > se on myös hyvä argumentti sille, että kasvupaikkaluokan yhden luokan
 > löysääminen (VT mukaan) ei ole "huijaamista" vaan aineiston epävarmuuden
 > huomioimista. Vaihtoehtoisesti kompositiovaiheeseen voisi lisätä
@@ -282,19 +282,19 @@ karukkokankaina.
 
 ## 4. Yhteenveto: ehto kerrallaan
 
-| Ehto | Lähdetuki | Tuomio | Suositus |
+| Ehto | Lähdetuki | Tuomio | Mitä tehtiin |
 |---|---|---|---|
-| E1 kuiva + karukkokangas | `[L2]` `[L3]` | **Oikea suunta, liian tiukka** | Kuivahko kangas (VT) oletuksena päälle → kattavuus 56 % → 85 % `[L2]` |
-| E1b kalliomaat (luokka 7) pois | `[L2]` | **Puuttuva habitaatti** | Lisää valinnainen ruksi; Etelä-Ruotsissa 9/10 kohteesta kalliomaata |
-| E2 kivennäismaa | `[L1]` `[L9]` | **Vahva** | Säilytä. Estää myös suoluokkien numerosekaannuksen |
-| E3 ikä ≥ 60 v | `[L2]` `[L3]` | **Puolustettavissa alarajana** | Säilytä 60 v; merkitse säätimeen että tyypillinen esiintymä on 100–150 v |
-| E4 mänty ≥ 20 m³/ha | ei suoraa lähdettä | **Heikko muotoilu** | Harkitse **mäntyosuutta** absoluuttisen tilavuuden sijaan (Ruotsissa 94–97 % pohjapinta-alasta `[L2]`); MVMI:ssä on kaikkien puulajien tilavuustasot |
-| E5 rinne / pohjoisuus | `[L2]` `[L3]` | **Ei lähdetukea, osin ristiriidassa** | Poista arviosta tai merkitse tuntemattomaksi |
-| E5b "valoisat" / harva puusto | `[L2]` | **Kirjallisuus sanoo päinvastaista** | Poista tai lievennä README:stä ja infotekstistä |
-| E6 pohjoisuus parempi | `[L2]` `[L10]` | **Vahva** | Harkitse leveysastesävytystä kartalle |
-| E7 satokausi | `[L5]` | **Etelä-Suomen ikkuna liian myöhäinen** | Laajenna heinäkuun loppuun |
-| — kuusibiotooppi | `[L1]` `[L4]` `[L7]` | **Kartan sokea piste** | Mainitse infotekstissä; erillinen suodatin olisi oma projektinsa |
-| — pikselitarkkuus | `[L9]` | **Ei mainita lainkaan** | Lisää infotekstiin: yksi pikseli = kohina, rypäs = signaali |
+| E1 kuiva + karukkokangas | `[L2]` `[L3]` | **Oikea suunta, liian tiukka** | ✅ Kuivahko kangas (VT) oletuksena päälle → kattavuus 56 % → 85 % `[L2]`; painaa reunaluokkana vähemmän |
+| E1b kalliomaat (luokka 7) pois | `[L2]` `[L11]` | **Puuttuva habitaatti** | ✅ Lisätty ydinluokkana, oletuksena päällä |
+| E2 kivennäismaa | `[L1]` `[L9]` | **Vahva** | ✅ Säilytetty sellaisenaan |
+| E3 ikä ≥ 60 v | `[L2]` `[L3]` | **Puolustettavissa alarajana** | ✅ 60 v säilyi alarajana; iästä tuli portaittainen pisteyttäjä (85 v, 110 v) |
+| E4 mänty ≥ 20 m³/ha | ei suoraa lähdettä | **Heikko muotoilu** | ⬜ Jätettiin ennalleen. Mäntyosuus (Ruotsissa 94–97 % pohjapinta-alasta `[L2]`) vaatisi kahden rasterin suhteen, mikä ei taivu maskikompositioon |
+| E5 rinne / pohjoisuus | `[L2]` `[L3]` | **Ei lähdetukea, osin ristiriidassa** | ✅ Poistettu pisteytyksestä, jäi neutraaliksi lukemaksi |
+| E5b "valoisat" / harva puusto | `[L2]` | **Kirjallisuus sanoo päinvastaista** | ✅ Poistettu README:stä ja infotekstistä |
+| E6 pohjoisuus parempi | `[L2]` `[L10]` | **Vahva** | ✅ Ylin luokka (4/4) varattu 63° N:n pohjoispuolelle |
+| E7 satokausi | `[L5]` | **Etelä-Suomen ikkuna liian myöhäinen** | ✅ Laajennettu heinäkuun loppuun |
+| — kuusibiotooppi | `[L1]` `[L4]` `[L7]` | **Kartan sokea piste** | ⬜ Yhä sokea piste; oma projektinsa |
+| — pikselitarkkuus | `[L9]` | **Ei mainita lainkaan** | ✅ Lisätty infopaneeliin ja napautustulokseen |
 
 ---
 
@@ -317,7 +317,57 @@ Rehellisyyden vuoksi — nämä ovat aukkoja, eivät todistettuja negatiivisia:
   Scandinavian Journal of Forest Research -kokoteksti (HTTP 403 — §2.9 nojaa
   indeksoituun tiivistelmään), Artfakta (ei haettu suoraan).
 
-## 6. Mahdollinen uusi aineistolähde
+## 6. Mitä MVMI-aineistosta itsestään mitattiin
+
+Ehtojen virittämiseksi otantana ajettiin WMS:stä 4 km × 4 km ikkunoita
+natiivilla 16 m tarkkuudella (4 ikkunaa aluetta kohti) `[L11]`. Tämä oli
+tarpeen, koska karkeammalla otannalla GeoServerin uudelleennäytteistys
+tasoittaa ääripäät pois — ensimmäinen yritys 750 m/pikseli väitti, ettei
+Lapissa ole lainkaan yli 100-vuotiaita metsiä.
+
+**Kasvupaikkaluokkien osuudet kivennäismaalla:**
+
+| Alue | 4 kuivahko | 5 kuiva | 6 karukko | 7 kalliomaa |
+|---|---|---|---|---|
+| Lappi | 56,0 % | 35,6 % | 0,0 % | 8,4 % |
+| Kainuu / Koillismaa | 90,0 % | 9,9 % | 0,0 % | 0,1 % |
+| Etelä-Suomi | 52,3 % | 1,6 % | 0,0 % | 46,1 % |
+
+Kaksi tulosta muuttivat suunnittelua:
+
+1. **Karukkokangas (6) on käytännössä olematon MVMI:ssä** — 0,0 % kaikilla
+   kolmella alueella. Sovelluksen "karukkokangas"-kytkin ei siis juuri tee
+   mitään. Tämä sopii Luken omaan varaukseen, että luokitusero on yleisin
+   juuri karukkokankailla `[L9]`: malli ei käytännössä uskalla antaa
+   ääriluokkaa.
+2. **Kalliomaat (7) ovat Etelä-Suomessa 46 % kuivasta kivennäismaasta.**
+   Yhdessä Risbergin havainnon kanssa (9/10 eteläistä kohdetta hällmarkia
+   `[L2]`) tämä teki luokan 7 lisäämisestä selvästi tärkeimmän yksittäisen
+   laajennuksen — ilman sitä Etelä-Suomen päähabitaatti puuttuu kartalta.
+
+**Puuston ikä perusehdot täyttävillä ruuduilla** (osuus ehdot täyttävistä):
+
+| Alue | 60–80 v | 80–100 v | 100–120 v | yli 120 v |
+|---|---|---|---|---|
+| Lappi | 55,3 % | 35,6 % | 8,5 % | 0,5 % |
+| Kainuu / Koillismaa | 54,6 % | 28,0 % | 12,5 % | 4,9 % |
+| Etelä-Suomi | 42,5 % | 33,8 % | 17,8 % | 6,0 % |
+
+Tämä on syy siihen, miksi pisteytyksen ikäportaat ovat **85 v ja 110 v**
+eivätkä kirjallisuuden 115–148 v: MVMI:n ikä on regressioennuste, joka vetää
+ääripäät kohti keskiarvoa, joten kentältä mitattuja lukemia ei voi käyttää
+kynnyksinä. Portaat on viritetty aineiston omaan jakaumaan niin, että
+kaikki neljä väriluokkaa esiintyvät. Väriasteikko koodaa **järjestyksen,
+ei vuosilukua**.
+
+Huomaa myös, että ikäjakauma on **vanhin etelässä**. Ilman leveysasteen
+huomiointia kartta värittäisi Uudenmaan kirkkaimmin ja Lapin tummimmin —
+päinvastoin kuin havainnot jakautuvat `[L10]`. Siksi ylin luokka on varattu
+63° N:n pohjoispuolelle: se on kevyin tapa koodata Risbergin järjestys
+(maaperä > leveysaste > ikä `[L2]`) hävittämättä eteläisiä esiintymiä,
+joita FinBIF:ssä on todellisuudessa yhtä paljon kuin Kainuussa.
+
+## 7. Mahdollinen uusi aineistolähde
 
 Palménin kuvaama menetelmä — **lentogeofysikaalinen gammasäteilykartoitus**,
 jossa etsitään korkean ⁴⁰K:n sekä matalan Th:n ja U:n alueita eli
@@ -381,3 +431,10 @@ Aineistokuvaus: <https://opendata.luke.fi/fi/dataset/urn-nbn-fi-fd-849cabd2-0ae5
 matsutake*, havaintomäärät eliömaakunnittain. Haettu API:n kautta 2026-08-23
 (`laji.fi/api/taxa/MX.72541`, `laji.fi/api/warehouse/query/unit/count`).
 <https://laji.fi/taxon/MX.72541>
+
+**[L11]** Tätä työtä varten tehty otanta Luken MVMI-WMS:stä
+(`kartta.luke.fi/geoserver/MVMI/wms`), 4 km × 4 km ikkunat natiivilla 16 m
+tarkkuudella, 4 ikkunaa kolmella alueella (Lappi, Kainuu/Koillismaa,
+Etelä-Suomi), ajettu 2026-08-24. Ei julkaistu lähde vaan tämän repon oma
+mittaus; luvut on tarkoitettu ehtojen virittämiseen, ei tilastolliseksi
+estimaatiksi koko maasta.
