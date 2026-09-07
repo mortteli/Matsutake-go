@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#14231a">
-<meta name="description" content="Matsutake GO — kartta tuoksuvalmuskan (matsutake) potentiaalisista kasvupaikoista Suomessa: kuiva kangas, vanha männikkö.">
+<meta name="description" content="Matsutake GO — karttoja sienten potentiaalisista kasvupaikoista Suomessa: matsutake (tuoksuvalmuska), herkkutatti ja ukonsieni.">
 <title>Matsutake GO 🍄</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -39,11 +39,12 @@
     position: fixed; top: calc(8px + var(--safe-t)); left: 50%; transform: translateX(-50%);
     z-index: 1000; display: flex; align-items: center; gap: 8px;
     background: var(--panel); border-radius: 999px; padding: 8px 8px 8px 16px;
-    box-shadow: var(--shadow); max-width: calc(100vw - 20px);
+    box-shadow: var(--shadow); max-width: calc(100vw - 120px);
   }
-  .topbar .title { font-weight: 700; font-size: 15px; white-space: nowrap; letter-spacing: .2px; }
+  .topbar .title { font-weight: 700; font-size: 15px; white-space: nowrap; letter-spacing: .2px;
+    overflow: hidden; text-overflow: ellipsis; }
   .topbar .spinner {
-    width: 14px; height: 14px; border-radius: 50%;
+    width: 14px; height: 14px; border-radius: 50%; flex: 0 0 auto;
     border: 2px solid var(--muted); border-top-color: transparent;
     animation: spin 1s linear infinite; opacity: 0; transition: opacity .2s;
   }
@@ -54,6 +55,18 @@
     width: 34px; height: 34px; border-radius: 50%;
     font-size: 16px; line-height: 1; cursor: pointer; flex: 0 0 auto;
     display: inline-flex; align-items: center; justify-content: center;
+  }
+
+  /* ---------- species switch (top right) ---------- */
+  .speciesbtn {
+    position: fixed; top: calc(8px + var(--safe-t)); right: 10px; z-index: 1000;
+    width: 44px; height: 44px; border-radius: 50%; border: 0; cursor: pointer;
+    background: var(--panel); color: var(--text); font-size: 21px; line-height: 1;
+    box-shadow: var(--shadow); display: flex; align-items: center; justify-content: center;
+  }
+  .speciesbtn::after {
+    content: "▾"; position: absolute; right: 6px; bottom: 1px;
+    font-size: 11px; color: var(--accent);
   }
 
   /* ---------- floating action buttons ---------- */
@@ -92,12 +105,14 @@
   .sheet h3 { font-size: 13px; margin: 18px 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
   .sheet p { font-size: 13.5px; line-height: 1.5; color: var(--muted); margin: 6px 0; }
   .sheet a { color: var(--accent); }
+  .sheet b { color: var(--text); }
 
   .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 0; font-size: 14.5px; }
-  .row label { flex: 1; }
+  .row > label:not(.switch) { flex: 1; }
+  .row small { color: var(--muted); }
   .row .val { color: var(--accent); font-variant-numeric: tabular-nums; font-weight: 600; min-width: 64px; text-align: right; }
   input[type="range"] { width: 46vw; max-width: 230px; accent-color: var(--accent); }
-  .switch { position: relative; width: 46px; height: 26px; flex: 0 0 auto; }
+  .switch { position: relative; display: block; width: 46px; height: 26px; flex: 0 0 auto; cursor: pointer; }
   .switch input { opacity: 0; width: 0; height: 0; }
   .switch i {
     position: absolute; inset: 0; border-radius: 999px; background: #3a5544; transition: .2s; cursor: pointer;
@@ -115,6 +130,32 @@
     background: var(--panel2); color: var(--muted); cursor: pointer;
   }
   .seg button.active { background: var(--accent); color: #221500; font-weight: 700; }
+
+  /* ---------- species modal ---------- */
+  .modal {
+    position: fixed; z-index: 2000; left: 50%; top: 50%;
+    transform: translate(-50%, -50%) scale(.94);
+    width: min(340px, calc(100vw - 32px));
+    background: var(--panel); border-radius: 18px; box-shadow: var(--shadow);
+    padding: 15px 15px 13px; opacity: 0; pointer-events: none;
+    transition: opacity .2s ease, transform .2s ease;
+  }
+  .modal.open { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%) scale(1); }
+  .modal h3 {
+    margin: 0 0 11px; font-size: 12.5px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .6px;
+  }
+  .splist { display: flex; flex-direction: column; gap: 8px; }
+  .sp {
+    display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+    border: 0; border-radius: 12px; padding: 11px 12px; cursor: pointer;
+    background: var(--panel2); color: var(--text); font: inherit;
+  }
+  .sp.active { background: var(--accent); color: #221500; }
+  .sp .e { font-size: 23px; line-height: 1; flex: 0 0 auto; }
+  .sp .n { font-weight: 700; font-size: 14.5px; }
+  .sp .d { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+  .sp.active .d { color: #6b4a05; }
 
   /* ---------- result card ---------- */
   .result-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
@@ -174,20 +215,28 @@
 <div id="map"></div>
 
 <div class="topbar">
-  <span class="title">🍄 Matsutake GO</span>
+  <span class="title" id="appTitle">🍄 Matsutake GO</span>
   <span class="spinner" id="spinner"></span>
   <button class="iconbtn" id="btnInfo" aria-label="Tietoa">ℹ️</button>
 </div>
+
+<button class="speciesbtn" id="btnSpecies" aria-label="Vaihda sieni">🍄</button>
 
 <div class="fabs">
   <button class="fab" id="btnLayers" aria-label="Asetukset">🗺️</button>
   <button class="fab" id="btnLocate" aria-label="Paikanna">📍</button>
 </div>
 
-<div class="legend"><span class="dot"></span> matsutake-tyypin metsä</div>
+<div class="legend"><span class="dot"></span> <span id="legendText">matsutake-tyypin metsä</span></div>
 
 <div class="backdrop" id="backdrop"></div>
 <div class="toast" id="toast"></div>
+
+<!-- ============ species modal ============ -->
+<div class="modal" id="modalSpecies" role="dialog" aria-label="Valitse sieni">
+  <h3>Mitä sientä metsästetään?</h3>
+  <div class="splist" id="speciesList"></div>
+</div>
 
 <!-- ============ settings sheet ============ -->
 <div class="sheet" id="sheetSettings">
@@ -201,66 +250,29 @@
     <button data-bm="sat">Satelliitti</button>
   </div>
 
-  <h3>Matsutake-suodatin</h3>
+  <h3 id="filterTitle">Suodatin</h3>
+  <div id="speciesFilters"></div>
   <div class="row">
-    <label for="rngAge">Puuston ikä vähintään</label>
-    <input type="range" id="rngAge" min="40" max="120" step="5" value="60">
-    <span class="val" id="valAge">60 v</span>
-  </div>
-  <div class="row">
-    <label for="rngPine">Mäntyä vähintään</label>
-    <input type="range" id="rngPine" min="0" max="120" step="5" value="20">
-    <span class="val" id="valPine">20 m³/ha</span>
-  </div>
-  <div class="row">
-    <label>Myös kuivahko kangas<br><small style="color:var(--muted)">löyhempi haku (puolukkatyyppi)</small></label>
-    <span class="switch"><input type="checkbox" id="chkKuivahko"><i></i></span>
-  </div>
-  <div class="row">
-    <label>Myös karukkokangas<br><small style="color:var(--muted)">jäkäläkankaat mukaan</small></label>
-    <span class="switch"><input type="checkbox" id="chkKarukko" checked><i></i></span>
-  </div>
-  <div class="row">
-    <label>Peittävyys</label>
+    <label>Sienitason peittävyys</label>
     <input type="range" id="rngOpacity" min="20" max="100" step="5" value="75">
     <span class="val" id="valOpacity">75 %</span>
   </div>
 
   <h3>Aputasot</h3>
-  <div class="row">
-    <label>Kuiva kangas (kaikki iät)</label>
-    <span class="switch"><input type="checkbox" id="chkLayerKangas"><i></i></span>
-  </div>
-  <div class="row">
-    <label>Vanha metsä (kaikki tyypit)</label>
-    <span class="switch"><input type="checkbox" id="chkLayerVanha"><i></i></span>
-  </div>
+  <div id="helperLayers"></div>
 </div>
 
 <!-- ============ info sheet ============ -->
 <div class="sheet" id="sheetInfo">
   <div class="grab"></div>
-  <h2>🍄 Matsutake eli tuoksuvalmuska</h2>
-  <p><b style="color:var(--text)">Tricholoma matsutake</b> kasvaa Suomessa vanhoissa männiköissä
-     kuivilla ja karuilla kankailla. Kartan pinkit alueet ovat metsiä, joissa
-     <b style="color:var(--text)">kaikki</b> valitut ehdot täyttyvät:</p>
-  <p>✔️ kasvupaikka on <b style="color:var(--text)">kuiva kangas</b> (kanervatyyppi) tai karukkokangas — kivennäismaalla<br>
-     ✔️ puusto on vanhaa (oletus ≥ 60 v)<br>
-     ✔️ mäntyä on riittävästi</p>
-  <p>Jäkäläiset, valoisat ja hieman rinteiset paikat ovat parhaita — tarkista rinne
-     napauttamalla karttaa. Mitä pohjoisempana, sitä varmempi esiintyminen:
-     Lappi ja Koillismaa ovat Suomen parasta matsutake-aluetta, mutta lajia
-     löytyy karuilta mäntykankailta koko maasta.</p>
-  <h3>Satokausi</h3>
-  <p>Pohjois-Suomi: elokuun loppu – syyskuu.<br>Etelä-Suomi: syyskuu – lokakuun alku.<br>
-     Itiöemät kasvavat usein puoliksi maan/jäkälän alla — katso kohoumia!</p>
+  <div id="infoBody"></div>
   <h3>Näin käytät</h3>
-  <p>📍 = oma sijainti (seuraa GPS:ää) · 🗺️ = suodattimet ja taustakartta ·
-     napauta karttaa = paikan tiedot ja arvio.</p>
+  <p>🍄 oikeassa yläkulmassa = vaihda sieni · 📍 = oma sijainti (seuraa GPS:ää) ·
+     🗺️ = suodattimet ja taustakartta · napauta karttaa = paikan tiedot ja arvio.</p>
   <h3>Aineisto</h3>
   <p>Metsätiedot: Luonnonvarakeskuksen (Luke) <a href="https://www.luke.fi/fi/luonnonvaratieto/asiantuntijapalvelut/monilahteisen-valtakunnan-metsien-inventoinnin-msvmi-karttatasot" target="_blank" rel="noopener">monilähteinen VMI 2023</a>
-     (CC BY 4.0), ruutukoko 16 m. Kartta on <b style="color:var(--text)">tilastollinen arvio metsän rakenteesta</b>,
-     ei havaintoja sienistä — maastossa ratkaisee lopulta jäkälä, maasto ja tuuri.
+     (CC BY 4.0), ruutukoko 16 m. Kartta on <b>tilastollinen arvio metsän rakenteesta</b>,
+     ei havaintoja sienistä — maastossa ratkaisee lopulta maapohja, sää ja tuuri.
      Korkeustiedot: Open-Meteo (Copernicus DEM). Taustakartat: © OpenStreetMap,
      OpenTopoMap, Esri.</p>
 </div>
@@ -279,23 +291,28 @@
 const WMS = "https://kartta.luke.fi/geoserver/MVMI/wms";
 const CYCLE = "1923"; // MS-NFI 2019–2023 (published 2023)
 const LAYER = {
-  site:  "MVMI:kasvupaikka_" + CYCLE, // 1 lehto … 5 kuiva kangas, 6 karukko
-  main:  "MVMI:paatyyppi_"   + CYCLE, // 1 kivennäismaa
-  age:   "MVMI:ika_"         + CYCLE, // vuosina, 255 = ei tietoa
-  pine:  "MVMI:manty_"       + CYCLE, // m³/ha, 255 = ei tietoa
+  site:   "MVMI:kasvupaikka_"           + CYCLE, // 1 lehto … 5 kuiva kangas, 6 karukko
+  main:   "MVMI:paatyyppi_"             + CYCLE, // 1 kivennäismaa, 2 korpi, 3 räme, 4 avosuo
+  age:    "MVMI:ika_"                   + CYCLE, // vuosina
+  pine:   "MVMI:manty_"                 + CYCLE, // m³/ha
+  spruce: "MVMI:kuusi_"                 + CYCLE, // m³/ha
+  cover:  "MVMI:latvuspeitto_"          + CYCLE, // % (koko puusto)
+  bcover: "MVMI:lehtip_latvuspeitto_"   + CYCLE, // % (lehtipuut)
 };
 const SITE_NAMES = { 1:"lehto",2:"lehtomainen kangas",3:"tuore kangas",4:"kuivahko kangas",
-  5:"kuiva kangas",6:"karukkokangas",7:"kalliomaa/hietikko",8:"lakimetsä",9:"tunturikoivikko",10:"avotunturi" };
+  5:"kuiva kangas",6:"karukkokangas",7:"kalliomaa/hietikko",8:"lakimetsä/tunturi" };
+const SITE_CANDIDATES = [1,2,3,4,5,6,7,8];
 const SPOT_COLOR = "#ff2d78";
 const R3857 = 20037508.342789244;
+const R_EARTH = 6378137;
 
-const settings = {
-  minAge: 60,
-  minPine: 20,
-  kuivahko: false,
-  karukko: true,
-  opacity: 0.75,
-};
+const AGE_STEPS    = [20, 40, 60, 80, 100, 130, 170];
+const VOL_STEPS    = [10, 20, 40, 70, 110];
+const BIGVOL_STEPS = [20, 50, 90, 130, 180];
+const COVER_STEPS  = [10, 25, 40, 55, 70, 85];
+// below this the pixel is bare ground (fresh clear-cut, field edge), not a
+// half-open grassy spot — used as the floor of ukonsieni's canopy band
+const MIN_COVER = 10;
 
 /* ================= SLD mask builders ================= */
 function sldWrap(layerName, colorMap) {
@@ -307,15 +324,25 @@ function sldWrap(layerName, colorMap) {
 }
 // pixels whose raw value is in `values` -> opaque, everything else transparent
 function maskValues(layerName, values, color) {
-  const entries = values.map(v => '<ColorMapEntry quantity="' + v + '" color="' + color + '" opacity="1"/>').join("");
+  const entries = values.map(v => '<ColorMapEntry quantity="' + v + '" color="' + (color || "#ff0000") + '" opacity="1"/>').join("");
   return sldWrap(layerName, '<ColorMap type="values">' + entries + '</ColorMap>');
 }
-// pixels with raw value in [min, 255) -> opaque (255 = "no data" excluded)
+// pixels with raw value in (min, 255] -> opaque; no-data stays transparent
 function maskMin(layerName, min, color) {
   return sldWrap(layerName,
     '<ColorMap type="intervals">' +
     '<ColorMapEntry quantity="' + min + '" color="#000000" opacity="0"/>' +
-    '<ColorMapEntry quantity="255" color="' + color + '" opacity="1"/>' +
+    '<ColorMapEntry quantity="255" color="' + (color || "#ff0000") + '" opacity="1"/>' +
+    '</ColorMap>');
+}
+// pixels with raw value in (lo, hi] -> opaque; no-data stays transparent.
+// lo = -1 gives a plain "at most hi" mask.
+function maskRange(layerName, lo, hi, color) {
+  return sldWrap(layerName,
+    '<ColorMap type="intervals">' +
+    '<ColorMapEntry quantity="' + lo + '" color="#000000" opacity="0"/>' +
+    '<ColorMapEntry quantity="' + hi + '" color="' + (color || "#ff0000") + '" opacity="1"/>' +
+    '<ColorMapEntry quantity="255" color="#000000" opacity="0"/>' +
     '</ColorMap>');
 }
 function wmsURL(layerName, sld, bbox, w, h) {
@@ -325,12 +352,6 @@ function wmsURL(layerName, sld, bbox, w, h) {
     "&width=" + w + "&height=" + h +
     "&format=image/png&transparent=true" +
     "&SLD_BODY=" + encodeURIComponent(sld);
-}
-function siteClasses() {
-  const v = [5];
-  if (settings.kuivahko) v.push(4);
-  if (settings.karukko) v.push(6);
-  return v;
 }
 function loadImg(url) {
   return new Promise((res, rej) => {
@@ -342,11 +363,243 @@ function loadImg(url) {
   });
 }
 
-/* ================= matsutake composite layer =================
-   For every map tile, fetch 4 server-styled binary masks
-   (site class, mineral soil, min age, min pine volume) and keep
-   only the pixels present in ALL of them. */
-const MatsutakeLayer = L.GridLayer.extend({
+/* ================= species registry =================
+   Each species turns its user settings into
+     · `conditions`: AND-groups of masks (members of a group are OR'd), and
+     · `metrics`:    the same thresholds re-expressed for the tap readout.
+   Adding a mushroom means adding one entry here — nothing else. */
+const cond = (layer, sld) => ({ layer, sld });
+
+const SPECIES = [
+{
+  key: "matsutake",
+  emoji: "🍄",
+  name: "Matsutake",
+  latin: "Tricholoma matsutake",
+  tagline: "vanha kuiva mäntykangas",
+  legend: "matsutake-tyypin metsä",
+  primeSite: 5,
+  verdicts: {
+    hit: "Lupaava matsutake-paikka!",
+    hitAlt: "Lupaava paikka (karu kangas)",
+    stand: "Oikea metsätyyppi — puusto ei täytä ehtoja",
+    miss: "Ei matsutake-tyyppiä",
+  },
+  defaults: { minAge: 60, minPine: 20, kuivahko: false, karukko: true },
+  controls: [
+    { type: "range", key: "minAge",  label: "Puuston ikä vähintään", min: 40, max: 120, step: 5, unit: " v" },
+    { type: "range", key: "minPine", label: "Mäntyä vähintään",      min: 0,  max: 120, step: 5, unit: " m³/ha" },
+    { type: "toggle", key: "kuivahko", label: "Myös kuivahko kangas", hint: "löyhempi haku (puolukkatyyppi)" },
+    { type: "toggle", key: "karukko",  label: "Myös karukkokangas",   hint: "jäkäläkankaat mukaan" },
+  ],
+  siteClasses: c => [5].concat(c.kuivahko ? [4] : [], c.karukko ? [6] : []),
+  conditions(c) {
+    const g = [
+      [cond(LAYER.site, maskValues(LAYER.site, this.siteClasses(c)))],
+      [cond(LAYER.main, maskValues(LAYER.main, [1]))],
+      [cond(LAYER.age,  maskMin(LAYER.age, c.minAge))],
+    ];
+    if (c.minPine > 0) g.push([cond(LAYER.pine, maskMin(LAYER.pine, c.minPine))]);
+    return g;
+  },
+  metrics(c) {
+    return [
+      { label: "Puuston ikä", dir: "min", limit: c.minAge,  unit: "v",     steps: AGE_STEPS, any: [{ layer: LAYER.age }] },
+      { label: "Mäntyä",      dir: "min", limit: c.minPine, unit: "m³/ha", steps: VOL_STEPS, any: [{ layer: LAYER.pine }] },
+    ];
+  },
+  helpers: [
+    { label: "Kuiva kangas (kaikki iät)", make: () => helperLayer(LAYER.site, maskValues(LAYER.site, [5], "#ff9d2e")) },
+    { label: "Vanha metsä (kaikki tyypit)", make: () => helperLayer(LAYER.age, maskMin(LAYER.age, 60, "#2e86ff")) },
+  ],
+  slopeGood: s => s.deg >= 2,
+  region: lat => lat >= 66 ? "Lappi — paras alue 🌟" :
+                 lat >= 64 ? "pohjoinen — hyvä alue" :
+                 lat >= 62 ? "keskimaa — mahdollinen" : "etelä — harvinaisempi",
+  info:
+    '<h2>🍄 Matsutake eli tuoksuvalmuska</h2>' +
+    '<p><b>Tricholoma matsutake</b> kasvaa Suomessa vanhoissa männiköissä kuivilla ja ' +
+    'karuilla kankailla. Kartan pinkit alueet ovat metsiä, joissa <b>kaikki</b> valitut ehdot täyttyvät:</p>' +
+    '<p>✔️ kasvupaikka on <b>kuiva kangas</b> (kanervatyyppi) tai karukkokangas — kivennäismaalla<br>' +
+    '✔️ puusto on vanhaa (oletus ≥ 60 v)<br>✔️ mäntyä on riittävästi</p>' +
+    '<p>Jäkäläiset, valoisat ja hieman rinteiset paikat ovat parhaita — tarkista rinne napauttamalla ' +
+    'karttaa. Mitä pohjoisempana, sitä varmempi esiintyminen: Lappi ja Koillismaa ovat Suomen parasta ' +
+    'matsutake-aluetta, mutta lajia löytyy karuilta mäntykankailta koko maasta.</p>' +
+    '<h3>Satokausi</h3>' +
+    '<p>Pohjois-Suomi: elokuun loppu – syyskuu.<br>Etelä-Suomi: syyskuu – lokakuun alku.<br>' +
+    'Itiöemät kasvavat usein puoliksi maan/jäkälän alla — katso kohoumia!</p>',
+},
+{
+  key: "herkkutatti",
+  emoji: "🌰",
+  name: "Herkkutatti",
+  latin: "Boletus edulis",
+  tagline: "tuore kuusikangas",
+  legend: "herkkutattimetsä",
+  primeSite: 3,
+  verdicts: {
+    hit: "Lupaava herkkutattimetsä!",
+    hitAlt: "Lupaava paikka (muu kangastyyppi)",
+    stand: "Oikea kasvupaikka — puusto ei täytä ehtoja",
+    miss: "Ei herkkutattityyppiä",
+  },
+  defaults: { minAge: 45, minSpruce: 130, minCover: 75, lehtomainen: true, kuivahko: false, pineToo: false },
+  controls: [
+    { type: "range", key: "minSpruce", label: "Kuusta vähintään",      min: 0,  max: 200, step: 10, unit: " m³/ha" },
+    { type: "range", key: "minCover",  label: "Latvuspeitto vähintään", hint: "tiheä varjoisa kuusikko, ohut sammalpeite", min: 0, max: 90, step: 5, unit: " %" },
+    { type: "range", key: "minAge",    label: "Puuston ikä vähintään", min: 20, max: 120, step: 5, unit: " v" },
+    { type: "toggle", key: "lehtomainen", label: "Myös lehtomainen kangas", hint: "ravinteikkaampi käenkaali–mustikkatyyppi" },
+    { type: "toggle", key: "kuivahko",    label: "Myös kuivahko kangas",    hint: "puolukkatyypin männiköt mukaan" },
+    { type: "toggle", key: "pineToo",     label: "Myös männiköt",           hint: "mänty kelpaa kuusen sijaan isäntäpuuksi" },
+  ],
+  siteClasses: c => [3].concat(c.lehtomainen ? [2] : [], c.kuivahko ? [4] : []),
+  conditions(c) {
+    const g = [
+      [cond(LAYER.site, maskValues(LAYER.site, this.siteClasses(c)))],
+      [cond(LAYER.main, maskValues(LAYER.main, [1]))],
+      [cond(LAYER.age,  maskMin(LAYER.age, c.minAge))],
+    ];
+    if (c.minCover > 0) g.push([cond(LAYER.cover, maskMin(LAYER.cover, c.minCover))]);
+    if (c.minSpruce > 0) {
+      const host = [cond(LAYER.spruce, maskMin(LAYER.spruce, c.minSpruce))];
+      if (c.pineToo) host.push(cond(LAYER.pine, maskMin(LAYER.pine, c.minSpruce)));
+      g.push(host);
+    }
+    return g;
+  },
+  metrics(c) {
+    const host = [{ layer: LAYER.spruce, label: "Kuusta" }];
+    if (c.pineToo) host.push({ layer: LAYER.pine, label: "Mäntyä" });
+    return [
+      { label: "Puuston ikä",  dir: "min", limit: c.minAge,    unit: "v",     steps: AGE_STEPS,   any: [{ layer: LAYER.age }] },
+      { label: "Kuusta",       dir: "min", limit: c.minSpruce, unit: "m³/ha", steps: BIGVOL_STEPS, any: host },
+      { label: "Latvuspeitto", dir: "min", limit: c.minCover,  unit: "%",     steps: COVER_STEPS, any: [{ layer: LAYER.cover }] },
+    ];
+  },
+  helpers: [
+    { label: "Kuusivaltainen metsä", make: () => helperLayer(LAYER.spruce, maskMin(LAYER.spruce, 60, "#2e86ff")) },
+    { label: "Tuore kangas (kaikki iät)", make: () => helperLayer(LAYER.site, maskValues(LAYER.site, [3], "#ff9d2e")) },
+  ],
+  slopeGood: null,
+  region: lat => lat >= 68 ? "pohjoisin Lappi — harvinainen" :
+                 lat >= 65 ? "pohjoinen — mahdollinen" :
+                 "etelä ja keskiosa — parasta aluetta 🌟",
+  info:
+    '<h2>🌰 Herkkutatti</h2>' +
+    '<p><b>Boletus edulis</b> on kuusen sienijuurikumppani — myös männyn ja koivun. ' +
+    'Parhaat paikat ovat tuoreet ja lehtomaiset kangasmetsät, joissa maassa on ' +
+    'neulaskariketta ja vain ohut sammalpeite. Kartan pinkit alueet täyttävät <b>kaikki</b> valitut ehdot:</p>' +
+    '<p>✔️ kasvupaikka on <b>tuore kangas</b> (mustikkatyyppi) tai lehtomainen kangas — kivennäismaalla<br>' +
+    '✔️ kuusta on riittävästi (tai mäntyä, jos "myös männiköt" on päällä)<br>' +
+    '✔️ puusto on vähintään valitun ikäistä</p>' +
+    '<p>Tähyile <b>kuusikoiden reunoja, polkujen ja metsäautoteiden varsia sekä harventamattomia ' +
+    'istutuskuusikoita</b> — ensiharvennus vähentää tattisatoa selvästi. Herkkutatti karttaa soita ja ' +
+    'märkiä painanteita, joten suokuviot on rajattu pois.</p>' +
+    '<h3>Satokausi</h3>' +
+    '<p>Heinäkuun lopusta lokakuulle, runsaimmin elo–syyskuussa. ' +
+    'Sateisina kesinä ensimmäiset voi löytää jo kesäkuussa.</p>' +
+    '<h3>Levinneisyys</h3>' +
+    '<p>Lähes koko maassa; yleisin Etelä- ja Keski-Suomessa, pohjoisimmassa Lapissa harvinainen.</p>',
+},
+{
+  key: "ukonsieni",
+  emoji: "☂️",
+  name: "Ukonsieni",
+  latin: "Macrolepiota procera",
+  tagline: "valoisa lehtomainen reuna",
+  legend: "ukonsienen tyyppipaikka",
+  primeSite: 1,
+  maxLat: 66.5, // pohjoisimmat havainnot Perä-Pohjanmaalta
+  verdicts: {
+    hit: "Lupaava ukonsienipaikka!",
+    hitAlt: "Mahdollinen ukonsienipaikka",
+    stand: "Oikea kasvupaikka — puusto liian tiheää",
+    miss: "Ei ukonsienityyppiä",
+  },
+  defaults: { maxCover: 40, tuore: false, leafy: false },
+  controls: [
+    { type: "range", key: "maxCover", label: "Latvuspeitto enintään", hint: "puoliavoin: 10 % … valittu raja", min: 20, max: 90, step: 5, unit: " %" },
+    { type: "toggle", key: "tuore", label: "Myös tuore kangas", hint: "löyhempi haku (mustikkatyyppi)" },
+    { type: "toggle", key: "leafy", label: "Vain lehtipuuvaltainen", hint: "lehtipuiden latvuspeitto ≥ 20 %" },
+  ],
+  siteClasses: c => [1, 2].concat(c.tuore ? [3] : []),
+  conditions(c) {
+    const g = [
+      [cond(LAYER.site,  maskValues(LAYER.site, this.siteClasses(c)))],
+      [cond(LAYER.main,  maskValues(LAYER.main, [1]))],
+      [cond(LAYER.cover, maskRange(LAYER.cover, MIN_COVER, c.maxCover))],
+    ];
+    if (c.leafy) g.push([cond(LAYER.bcover, maskMin(LAYER.bcover, 20))]);
+    return g;
+  },
+  metrics(c) {
+    return [
+      { label: "Latvuspeitto", dir: "range", lo: MIN_COVER, limit: c.maxCover, unit: "%", steps: COVER_STEPS, any: [{ layer: LAYER.cover }] },
+      { label: "Lehtipuustoa", dir: "min", limit: 20, unit: "%", steps: COVER_STEPS, any: [{ layer: LAYER.bcover }], soft: !c.leafy },
+    ];
+  },
+  helpers: [
+    { label: "Lehdot ja lehtomaiset kankaat", make: () => helperLayer(LAYER.site, maskValues(LAYER.site, [1, 2], "#ff9d2e")) },
+    { label: "Aukot ja harva puusto (< 30 %)", make: () => helperLayer(LAYER.cover, maskRange(LAYER.cover, -1, 30, "#2e86ff")) },
+  ],
+  slopeGood: null,
+  region: lat => lat <= 62 ? "Etelä-Suomi — parasta aluetta 🌟" :
+                 lat <= 64.5 ? "keskimaa — harvinaisempi" :
+                 lat <= 66.5 ? "pohjoinen — hyvin harvinainen" :
+                 "Lapin puolella ei havaintoja",
+  info:
+    '<h2>☂️ Ukonsieni</h2>' +
+    '<p><b>Macrolepiota procera</b> ei ole sienijuurisieni vaan lahottaja: se viihtyy ' +
+    '<b>ravinteisella maalla ruohoisissa ja valoisissa paikoissa</b> — lehtojen ja lehtomaisten ' +
+    'kankaiden reunoilla, metsäniityillä, hakamailla, pientareilla, puutarhoissa ja puistonurmikoilla.</p>' +
+    '<p>✔️ kasvupaikka on <b>lehto tai lehtomainen kangas</b> — kivennäismaalla<br>' +
+    '✔️ puusto on harvaa tai aukkoista (latvuspeitto enintään valittu raja)<br>' +
+    '✔️ halutessasi lisäksi lehtipuuvaltainen</p>' +
+    '<p><b>Huom:</b> parhaat ukonsienipaikat — pientareet, hakamaat, pihat ja niityt — eivät ole ' +
+    'metsävara-aineistossa lainkaan. Käytä karttaa <b>suunnan</b> antajana ja etsi pinkkien kuvioiden ' +
+    '<b>reunoja ja aukkoja</b>, älä niiden keskustaa.</p>' +
+    '<h3>Satokausi</h3>' +
+    '<p>Elo–syyskuu. Sadon runsaus vaihtelee vuosittain hyvin paljon.</p>' +
+    '<h3>Levinneisyys</h3>' +
+    '<p>Yleinen Etelä-Suomessa, harvinaistuu nopeasti pohjoiseen; pohjoisimmat havainnot ' +
+    'Perä-Pohjanmaalta. Kartta ei siksi piirrä kuvioita 66,5° N pohjoispuolelle.</p>',
+},
+];
+
+/* ================= state ================= */
+const STORE_KEY = "matsutakego.v2";
+const state = { species: SPECIES[0].key, cfg: {}, opacity: 0.75 };
+SPECIES.forEach(s => { state.cfg[s.key] = Object.assign({}, s.defaults); });
+
+function sp()  { return SPECIES.find(s => s.key === state.species) || SPECIES[0]; }
+function cfg() { return state.cfg[state.species]; }
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return;
+    const j = JSON.parse(raw);
+    if (j.species && SPECIES.some(s => s.key === j.species)) state.species = j.species;
+    if (typeof j.opacity === "number") state.opacity = j.opacity;
+    SPECIES.forEach(s => {
+      if (j.cfg && j.cfg[s.key]) Object.keys(s.defaults).forEach(k => {
+        if (j.cfg[s.key][k] !== undefined) state.cfg[s.key][k] = j.cfg[s.key][k];
+      });
+    });
+  } catch (e) { /* private mode / corrupt value — defaults are fine */ }
+}
+function save() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
+}
+load();
+
+/* ================= composite spot layer =================
+   For every map tile, fetch one server-styled binary mask per condition
+   (a condition with several members is unioned first) and keep only the
+   pixels present in ALL conditions. */
+const y3857ToLat = y => (2 * Math.atan(Math.exp(y / R_EARTH)) - Math.PI / 2) * 180 / Math.PI;
+
+const SpotLayer = L.GridLayer.extend({
   createTile(coords, done) {
     const tile = document.createElement("canvas");
     const size = this.getTileSize();
@@ -356,21 +609,35 @@ const MatsutakeLayer = L.GridLayer.extend({
     const x0 = -R3857 + coords.x * w, y1 = R3857 - coords.y * w;
     const bbox = [x0, y1 - w, x0 + w, y1];
 
-    const urls = [
-      wmsURL(LAYER.site, maskValues(LAYER.site, siteClasses(), "#ff0000"), bbox, size.x, size.y),
-      wmsURL(LAYER.main, maskValues(LAYER.main, [1], "#ff0000"), bbox, size.x, size.y),
-      wmsURL(LAYER.age,  maskMin(LAYER.age, settings.minAge, "#ff0000"), bbox, size.x, size.y),
-    ];
-    if (settings.minPine > 0)
-      urls.push(wmsURL(LAYER.pine, maskMin(LAYER.pine, settings.minPine, "#ff0000"), bbox, size.x, size.y));
+    const species = sp(), c = cfg();
+    // species outside its range: draw nothing rather than pretend
+    if (species.maxLat != null && y3857ToLat(y1 - w) > species.maxLat) {
+      setTimeout(() => done(null, tile), 0);
+      return tile;
+    }
 
-    Promise.all(urls.map(loadImg)).then(imgs => {
-      const off = document.createElement("canvas");
-      off.width = size.x; off.height = size.y;
-      const octx = off.getContext("2d");
-      octx.drawImage(imgs[0], 0, 0);
-      octx.globalCompositeOperation = "destination-in"; // intersect alpha
-      for (let i = 1; i < imgs.length; i++) octx.drawImage(imgs[i], 0, 0);
+    const groups = species.conditions(c);
+    const scratch = () => {
+      const cv = document.createElement("canvas");
+      cv.width = size.x; cv.height = size.y;
+      return cv;
+    };
+
+    Promise.all(groups.map(g =>
+      Promise.all(g.map(m => loadImg(wmsURL(m.layer, m.sld, bbox, size.x, size.y))))
+    )).then(imgGroups => {
+      // OR inside a group
+      const unions = imgGroups.map(imgs => {
+        if (imgs.length === 1) return imgs[0];
+        const cv = scratch(), cx = cv.getContext("2d");
+        imgs.forEach(im => cx.drawImage(im, 0, 0)); // source-over = alpha union
+        return cv;
+      });
+      // AND across groups
+      const off = scratch(), octx = off.getContext("2d");
+      octx.drawImage(unions[0], 0, 0);
+      octx.globalCompositeOperation = "destination-in";
+      for (let i = 1; i < unions.length; i++) octx.drawImage(unions[i], 0, 0);
       octx.globalCompositeOperation = "source-in";      // recolor result
       octx.fillStyle = SPOT_COLOR;
       octx.fillRect(0, 0, size.x, size.y);
@@ -400,13 +667,12 @@ const basemaps = {
 };
 let currentBasemap = basemaps.osm.addTo(map);
 
-const spots = new MatsutakeLayer({ opacity: settings.opacity, maxZoom: 19 }).addTo(map);
+const spots = new SpotLayer({ opacity: state.opacity, maxZoom: 19 }).addTo(map);
 spots.on("loading", () => document.getElementById("spinner").classList.add("on"));
 spots.on("load",    () => document.getElementById("spinner").classList.remove("on"));
 
 // optional helper overlays (single-condition, server-styled)
-let layerKangas = null, layerVanha = null;
-function makeHelperLayer(layerName, sld) {
+function helperLayer(layerName, sld) {
   return L.tileLayer.wms(WMS, {
     layers: layerName, format: "image/png", transparent: true,
     version: "1.1.1", opacity: 0.45, SLD_BODY: sld,
@@ -470,9 +736,11 @@ async function probe(layerName, sld, latlng) {
   return ctx.getImageData(1, 1, 1, 1).data[3] >= 200;
 }
 const probeValues = (layer, values, ll) =>
-  probe(layer, maskValues(layer, values, "#ff0000"), ll).catch(() => null);
+  probe(layer, maskValues(layer, values), ll).catch(() => null);
 const probeMin = (layer, min, ll) =>
-  probe(layer, maskMin(layer, min, "#ff0000"), ll).catch(() => null);
+  probe(layer, maskMin(layer, min), ll).catch(() => null);
+const probeRange = (layer, lo, hi, ll) =>
+  probe(layer, maskRange(layer, lo, hi), ll).catch(() => null);
 
 // exact class via parallel single-value probes; null if none match
 async function readClass(layerName, candidates, latlng) {
@@ -489,6 +757,18 @@ async function readBracket(layerName, steps, latlng) {
   }
   if (lo == null) return hits[0] === false ? { below: steps[0] } : null;
   return { lo, hi };
+}
+// one metric: does any of its alternative layers clear the threshold?
+async function readMetric(m, latlng) {
+  const alts = await Promise.all(m.any.map(async a => {
+    const [pass, val] = await Promise.all([
+      m.dir === "range" ? probeRange(a.layer, m.lo, m.limit, latlng)
+                        : probeMin(a.layer, m.limit, latlng),
+      readBracket(a.layer, m.steps, latlng),
+    ]);
+    return { label: a.label || m.label, pass, val };
+  }));
+  return { m, alts, ok: alts.some(a => a.pass === true) };
 }
 
 async function readSlope(latlng) {
@@ -514,33 +794,30 @@ async function readSlope(latlng) {
   finally { clearTimeout(t); }
 }
 
-function checkRow(state, label, value) {
-  const mark = state === "ok" ? "✔" : state === "no" ? "✘" : "•";
-  return '<div class="c"><span class="mark ' + state + '">' + mark + '</span>' +
+function checkRow(state_, label, value) {
+  const mark = state_ === "ok" ? "✔" : state_ === "no" ? "✘" : "•";
+  return '<div class="c"><span class="mark ' + state_ + '">' + mark + '</span>' +
          '<span class="k">' + label + '</span><span class="v">' + value + '</span></div>';
 }
 
 async function inspect(latlng) {
+  const species = sp(), c = cfg();
   const body = document.getElementById("resultBody");
   body.innerHTML = '<div class="result-head"><span class="big">🔎</span>' +
     '<div><div class="verdict">Tutkitaan paikkaa…</div>' +
     '<div class="sub">' + latlng.lat.toFixed(5) + "° N, " + latlng.lng.toFixed(5) + "° E</div></div></div>";
   openSheet("sheetResult");
 
-  const AGE_STEPS = [20, 40, 60, 80, 100, 130, 170];
-  const PINE_STEPS = [10, 20, 40, 70, 110];
-  const [site, mineral, mire, ageOkP, pineOkP, age, pine, slope] = await Promise.all([
-    readClass(LAYER.site, [1,2,3,4,5,6,7,8,9,10], latlng),
+  const metrics = species.metrics(c);
+  const [site, mineral, mire, slope, results] = await Promise.all([
+    readClass(LAYER.site, SITE_CANDIDATES, latlng),
     probeValues(LAYER.main, [1], latlng),
-    probeValues(LAYER.main, [2,3,4], latlng),
-    probeMin(LAYER.age, settings.minAge, latlng),
-    settings.minPine > 0 ? probeMin(LAYER.pine, settings.minPine, latlng) : true,
-    readBracket(LAYER.age, AGE_STEPS, latlng),
-    readBracket(LAYER.pine, PINE_STEPS, latlng),
+    probeValues(LAYER.main, [2, 3, 4], latlng),
     readSlope(latlng),
+    Promise.all(metrics.map(m => readMetric(m, latlng))),
   ]);
 
-  if (site == null && age == null) {
+  if (site == null && results.every(r => r.alts.every(a => a.val == null))) {
     body.innerHTML = '<div class="result-head"><span class="big">🌊</span>' +
       '<div><div class="verdict">Ei metsätietoa tässä kohdassa</div>' +
       '<div class="sub">vesistö, pelto, rakennettu alue — tai yhteysvirhe</div></div></div>';
@@ -552,35 +829,42 @@ async function inspect(latlng) {
     b.hi == null ? "yli " + b.lo + " " + unit :
     b.lo + "–" + b.hi + " " + unit;
 
-  const wanted = siteClasses();
+  const wanted = species.siteClasses(c);
   const siteOk = site != null && wanted.includes(site) && mineral === true;
-  const perfectSite = site === 5 && mineral === true;
-  const ageOk = ageOkP === true;
-  const pineOk = pineOkP === true;
-  const slopeOk = slope && slope.deg >= 2;
-  const north = latlng.lat >= 66 ? "Lappi — paras alue 🌟" :
-                latlng.lat >= 64 ? "pohjoinen — hyvä alue" :
-                latlng.lat >= 62 ? "keskimaa — mahdollinen" : "etelä — harvinaisempi";
+  const primeSite = site === species.primeSite && mineral === true;
+  const hard = results.filter(r => !r.m.soft);
+  const standOk = hard.every(r => r.ok);
+  const slopeOk = slope && species.slopeGood ? species.slopeGood(slope) : false;
+  const outOfRange = species.maxLat != null && latlng.lat > species.maxLat;
 
   let icon, verdict;
-  if (siteOk && ageOk && pineOk) {
-    icon = "🍄"; verdict = perfectSite ? "Lupaava matsutake-paikka!" : "Lupaava paikka (karu kangas)";
-  } else if (siteOk) { icon = "🌲"; verdict = "Oikea metsätyyppi — puusto ei täytä ehtoja"; }
-  else { icon = "❌"; verdict = "Ei matsutake-tyyppiä"; }
+  if (siteOk && standOk && !outOfRange) {
+    icon = species.emoji;
+    verdict = primeSite ? species.verdicts.hit : species.verdicts.hitAlt;
+  } else if (siteOk) { icon = "🌲"; verdict = species.verdicts.stand; }
+  else { icon = "❌"; verdict = species.verdicts.miss; }
 
   let html = '<div class="result-head"><span class="big">' + icon + '</span>' +
     '<div><div class="verdict">' + verdict + '</div>' +
-    '<div class="sub">' + latlng.lat.toFixed(5) + "° N, " + latlng.lng.toFixed(5) + "° E · " + north + '</div></div></div>' +
+    '<div class="sub">' + latlng.lat.toFixed(5) + "° N, " + latlng.lng.toFixed(5) + "° E · " +
+    species.region(latlng.lat) + '</div></div></div>' +
     '<div class="checks">';
 
   html += checkRow(siteOk ? "ok" : "no", "Kasvupaikka",
     site != null ? (SITE_NAMES[site] || "tuntematon") + (mire === true ? " (suo)" : "") : "ei tietoa");
   html += checkRow(mineral === true ? "ok" : mire === true ? "no" : "meh", "Maapohja",
     mineral === true ? "kivennäismaa" : mire === true ? "suo" : "ei tietoa");
-  html += checkRow(ageOk ? "ok" : "no", "Puuston ikä (≥ " + settings.minAge + " v)",
-    fmtBracket(age, "v"));
-  html += checkRow(pineOk ? "ok" : "no", "Mäntyä (≥ " + settings.minPine + " m³/ha)",
-    fmtBracket(pine, "m³/ha"));
+
+  results.forEach(r => {
+    const want = r.m.dir === "range"
+      ? Math.max(r.m.lo, 0) + "–" + r.m.limit + " " + r.m.unit
+      : "≥ " + r.m.limit + " " + r.m.unit;
+    r.alts.forEach(a => {
+      const st = a.pass === true ? "ok" : (r.m.soft || r.ok) ? "meh" : "no";
+      html += checkRow(st, a.label + " (" + want + ")", fmtBracket(a.val, r.m.unit));
+    });
+  });
+
   html += checkRow(slope ? (slopeOk ? "ok" : "meh") : "meh", "Rinne",
     slope ? (slope.deg < 1 ? "tasainen" : slope.deg.toFixed(1) + "° " + slope.dir) : "ei tietoa");
   html += "</div>";
@@ -595,17 +879,25 @@ map.on("click", e => inspect(e.latlng));
 /* ================= UI plumbing ================= */
 const sheets = ["sheetSettings", "sheetInfo", "sheetResult"];
 const backdrop = document.getElementById("backdrop");
+const modalSpecies = document.getElementById("modalSpecies");
 function openSheet(id) {
   sheets.forEach(s => document.getElementById(s).classList.toggle("open", s === id));
+  modalSpecies.classList.remove("open");
   backdrop.classList.add("on");
 }
-function closeSheets() {
+function closeOverlays() {
   sheets.forEach(s => document.getElementById(s).classList.remove("open"));
+  modalSpecies.classList.remove("open");
   backdrop.classList.remove("on");
 }
-backdrop.addEventListener("click", closeSheets);
+backdrop.addEventListener("click", closeOverlays);
 document.getElementById("btnLayers").addEventListener("click", () => openSheet("sheetSettings"));
 document.getElementById("btnInfo").addEventListener("click", () => openSheet("sheetInfo"));
+document.getElementById("btnSpecies").addEventListener("click", () => {
+  sheets.forEach(s => document.getElementById(s).classList.remove("open"));
+  modalSpecies.classList.add("open");
+  backdrop.classList.add("on");
+});
 
 let toastTimer = null;
 function toast(msg) {
@@ -616,35 +908,120 @@ function toast(msg) {
   toastTimer = setTimeout(() => el.classList.remove("on"), 3500);
 }
 
-// settings wiring — redraw the composite layer when filters change
 let redrawTimer = null;
 function refreshSpots() {
   clearTimeout(redrawTimer);
   redrawTimer = setTimeout(() => spots.redraw(), 350);
 }
-const rngAge = document.getElementById("rngAge");
-rngAge.addEventListener("input", () => {
-  settings.minAge = +rngAge.value;
-  document.getElementById("valAge").textContent = settings.minAge + " v";
-  refreshSpots();
-});
-const rngPine = document.getElementById("rngPine");
-rngPine.addEventListener("input", () => {
-  settings.minPine = +rngPine.value;
-  document.getElementById("valPine").textContent = settings.minPine + " m³/ha";
-  refreshSpots();
-});
-document.getElementById("chkKuivahko").addEventListener("change", e => {
-  settings.kuivahko = e.target.checked; refreshSpots();
-});
-document.getElementById("chkKarukko").addEventListener("change", e => {
-  settings.karukko = e.target.checked; refreshSpots();
-});
+
+/* ---- species picker ---- */
+function renderSpeciesList() {
+  const host = document.getElementById("speciesList");
+  host.innerHTML = "";
+  SPECIES.forEach(s => {
+    const b = document.createElement("button");
+    b.className = "sp" + (s.key === state.species ? " active" : "");
+    b.innerHTML = '<span class="e">' + s.emoji + '</span>' +
+      '<span><span class="n">' + s.name + '</span><br>' +
+      '<span class="d">' + s.latin + ' · ' + s.tagline + '</span></span>';
+    b.addEventListener("click", () => { selectSpecies(s.key); closeOverlays(); });
+    host.appendChild(b);
+  });
+}
+function selectSpecies(key) {
+  if (key === state.species) return;
+  state.species = key;
+  save();
+  clearHelpers();
+  applySpecies();
+  spots.redraw();
+  toast(sp().emoji + " " + sp().name + " — " + sp().tagline);
+}
+
+/* ---- per-species filter controls ---- */
+function renderControls() {
+  const s = sp(), c = cfg();
+  const host = document.getElementById("speciesFilters");
+  host.innerHTML = "";
+  s.controls.forEach(ct => {
+    const row = document.createElement("div");
+    row.className = "row";
+    const lbl = '<label>' + ct.label + (ct.hint ? '<br><small>' + ct.hint + '</small>' : '') + '</label>';
+    if (ct.type === "range") {
+      row.innerHTML = lbl +
+        '<input type="range" min="' + ct.min + '" max="' + ct.max + '" step="' + ct.step + '">' +
+        '<span class="val"></span>';
+      const inp = row.querySelector("input"), val = row.querySelector(".val");
+      inp.value = c[ct.key];
+      const paint = () => { val.textContent = c[ct.key] + ct.unit; };
+      paint();
+      inp.addEventListener("input", () => {
+        c[ct.key] = +inp.value; paint(); save(); refreshSpots();
+      });
+    } else {
+      row.innerHTML = lbl + '<label class="switch"><input type="checkbox"><i></i></label>';
+      const inp = row.querySelector("input");
+      inp.checked = !!c[ct.key];
+      inp.addEventListener("change", () => {
+        c[ct.key] = inp.checked; save(); refreshSpots();
+      });
+    }
+    host.appendChild(row);
+  });
+}
+
+/* ---- per-species helper overlays ---- */
+let activeHelpers = [];
+function clearHelpers() {
+  activeHelpers.forEach(l => map.removeLayer(l));
+  activeHelpers = [];
+}
+function renderHelpers() {
+  const s = sp();
+  const host = document.getElementById("helperLayers");
+  host.innerHTML = "";
+  s.helpers.forEach(h => {
+    const row = document.createElement("div");
+    row.className = "row";
+    row.innerHTML = '<label>' + h.label + '</label>' +
+      '<label class="switch"><input type="checkbox"><i></i></label>';
+    const inp = row.querySelector("input");
+    let layer = null;
+    inp.addEventListener("change", () => {
+      if (inp.checked) {
+        layer = layer || h.make();
+        layer.addTo(map);
+        activeHelpers.push(layer);
+      } else if (layer) {
+        map.removeLayer(layer);
+        activeHelpers = activeHelpers.filter(l => l !== layer);
+      }
+    });
+    host.appendChild(row);
+  });
+}
+
+function applySpecies() {
+  const s = sp();
+  document.getElementById("appTitle").textContent = s.emoji + " " + s.name + " GO";
+  document.getElementById("btnSpecies").textContent = s.emoji;
+  document.getElementById("legendText").textContent = s.legend;
+  document.getElementById("filterTitle").textContent = s.name + "-suodatin";
+  document.getElementById("infoBody").innerHTML = s.info;
+  document.title = s.name + " GO " + s.emoji;
+  renderControls();
+  renderHelpers();
+  renderSpeciesList();
+}
+
 const rngOpacity = document.getElementById("rngOpacity");
+rngOpacity.value = Math.round(state.opacity * 100);
+document.getElementById("valOpacity").textContent = rngOpacity.value + " %";
 rngOpacity.addEventListener("input", () => {
-  settings.opacity = +rngOpacity.value / 100;
+  state.opacity = +rngOpacity.value / 100;
   document.getElementById("valOpacity").textContent = rngOpacity.value + " %";
-  spots.setOpacity(settings.opacity);
+  spots.setOpacity(state.opacity);
+  save();
 });
 
 document.getElementById("basemapSeg").addEventListener("click", e => {
@@ -655,18 +1032,7 @@ document.getElementById("basemapSeg").addEventListener("click", e => {
   currentBasemap.bringToBack();
 });
 
-document.getElementById("chkLayerKangas").addEventListener("change", e => {
-  if (e.target.checked) {
-    layerKangas = layerKangas || makeHelperLayer(LAYER.site, maskValues(LAYER.site, [5], "#ff9d2e"));
-    layerKangas.addTo(map);
-  } else if (layerKangas) map.removeLayer(layerKangas);
-});
-document.getElementById("chkLayerVanha").addEventListener("change", e => {
-  if (e.target.checked) {
-    layerVanha = layerVanha || makeHelperLayer(LAYER.age, maskMin(LAYER.age, 60, "#2e86ff"));
-    layerVanha.addTo(map);
-  } else if (layerVanha) map.removeLayer(layerVanha);
-});
+applySpecies();
 
 // zoom hint
 let hinted = false;
@@ -676,7 +1042,17 @@ map.on("zoomend", () => {
     toast("Lähennä karttaa — pinkit alueet tarkentuvat 16 m ruutuihin 🔍");
   }
 });
-setTimeout(() => toast("Napauta karttaa tutkiaksesi paikkaa 🍄"), 1500);
+
+// an empty map north of a species' range would otherwise look broken
+let rangeToastAt = 0;
+map.on("moveend", () => {
+  const s = sp();
+  if (s.maxLat == null || map.getBounds().getSouth() <= s.maxLat) return;
+  if (Date.now() - rangeToastAt < 30000) return;
+  rangeToastAt = Date.now();
+  toast(s.name + " ei kasva näin pohjoisessa — kartta on siksi tyhjä");
+});
+setTimeout(() => toast("Napauta karttaa tutkiaksesi paikkaa " + sp().emoji), 1500);
 </script>
 </body>
 </html>

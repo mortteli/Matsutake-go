@@ -1,34 +1,55 @@
 # 🍄 Matsutake GO
 
-Mobiilikäyttöön tehty karttasovellus, joka näyttää **tuoksuvalmuskan (matsutake,
-_Tricholoma matsutake_) potentiaaliset kasvupaikat koko Suomessa** — samaan
-tyyliin kuin Mustikka GO ja muut marjakartat.
+Mobiilikäyttöön tehty karttasovellus, joka näyttää **sienten potentiaaliset
+kasvupaikat koko Suomessa** — samaan tyyliin kuin Mustikka GO ja muut
+marjakartat.
 
-Pinkit alueet kartalla ovat metsiä, joissa **kaikki** ehdot täyttyvät
-(Luken monilähteisen VMI:n 16 m rasteriaineistosta, inventointi 2019–2023):
+Oikean yläkulman napista valitaan, **mitä sientä metsästetään**. Jokaisella
+lajilla on oma ekologiaan perustuva suodattimensa, mutta sama kartta, samat
+värit ja sama napautustarkastelu.
 
-| Ehto | Oletus | Aineistotaso |
+| Sieni | Mitä kartta etsii | Aineistotasot |
 |---|---|---|
-| Kasvupaikka on **kuiva kangas** (lisäksi valittavissa karukko- ja kuivahko kangas) | luokka 5 (+6) | `kasvupaikka_1923` |
-| Maapohja on kivennäismaata (ei suota) | luokka 1 | `paatyyppi_1923` |
-| Puusto on **vanhaa** | ≥ 60 v (säädettävä 40–120) | `ika_1923` |
-| **Mäntyä** on riittävästi | ≥ 20 m³/ha (säädettävä) | `manty_1923` |
+| 🍄 **Matsutake** (tuoksuvalmuska, _Tricholoma matsutake_) | kuiva kangas / karukkokangas · kivennäismaa · vanha puusto · mäntyä | `kasvupaikka`, `paatyyppi`, `ika`, `manty` |
+| 🌰 **Herkkutatti** (_Boletus edulis_) | tuore / lehtomainen kangas · kivennäismaa · runsaasti kuusta · tiheä latvusto | `kasvupaikka`, `paatyyppi`, `ika`, `kuusi` (tai `manty`), `latvuspeitto` |
+| ☂️ **Ukonsieni** (_Macrolepiota procera_) | lehto / lehtomainen kangas · kivennäismaa · puoliavoin, valoisa puusto | `kasvupaikka`, `paatyyppi`, `latvuspeitto`, `lehtip_latvuspeitto` |
 
-Jäkäläisyys korreloi vahvasti karukko-/kuivan kankaan kanssa, joten
-jäkäläkankaat tulevat mukaan kasvupaikkaluokkien kautta. Rinteisyyden voi
-tarkistaa paikkakohtaisesti napauttamalla karttaa (korkeusmalli: Open-Meteo /
-Copernicus DEM) tai silmäilemällä Maasto-taustakartan korkeuskäyriä.
+Kaikki tasot ovat Luken monilähteisen VMI:n 16 m rasteriaineistoa
+(inventointi 2019–2023). Jokaisen lajin rajat ovat säädettävissä livenä
+🗺️-napin takaa; asetukset ja valittu laji muistetaan selaimessa.
+
+### Miksi juuri nämä ehdot
+
+- **Matsutake** kasvaa vanhoissa männiköissä kuivilla ja karuilla kankailla.
+  Jäkäläisyys korreloi vahvasti karukko-/kuivan kankaan kanssa, joten
+  jäkäläkankaat tulevat mukaan kasvupaikkaluokkien kautta.
+- **Herkkutatti** on kuusen (myös männyn ja koivun) sienijuurikumppani ja
+  suosii tuoreita kankaita, joilla maassa on neulaskariketta ja vain ohut
+  sammalpeite. Siksi ehtoina ovat kuusitilavuus *ja* tiheä latvuspeitto —
+  parhaat kohdat ovat näiden kuvioiden reunoilla ja polkujen varsilla.
+  Suokuviot on rajattu pois.
+- **Ukonsieni** on lahottaja, joka viihtyy ravinteisella maalla ruohoisissa
+  ja valoisissa paikoissa. Ehtoina ovat lehto/lehtomainen kangas ja
+  **puoliavoin latvuspeitto** (10 % … valittu yläraja) — täysin paljas
+  hakkuuaukko rajautuu pois. Laji harvinaistuu nopeasti pohjoiseen, joten
+  karttaa ei piirretä 66,5° N pohjoispuolelle.
+
+> **Huom:** parhaat ukonsienipaikat — pientareet, hakamaat, pihat ja niityt —
+> eivät ole metsävara-aineistossa lainkaan. Kartta antaa suunnan; etsi
+> pinkkien kuvioiden reunoja.
 
 ## Ominaisuudet
 
+- 🍄 **Lajivalitsin** oikeassa yläkulmassa: pieni modaali, josta laji vaihtuu
+  yhdellä napautuksella. Kartan otsikko, selite ja tietosivu vaihtuvat mukana.
 - 📍 **GPS-piste** joka seuraa laitteen sijaintia (seuranta katkeaa kun karttaa
   raahaa, palaa päälle napista)
-- 🍄 **Matsutake-taso**: neljä WMS-rasterimaskia yhdistetään selaimessa
+- 🗺️ **Sienitaso**: 3–5 WMS-rasterimaskia yhdistetään selaimessa
   canvas-kompositiolla → näkyviin jäävät vain ruudut, joissa kaikki ehdot
-  täyttyvät. Suodattimet (ikä, mäntymäärä, kasvupaikkaluokat) säädettävissä
-  livenä.
-- 🔎 **Napauta karttaa** → paikan kasvupaikka, ikä, mäntytilavuus, rinteen
-  jyrkkyys ja suunta, pohjoisuusarvio sekä kokonaisarvio + navigointilinkki.
+  täyttyvät. Suodattimet säädettävissä livenä.
+- 🔎 **Napauta karttaa** → paikan kasvupaikka, maapohja, valitun lajin
+  mittarit, rinteen jyrkkyys ja suunta, alue-arvio sekä kokonaisarvio +
+  navigointilinkki.
 - 🗺️ Taustakartat: OpenStreetMap, OpenTopoMap (korkeuskäyrät) ja Esri-satelliitti.
 - 📲 PWA-manifesti → "Lisää aloitusnäytölle" toimii sovelluksen tavoin.
 
@@ -53,11 +74,16 @@ python3 -m http.server 8000
 
 Luken GeoServer (`kartta.luke.fi/geoserver/MVMI/wms`, CORS auki) tukee
 `SLD_BODY`-parametria, jolla rasterin voi uudelleenvärittää pyynnössä.
-Sovellus pyytää jokaiselle karttatiilelle neljä binäärimaskia
-(esim. `kasvupaikka ∈ {5,6}`, `ikä ≥ 60`) ja leikkaa ne yhteen canvasilla
-(`destination-in`). Napautustarkastelu hakee saman rajapinnan kautta 3×3 px
-kuvan, jossa rasterin raaka-arvo on koodattu harmaasävyksi (`ramp 0→255`),
-ja lukee arvon pikselistä.
+Sovellus pyytää jokaiselle karttatiilelle yhden binäärimaskin ehtoa kohden
+(esim. `kasvupaikka ∈ {5,6}`, `ikä ≥ 60`, `latvuspeitto 10–40`) ja leikkaa ne
+yhteen canvasilla (`destination-in`). Saman ehdon vaihtoehdot — esimerkiksi
+"kuusta *tai* mäntyä riittävästi" — yhdistetään ensin unionilla
+(`source-over`). Napautustarkastelu hakee saman rajapinnan kautta 3×3 px
+kuvan ja lukee pikselin läpinäkyvyydestä, täyttyykö ehto.
+
+Uuden sienen lisääminen on yksi merkintä `SPECIES`-taulukkoon `index.html`:ssä:
+laji kuvaa suodattimensa (`conditions`), säätimensä (`controls`), mittarinsa
+(`metrics`) ja tekstinsä — käyttöliittymä rakentuu niistä.
 
 ## Aineistot ja lisenssit
 
@@ -68,4 +94,5 @@ ja lukee arvon pikselistä.
 - Karttakirjasto: [Leaflet](https://leafletjs.com/)
 
 **Vastuuvapaus:** kartta on tilastollinen arvio metsän rakenteesta, ei
-sienihavaintoja. Kunnioita luonnonsuojelualueiden sääntöjä ja jokamiehenoikeuksia.
+sienihavaintoja. Tarkista aina tunnistus itse, kunnioita luonnonsuojelualueiden
+sääntöjä ja jokamiehenoikeuksia.
