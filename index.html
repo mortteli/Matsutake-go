@@ -36,13 +36,17 @@
 
   /* ---------- top bar ---------- */
   .topbar {
-    position: fixed; top: calc(8px + var(--safe-t)); left: 50%; transform: translateX(-50%);
-    z-index: 1000; display: flex; align-items: center; gap: 8px;
-    background: var(--panel); border-radius: 999px; padding: 8px 8px 8px 16px;
-    box-shadow: var(--shadow); max-width: calc(100vw - 120px);
+    /* centred in the space left over by the species button, so a long name
+       ("Suppilovahvero GO") still fits on a narrow phone */
+    position: fixed; top: calc(8px + var(--safe-t)); left: 10px; right: 64px;
+    margin-inline: auto; width: fit-content; max-width: 100%;
+    z-index: 1000; display: flex; align-items: center; gap: 6px;
+    background: var(--panel); border-radius: 999px; padding: 8px 8px 8px 14px;
+    box-shadow: var(--shadow);
   }
-  .topbar .title { font-weight: 700; font-size: 15px; white-space: nowrap; letter-spacing: .2px;
-    overflow: hidden; text-overflow: ellipsis; }
+  /* long names ("Suppilovahvero GO") must still fit the pill on a 360 px phone */
+  .topbar .title { font-weight: 700; font-size: clamp(12.5px, 3.45vw, 15px);
+    white-space: nowrap; letter-spacing: .2px; overflow: hidden; text-overflow: ellipsis; }
   .topbar .spinner {
     width: 14px; height: 14px; border-radius: 50%; flex: 0 0 auto;
     border: 2px solid var(--muted); border-top-color: transparent;
@@ -524,15 +528,15 @@ const SPECIES = [
     stand: "Oikea kasvupaikka — puusto ei täytä ehtoja",
     miss: "Ei kanttarellityyppiä",
   },
-  defaults: { minAge: 50, minHost: 60, minCover: 55, lehtomainen: true, kuivahko: false, korpi: false, pineToo: false },
+  defaults: { minAge: 40, minHost: 40, minCover: 55, lehtomainen: true, kuivahko: true, korpi: false, pineToo: true },
   controls: [
-    { type: "range", key: "minHost",  label: "Kuusta tai koivua vähintään", hint: "kanttarelli on kuusen, koivun ja männyn kumppani", min: 0, max: 150, step: 10, unit: " m³/ha" },
+    { type: "range", key: "minHost",  label: "Isäntäpuuta vähintään", hint: "kuusta, koivua tai mäntyä — mikä tahansa niistä riittää", min: 0, max: 150, step: 10, unit: " m³/ha" },
     { type: "range", key: "minCover", label: "Latvuspeitto vähintään", hint: "puolivarjo pitää sammalpohjan kosteana", min: 0, max: 90, step: 5, unit: " %" },
     { type: "range", key: "minAge",   label: "Puuston ikä vähintään", min: 20, max: 120, step: 5, unit: " v" },
     { type: "toggle", key: "lehtomainen", label: "Myös lehtomainen kangas", hint: "ravinteikkaampi käenkaali–mustikkatyyppi" },
     { type: "toggle", key: "kuivahko",    label: "Myös kuivahko kangas",    hint: "puolukkatyypin männiköt ja koivikot mukaan" },
     { type: "toggle", key: "korpi",       label: "Myös korvet",             hint: "kosteat korpikuviot ja ojanvarret mukaan" },
-    { type: "toggle", key: "pineToo",     label: "Myös männiköt",           hint: "mänty kelpaa isäntäpuuksi" },
+    { type: "toggle", key: "pineToo",     label: "Mänty kelpaa isäntäpuuksi", hint: "kanttarelli on myös männyn kumppani" },
   ],
   siteClasses: c => [3].concat(c.lehtomainen ? [2] : [], c.kuivahko ? [4] : []),
   mainTypes: c => c.korpi ? [1, 2] : [1],
@@ -575,9 +579,12 @@ const SPECIES = [
     'koivusekametsissä, mielellään polkujen, ojien ja purojen varsilla sekä loivissa rinteissä. ' +
     'Kartan pinkit alueet täyttävät <b>kaikki</b> valitut ehdot:</p>' +
     '<p>✔️ kasvupaikka on <b>tuore kangas</b> (mustikkatyyppi) tai lehtomainen kangas<br>' +
-    '✔️ kuusta tai koivua on riittävästi (mänty mukaan valinnalla)<br>' +
+    '✔️ isäntäpuuta on riittävästi: kuusta, koivua <i>tai</i> mäntyä<br>' +
     '✔️ latvuspeitto on vähintään valittu — puolivarjo pitää sammalen kosteana<br>' +
     '✔️ puusto ei ole taimikkoa</p>' +
+    '<p><b>Kanttarelli on yleislaji.</b> Se ei ole yhtä tarkka kasvupaikastaan kuin muut tämän ' +
+    'sovelluksen sienet, joten kartta värittää eteläisessä Suomessa helposti neljänneksen metsistä. ' +
+    'Kiristä säätimiä 🗺️-napista, jos haluat vähemmän mutta varmempia kohteita.</p>' +
     '<p>Kanttarelli kasvaa <b>samoilla paikoilla vuodesta toiseen</b> ja usein tiiviinä ryhminä: ' +
     'kun löydät yhden, tutki muutaman metrin säde ja merkitse paikka muistiin. Keltaiset lakit ' +
     'jäävät helposti sammalen ja varvikon alle — selaa sammalta kepillä.</p>' +
@@ -600,7 +607,7 @@ const SPECIES = [
     stand: "Oikea kasvupaikka — puusto ei täytä ehtoja",
     miss: "Ei suppilovahverotyyppiä",
   },
-  defaults: { minAge: 60, minSpruce: 80, minCover: 65, korpi: true, lehtomainen: true, kuivahko: false },
+  defaults: { minAge: 60, minSpruce: 40, minCover: 55, korpi: true, lehtomainen: true, kuivahko: false },
   controls: [
     { type: "range", key: "minSpruce", label: "Kuusta vähintään", min: 0, max: 200, step: 10, unit: " m³/ha" },
     { type: "range", key: "minCover",  label: "Latvuspeitto vähintään", hint: "varjo pitää sammalpohjan kosteana", min: 0, max: 90, step: 5, unit: " %" },
@@ -633,8 +640,8 @@ const SPECIES = [
     { label: "Varjoisa metsä (latvuspeitto ≥ 60 %)", make: () => helperLayer(LAYER.cover, maskMin(LAYER.cover, 60, "#2e86ff")) },
   ],
   slopeGood: s => s.deg < 4, // kosteus viipyy tasamaalla ja painanteissa
-  region: lat => lat >= 68 ? "pohjoisin Lappi — harvinainen" :
-                 lat >= 65 ? "pohjoinen — hyvä alue" :
+  region: lat => lat >= 67 ? "Lappi — hyvin harvinainen" :
+                 lat >= 65 ? "pohjoinen — harvinaistuu" :
                  "etelä ja keskiosa — parasta aluetta 🌟",
   info:
     '<h2>🎺 Suppilovahvero</h2>' +
@@ -645,7 +652,7 @@ const SPECIES = [
     '<p>✔️ kasvupaikka on <b>tuore kangas</b> tai lehtomainen kangas — kivennäismaalla tai korvessa<br>' +
     '✔️ kuusta on riittävästi<br>' +
     '✔️ latvuspeitto on tiheä: varjo pitää sammalen kosteana<br>' +
-    '✔️ puusto on iäkästä, jolloin maassa on lahopuuta</p>' +
+    '✔️ puusto on iäkästä (oletus ≥ 60 v), jolloin maassa on lahopuuta</p>' +
     '<p>Toisin kuin muut lajit tässä sovelluksessa, suppilovahvero <b>hyväksyy suokuviot</b>: ' +
     'korpi on sille tyypillistä maastoa. Etsi kosteita painanteita ja puronvarsia — kartta ei ' +
     'näe pieniä notkoja, joten kulje pinkkien kuvioiden sisällä alaspäin.</p>' +
@@ -653,7 +660,8 @@ const SPECIES = [
     '<p>Syyskuusta marraskuulle. Kestää hallaa ja jatkaa kasvuaan ensilumen jälkeenkin — ' +
     'etelässä sieniä löytää joskus joulukuussa.</p>' +
     '<h3>Levinneisyys</h3>' +
-    '<p>Koko maassa Lappia myöten; runsain Etelä- ja Keski-Suomen kuusikoissa.</p>',
+    '<p>Runsain Etelä- ja Keski-Suomen kuusikoissa. Harvinaistuu Oulun pohjoispuolella; ' +
+    'pohjoisimmat runsaat esiintymät ovat napapiirin tienoilla, yksittäisiä havaintoja Inaria myöten.</p>',
 },
 {
   key: "ukonsieni",

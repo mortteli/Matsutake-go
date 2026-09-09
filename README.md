@@ -12,7 +12,7 @@ värit ja sama napautustarkastelu.
 |---|---|---|
 | 🍄 **Matsutake** (tuoksuvalmuska, _Tricholoma matsutake_) | kuiva kangas / karukkokangas · kivennäismaa · vanha puusto · mäntyä | `kasvupaikka`, `paatyyppi`, `ika`, `manty` |
 | 🌰 **Herkkutatti** (_Boletus edulis_) | tuore / lehtomainen kangas · kivennäismaa · runsaasti kuusta · tiheä latvusto | `kasvupaikka`, `paatyyppi`, `ika`, `kuusi` (tai `manty`), `latvuspeitto` |
-| 🌼 **Kanttarelli** (keltavahvero, _Cantharellus cibarius_) | tuore / lehtomainen kangas · kivennäismaa (korvet valinnalla) · kuusta tai koivua · puolivarjoinen latvusto | `kasvupaikka`, `paatyyppi`, `ika`, `kuusi`/`koivu` (tai `manty`), `latvuspeitto` |
+| 🌼 **Kanttarelli** (keltavahvero, _Cantharellus cibarius_) | tuore / lehtomainen / kuivahko kangas · kivennäismaa · kuusta, koivua **tai** mäntyä · puolivarjoinen latvusto | `kasvupaikka`, `paatyyppi`, `ika`, `kuusi`/`koivu`/`manty`, `latvuspeitto` |
 | 🎺 **Suppilovahvero** (_Craterellus tubaeformis_) | tuore / lehtomainen kangas · kivennäismaa **tai korpi** · runsaasti kuusta · tiheä latvusto · iäkäs puusto | `kasvupaikka`, `paatyyppi`, `ika`, `kuusi`, `latvuspeitto` |
 | ☂️ **Ukonsieni** (_Macrolepiota procera_) | lehto / lehtomainen kangas · kivennäismaa · puoliavoin, valoisa puusto | `kasvupaikka`, `paatyyppi`, `latvuspeitto`, `lehtip_latvuspeitto` |
 
@@ -31,9 +31,10 @@ Kaikki tasot ovat Luken monilähteisen VMI:n 16 m rasteriaineistoa
   parhaat kohdat ovat näiden kuvioiden reunoilla ja polkujen varsilla.
   Suokuviot on rajattu pois.
 - **Kanttarelli** on kuusen, koivun ja männyn sienijuurikumppani ja viihtyy
-  kosteahkoilla sammalpohjaisilla tuoreilla kankailla. Isäntäpuuehto on
-  unioni — **kuusta tai koivua** (halutessa myös mäntyä) riittävästi — ja
-  latvuspeitto pidetään puolivarjoisana, jotta sammal ei kuivu.
+  kosteahkoilla sammalpohjaisilla tuoreilla kankailla, myös kuivahkoilla.
+  Isäntäpuuehto on unioni — **kuusta, koivua tai mäntyä** riittävästi — ja
+  latvuspeitto pidetään puolivarjoisana, jotta sammal ei kuivu. Laji on
+  yleislaji, joten sen kartta on väljin: ks. alla oleva viritysosio.
 - **Suppilovahvero** on ainoa laji, joka **hyväksyy suokuviot**: korpi on sen
   tyypillistä maastoa. Ehtoina ovat kostea kuusivaltainen kangas tai korpi,
   tiheä latvuspeitto ja iäkäs puusto (lahopuuta maassa). Kartta ei näe pieniä
@@ -43,6 +44,26 @@ Kaikki tasot ovat Luken monilähteisen VMI:n 16 m rasteriaineistoa
   **puoliavoin latvuspeitto** (10 % … valittu yläraja) — täysin paljas
   hakkuuaukko rajautuu pois. Laji harvinaistuu nopeasti pohjoiseen, joten
   karttaa ei piirretä 66,5° N pohjoispuolelle.
+
+### Mistä oletusrajat tulevat
+
+Uusien lajien oletusrajat on valittu havaintoaineistoa vasten, ei pelkän
+silmämäärän perusteella. Kummallekin lajille poimittiin GBIF:stä 45
+suomalaista havaintoa (paikannustarkkuus ≤ 100 m, 2010–2026) ja verrokiksi
+yhtä monta satunnaispistettä 2–5 km päästä samoilta seuduilta; molemmista
+luettiin samat MVMI-tasot, joita kartta käyttää.
+
+| Laji | Havainnoista suodattimen läpi | Verrokkipisteistä | Suhde |
+|---|---|---|---|
+| 🌼 Kanttarelli | 72 % | 11 % | 6,5× |
+| 🎺 Suppilovahvero | 51 % | 9 % | 5,8× |
+| 🌰 Herkkutatti (vertailukohta, ennallaan) | 19 % | 2 % | 8,3× |
+
+Kanttarellin ehtoja kiristämällä kartta kyllä pienenee, mutta osuvuus suhteessa
+verrokkiin romahtaa (6,5× → 3,5×): laji ei yksinkertaisesti ole kovin tarkka
+kasvupaikastaan, joten oletukset on jätetty väljiksi ja loput jätetty
+säätimille. Suppilovahverolla puuston ikä sen sijaan erottelee aidosti, joten
+oletusikä on 60 v — se puolittaa värjätyn pinta-alan osuvuuden kärsimättä.
 
 > **Huom:** parhaat ukonsienipaikat — pientareet, hakamaat, pihat ja niityt —
 > eivät ole metsävara-aineistossa lainkaan. Kartta antaa suunnan; etsi
@@ -101,6 +122,8 @@ rakentuu niistä.
 - Metsävaratiedot: Luonnonvarakeskus (Luke), monilähteisen valtakunnan metsien
   inventoinnin (MVMI) karttatasot 2023, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 - Korkeustiedot: [Open-Meteo](https://open-meteo.com/) (Copernicus GLO-90 DEM)
+- Suodattimien virittämiseen käytetty havaintoaineisto: [GBIF](https://www.gbif.org/)
+  / Suomen Lajitietokeskus (ei osa sovellusta — käytetty vain oletusrajojen tarkistukseen)
 - Taustakartat: © OpenStreetMap-tekijät, © OpenTopoMap (CC-BY-SA), © Esri
 - Karttakirjasto: [Leaflet](https://leafletjs.com/)
 
