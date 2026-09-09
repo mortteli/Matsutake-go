@@ -145,7 +145,10 @@
     margin: 0 0 11px; font-size: 12.5px; color: var(--muted);
     text-transform: uppercase; letter-spacing: .6px;
   }
-  .splist { display: flex; flex-direction: column; gap: 8px; }
+  .splist {
+    display: flex; flex-direction: column; gap: 8px;
+    max-height: min(62vh, 420px); overflow-y: auto;
+  }
   .sp {
     display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
     border: 0; border-radius: 12px; padding: 11px 12px; cursor: pointer;
@@ -296,12 +299,15 @@ const LAYER = {
   age:    "MVMI:ika_"                   + CYCLE, // vuosina
   pine:   "MVMI:manty_"                 + CYCLE, // m³/ha
   spruce: "MVMI:kuusi_"                 + CYCLE, // m³/ha
+  birch:  "MVMI:koivu_"                 + CYCLE, // m³/ha
   cover:  "MVMI:latvuspeitto_"          + CYCLE, // % (koko puusto)
   bcover: "MVMI:lehtip_latvuspeitto_"   + CYCLE, // % (lehtipuut)
 };
 const SITE_NAMES = { 1:"lehto",2:"lehtomainen kangas",3:"tuore kangas",4:"kuivahko kangas",
   5:"kuiva kangas",6:"karukkokangas",7:"kalliomaa/hietikko",8:"lakimetsä/tunturi" };
 const SITE_CANDIDATES = [1,2,3,4,5,6,7,8];
+const MAIN_NAMES = { 1:"kivennäismaa", 2:"korpi", 3:"räme", 4:"avosuo" };
+const MAIN_CANDIDATES = [1,2,3,4];
 const SPOT_COLOR = "#ff2d78";
 const R3857 = 20037508.342789244;
 const R_EARTH = 6378137;
@@ -365,7 +371,8 @@ function loadImg(url) {
 
 /* ================= species registry =================
    Each species turns its user settings into
-     · `conditions`: AND-groups of masks (members of a group are OR'd), and
+     · `conditions`: AND-groups of masks (members of a group are OR'd),
+     · `mainTypes`:  the accepted `paatyyppi` classes (mineral soil, mire), and
      · `metrics`:    the same thresholds re-expressed for the tap readout.
    Adding a mushroom means adding one entry here — nothing else. */
 const cond = (layer, sld) => ({ layer, sld });
@@ -393,10 +400,11 @@ const SPECIES = [
     { type: "toggle", key: "karukko",  label: "Myös karukkokangas",   hint: "jäkäläkankaat mukaan" },
   ],
   siteClasses: c => [5].concat(c.kuivahko ? [4] : [], c.karukko ? [6] : []),
+  mainTypes: () => [1], // kivennäismaa
   conditions(c) {
     const g = [
       [cond(LAYER.site, maskValues(LAYER.site, this.siteClasses(c)))],
-      [cond(LAYER.main, maskValues(LAYER.main, [1]))],
+      [cond(LAYER.main, maskValues(LAYER.main, this.mainTypes(c)))],
       [cond(LAYER.age,  maskMin(LAYER.age, c.minAge))],
     ];
     if (c.minPine > 0) g.push([cond(LAYER.pine, maskMin(LAYER.pine, c.minPine))]);
@@ -453,10 +461,11 @@ const SPECIES = [
     { type: "toggle", key: "pineToo",     label: "Myös männiköt",           hint: "mänty kelpaa kuusen sijaan isäntäpuuksi" },
   ],
   siteClasses: c => [3].concat(c.lehtomainen ? [2] : [], c.kuivahko ? [4] : []),
+  mainTypes: () => [1], // kivennäismaa
   conditions(c) {
     const g = [
       [cond(LAYER.site, maskValues(LAYER.site, this.siteClasses(c)))],
-      [cond(LAYER.main, maskValues(LAYER.main, [1]))],
+      [cond(LAYER.main, maskValues(LAYER.main, this.mainTypes(c)))],
       [cond(LAYER.age,  maskMin(LAYER.age, c.minAge))],
     ];
     if (c.minCover > 0) g.push([cond(LAYER.cover, maskMin(LAYER.cover, c.minCover))]);
@@ -502,6 +511,151 @@ const SPECIES = [
     '<p>Lähes koko maassa; yleisin Etelä- ja Keski-Suomessa, pohjoisimmassa Lapissa harvinainen.</p>',
 },
 {
+  key: "kanttarelli",
+  emoji: "🌼",
+  name: "Kanttarelli",
+  latin: "Cantharellus cibarius",
+  tagline: "sammalinen tuore kangas",
+  legend: "kanttarellimaasto",
+  primeSite: 3,
+  verdicts: {
+    hit: "Lupaava kanttarellimaasto!",
+    hitAlt: "Lupaava paikka (muu kangastyyppi)",
+    stand: "Oikea kasvupaikka — puusto ei täytä ehtoja",
+    miss: "Ei kanttarellityyppiä",
+  },
+  defaults: { minAge: 50, minHost: 60, minCover: 55, lehtomainen: true, kuivahko: false, korpi: false, pineToo: false },
+  controls: [
+    { type: "range", key: "minHost",  label: "Kuusta tai koivua vähintään", hint: "kanttarelli on kuusen, koivun ja männyn kumppani", min: 0, max: 150, step: 10, unit: " m³/ha" },
+    { type: "range", key: "minCover", label: "Latvuspeitto vähintään", hint: "puolivarjo pitää sammalpohjan kosteana", min: 0, max: 90, step: 5, unit: " %" },
+    { type: "range", key: "minAge",   label: "Puuston ikä vähintään", min: 20, max: 120, step: 5, unit: " v" },
+    { type: "toggle", key: "lehtomainen", label: "Myös lehtomainen kangas", hint: "ravinteikkaampi käenkaali–mustikkatyyppi" },
+    { type: "toggle", key: "kuivahko",    label: "Myös kuivahko kangas",    hint: "puolukkatyypin männiköt ja koivikot mukaan" },
+    { type: "toggle", key: "korpi",       label: "Myös korvet",             hint: "kosteat korpikuviot ja ojanvarret mukaan" },
+    { type: "toggle", key: "pineToo",     label: "Myös männiköt",           hint: "mänty kelpaa isäntäpuuksi" },
+  ],
+  siteClasses: c => [3].concat(c.lehtomainen ? [2] : [], c.kuivahko ? [4] : []),
+  mainTypes: c => c.korpi ? [1, 2] : [1],
+  hostLayers(c) {
+    const h = [{ layer: LAYER.spruce, label: "Kuusta" }, { layer: LAYER.birch, label: "Koivua" }];
+    if (c.pineToo) h.push({ layer: LAYER.pine, label: "Mäntyä" });
+    return h;
+  },
+  conditions(c) {
+    const g = [
+      [cond(LAYER.site, maskValues(LAYER.site, this.siteClasses(c)))],
+      [cond(LAYER.main, maskValues(LAYER.main, this.mainTypes(c)))],
+      [cond(LAYER.age,  maskMin(LAYER.age, c.minAge))],
+    ];
+    if (c.minCover > 0) g.push([cond(LAYER.cover, maskMin(LAYER.cover, c.minCover))]);
+    // isäntäpuu: kuusi tai koivu (tai mänty) riittää — unioni yhden ehdon sisällä
+    if (c.minHost > 0)
+      g.push(this.hostLayers(c).map(h => cond(h.layer, maskMin(h.layer, c.minHost))));
+    return g;
+  },
+  metrics(c) {
+    return [
+      { label: "Puuston ikä",   dir: "min", limit: c.minAge,   unit: "v",     steps: AGE_STEPS,   any: [{ layer: LAYER.age }] },
+      { label: "Isäntäpuustoa", dir: "min", limit: c.minHost,  unit: "m³/ha", steps: VOL_STEPS,   any: this.hostLayers(c) },
+      { label: "Latvuspeitto",  dir: "min", limit: c.minCover, unit: "%",     steps: COVER_STEPS, any: [{ layer: LAYER.cover }] },
+    ];
+  },
+  helpers: [
+    { label: "Tuore kangas (kaikki iät)", make: () => helperLayer(LAYER.site, maskValues(LAYER.site, [3], "#ff9d2e")) },
+    { label: "Koivikot (koivua ≥ 40 m³/ha)", make: () => helperLayer(LAYER.birch, maskMin(LAYER.birch, 40, "#2e86ff")) },
+  ],
+  slopeGood: s => s.deg >= 2, // loivat rinteet ja notkelmat pysyvät kosteina
+  region: lat => lat >= 68 ? "pohjoisin Lappi — harvempi" :
+                 lat >= 65 ? "pohjoinen — hyvä alue" :
+                 "etelä ja keskiosa — parasta aluetta 🌟",
+  info:
+    '<h2>🌼 Kanttarelli eli keltavahvero</h2>' +
+    '<p><b>Cantharellus cibarius</b> on kuusen, koivun ja männyn sienijuurikumppani. Se viihtyy ' +
+    '<b>kosteahkoissa sammalpohjaisissa kangasmetsissä</b> — mustikkatyypin kuusikoissa ja ' +
+    'koivusekametsissä, mielellään polkujen, ojien ja purojen varsilla sekä loivissa rinteissä. ' +
+    'Kartan pinkit alueet täyttävät <b>kaikki</b> valitut ehdot:</p>' +
+    '<p>✔️ kasvupaikka on <b>tuore kangas</b> (mustikkatyyppi) tai lehtomainen kangas<br>' +
+    '✔️ kuusta tai koivua on riittävästi (mänty mukaan valinnalla)<br>' +
+    '✔️ latvuspeitto on vähintään valittu — puolivarjo pitää sammalen kosteana<br>' +
+    '✔️ puusto ei ole taimikkoa</p>' +
+    '<p>Kanttarelli kasvaa <b>samoilla paikoilla vuodesta toiseen</b> ja usein tiiviinä ryhminä: ' +
+    'kun löydät yhden, tutki muutaman metrin säde ja merkitse paikka muistiin. Keltaiset lakit ' +
+    'jäävät helposti sammalen ja varvikon alle — selaa sammalta kepillä.</p>' +
+    '<h3>Satokausi</h3>' +
+    '<p>Heinäkuusta lokakuulle, runsaimmin elo–syyskuussa. Hyvä sato vaatii kesäsateita.</p>' +
+    '<h3>Levinneisyys</h3>' +
+    '<p>Koko maassa; runsain Etelä- ja Keski-Suomessa, pohjoisessa harvempi mutta yleinen.</p>',
+},
+{
+  key: "suppilovahvero",
+  emoji: "🎺",
+  name: "Suppilovahvero",
+  latin: "Craterellus tubaeformis",
+  tagline: "kostea sammalinen kuusikko",
+  legend: "suppilovahveromaasto",
+  primeSite: 3,
+  verdicts: {
+    hit: "Lupaava suppilovahveropaikka!",
+    hitAlt: "Lupaava paikka (muu kangastyyppi)",
+    stand: "Oikea kasvupaikka — puusto ei täytä ehtoja",
+    miss: "Ei suppilovahverotyyppiä",
+  },
+  defaults: { minAge: 60, minSpruce: 80, minCover: 65, korpi: true, lehtomainen: true, kuivahko: false },
+  controls: [
+    { type: "range", key: "minSpruce", label: "Kuusta vähintään", min: 0, max: 200, step: 10, unit: " m³/ha" },
+    { type: "range", key: "minCover",  label: "Latvuspeitto vähintään", hint: "varjo pitää sammalpohjan kosteana", min: 0, max: 90, step: 5, unit: " %" },
+    { type: "range", key: "minAge",    label: "Puuston ikä vähintään", hint: "vanhassa metsässä on lahopuuta", min: 20, max: 140, step: 5, unit: " v" },
+    { type: "toggle", key: "korpi",       label: "Myös korvet", hint: "kuusivaltaiset suot ja niiden reunat" },
+    { type: "toggle", key: "lehtomainen", label: "Myös lehtomainen kangas", hint: "ravinteikkaampi käenkaali–mustikkatyyppi" },
+    { type: "toggle", key: "kuivahko",    label: "Myös kuivahko kangas",    hint: "löyhempi haku (puolukkatyyppi)" },
+  ],
+  siteClasses: c => [3].concat(c.lehtomainen ? [2] : [], c.kuivahko ? [4] : []),
+  mainTypes: c => c.korpi ? [1, 2] : [1],
+  conditions(c) {
+    const g = [
+      [cond(LAYER.site, maskValues(LAYER.site, this.siteClasses(c)))],
+      [cond(LAYER.main, maskValues(LAYER.main, this.mainTypes(c)))],
+      [cond(LAYER.age,  maskMin(LAYER.age, c.minAge))],
+    ];
+    if (c.minCover > 0)  g.push([cond(LAYER.cover,  maskMin(LAYER.cover, c.minCover))]);
+    if (c.minSpruce > 0) g.push([cond(LAYER.spruce, maskMin(LAYER.spruce, c.minSpruce))]);
+    return g;
+  },
+  metrics(c) {
+    return [
+      { label: "Puuston ikä",  dir: "min", limit: c.minAge,    unit: "v",     steps: AGE_STEPS,    any: [{ layer: LAYER.age }] },
+      { label: "Kuusta",       dir: "min", limit: c.minSpruce, unit: "m³/ha", steps: BIGVOL_STEPS, any: [{ layer: LAYER.spruce }] },
+      { label: "Latvuspeitto", dir: "min", limit: c.minCover,  unit: "%",     steps: COVER_STEPS,  any: [{ layer: LAYER.cover }] },
+    ];
+  },
+  helpers: [
+    { label: "Korvet (kuusivaltaiset suot)", make: () => helperLayer(LAYER.main, maskValues(LAYER.main, [2], "#ff9d2e")) },
+    { label: "Varjoisa metsä (latvuspeitto ≥ 60 %)", make: () => helperLayer(LAYER.cover, maskMin(LAYER.cover, 60, "#2e86ff")) },
+  ],
+  slopeGood: s => s.deg < 4, // kosteus viipyy tasamaalla ja painanteissa
+  region: lat => lat >= 68 ? "pohjoisin Lappi — harvinainen" :
+                 lat >= 65 ? "pohjoinen — hyvä alue" :
+                 "etelä ja keskiosa — parasta aluetta 🌟",
+  info:
+    '<h2>🎺 Suppilovahvero</h2>' +
+    '<p><b>Craterellus tubaeformis</b> on syksyn varmin massasieni. Se kasvaa <b>kosteissa, ' +
+    'sammalpohjaisissa kuusikoissa</b> — painanteissa, korpien reunoilla, ojanvarsilla ja ' +
+    'lahopuun päällä, usein satojen yksilöiden ryhminä. Kartan pinkit alueet täyttävät ' +
+    '<b>kaikki</b> valitut ehdot:</p>' +
+    '<p>✔️ kasvupaikka on <b>tuore kangas</b> tai lehtomainen kangas — kivennäismaalla tai korvessa<br>' +
+    '✔️ kuusta on riittävästi<br>' +
+    '✔️ latvuspeitto on tiheä: varjo pitää sammalen kosteana<br>' +
+    '✔️ puusto on iäkästä, jolloin maassa on lahopuuta</p>' +
+    '<p>Toisin kuin muut lajit tässä sovelluksessa, suppilovahvero <b>hyväksyy suokuviot</b>: ' +
+    'korpi on sille tyypillistä maastoa. Etsi kosteita painanteita ja puronvarsia — kartta ei ' +
+    'näe pieniä notkoja, joten kulje pinkkien kuvioiden sisällä alaspäin.</p>' +
+    '<h3>Satokausi</h3>' +
+    '<p>Syyskuusta marraskuulle. Kestää hallaa ja jatkaa kasvuaan ensilumen jälkeenkin — ' +
+    'etelässä sieniä löytää joskus joulukuussa.</p>' +
+    '<h3>Levinneisyys</h3>' +
+    '<p>Koko maassa Lappia myöten; runsain Etelä- ja Keski-Suomen kuusikoissa.</p>',
+},
+{
   key: "ukonsieni",
   emoji: "☂️",
   name: "Ukonsieni",
@@ -523,10 +677,11 @@ const SPECIES = [
     { type: "toggle", key: "leafy", label: "Vain lehtipuuvaltainen", hint: "lehtipuiden latvuspeitto ≥ 20 %" },
   ],
   siteClasses: c => [1, 2].concat(c.tuore ? [3] : []),
+  mainTypes: () => [1], // kivennäismaa
   conditions(c) {
     const g = [
       [cond(LAYER.site,  maskValues(LAYER.site, this.siteClasses(c)))],
-      [cond(LAYER.main,  maskValues(LAYER.main, [1]))],
+      [cond(LAYER.main,  maskValues(LAYER.main, this.mainTypes(c)))],
       [cond(LAYER.cover, maskRange(LAYER.cover, MIN_COVER, c.maxCover))],
     ];
     if (c.leafy) g.push([cond(LAYER.bcover, maskMin(LAYER.bcover, 20))]);
@@ -809,10 +964,9 @@ async function inspect(latlng) {
   openSheet("sheetResult");
 
   const metrics = species.metrics(c);
-  const [site, mineral, mire, slope, results] = await Promise.all([
+  const [site, main, slope, results] = await Promise.all([
     readClass(LAYER.site, SITE_CANDIDATES, latlng),
-    probeValues(LAYER.main, [1], latlng),
-    probeValues(LAYER.main, [2, 3, 4], latlng),
+    readClass(LAYER.main, MAIN_CANDIDATES, latlng),
     readSlope(latlng),
     Promise.all(metrics.map(m => readMetric(m, latlng))),
   ]);
@@ -830,8 +984,9 @@ async function inspect(latlng) {
     b.lo + "–" + b.hi + " " + unit;
 
   const wanted = species.siteClasses(c);
-  const siteOk = site != null && wanted.includes(site) && mineral === true;
-  const primeSite = site === species.primeSite && mineral === true;
+  const groundOk = main != null && species.mainTypes(c).includes(main);
+  const siteOk = site != null && wanted.includes(site) && groundOk;
+  const primeSite = site === species.primeSite && groundOk;
   const hard = results.filter(r => !r.m.soft);
   const standOk = hard.every(r => r.ok);
   const slopeOk = slope && species.slopeGood ? species.slopeGood(slope) : false;
@@ -851,9 +1006,9 @@ async function inspect(latlng) {
     '<div class="checks">';
 
   html += checkRow(siteOk ? "ok" : "no", "Kasvupaikka",
-    site != null ? (SITE_NAMES[site] || "tuntematon") + (mire === true ? " (suo)" : "") : "ei tietoa");
-  html += checkRow(mineral === true ? "ok" : mire === true ? "no" : "meh", "Maapohja",
-    mineral === true ? "kivennäismaa" : mire === true ? "suo" : "ei tietoa");
+    site != null ? (SITE_NAMES[site] || "tuntematon") + (main > 1 ? " (suo)" : "") : "ei tietoa");
+  html += checkRow(groundOk ? "ok" : main == null ? "meh" : "no", "Maapohja",
+    main != null ? MAIN_NAMES[main] : "ei tietoa");
 
   results.forEach(r => {
     const want = r.m.dir === "range"

@@ -12,6 +12,8 @@ värit ja sama napautustarkastelu.
 |---|---|---|
 | 🍄 **Matsutake** (tuoksuvalmuska, _Tricholoma matsutake_) | kuiva kangas / karukkokangas · kivennäismaa · vanha puusto · mäntyä | `kasvupaikka`, `paatyyppi`, `ika`, `manty` |
 | 🌰 **Herkkutatti** (_Boletus edulis_) | tuore / lehtomainen kangas · kivennäismaa · runsaasti kuusta · tiheä latvusto | `kasvupaikka`, `paatyyppi`, `ika`, `kuusi` (tai `manty`), `latvuspeitto` |
+| 🌼 **Kanttarelli** (keltavahvero, _Cantharellus cibarius_) | tuore / lehtomainen kangas · kivennäismaa (korvet valinnalla) · kuusta tai koivua · puolivarjoinen latvusto | `kasvupaikka`, `paatyyppi`, `ika`, `kuusi`/`koivu` (tai `manty`), `latvuspeitto` |
+| 🎺 **Suppilovahvero** (_Craterellus tubaeformis_) | tuore / lehtomainen kangas · kivennäismaa **tai korpi** · runsaasti kuusta · tiheä latvusto · iäkäs puusto | `kasvupaikka`, `paatyyppi`, `ika`, `kuusi`, `latvuspeitto` |
 | ☂️ **Ukonsieni** (_Macrolepiota procera_) | lehto / lehtomainen kangas · kivennäismaa · puoliavoin, valoisa puusto | `kasvupaikka`, `paatyyppi`, `latvuspeitto`, `lehtip_latvuspeitto` |
 
 Kaikki tasot ovat Luken monilähteisen VMI:n 16 m rasteriaineistoa
@@ -28,6 +30,14 @@ Kaikki tasot ovat Luken monilähteisen VMI:n 16 m rasteriaineistoa
   sammalpeite. Siksi ehtoina ovat kuusitilavuus *ja* tiheä latvuspeitto —
   parhaat kohdat ovat näiden kuvioiden reunoilla ja polkujen varsilla.
   Suokuviot on rajattu pois.
+- **Kanttarelli** on kuusen, koivun ja männyn sienijuurikumppani ja viihtyy
+  kosteahkoilla sammalpohjaisilla tuoreilla kankailla. Isäntäpuuehto on
+  unioni — **kuusta tai koivua** (halutessa myös mäntyä) riittävästi — ja
+  latvuspeitto pidetään puolivarjoisana, jotta sammal ei kuivu.
+- **Suppilovahvero** on ainoa laji, joka **hyväksyy suokuviot**: korpi on sen
+  tyypillistä maastoa. Ehtoina ovat kostea kuusivaltainen kangas tai korpi,
+  tiheä latvuspeitto ja iäkäs puusto (lahopuuta maassa). Kartta ei näe pieniä
+  notkoja, joten kulje pinkkien kuvioiden sisällä alaspäin.
 - **Ukonsieni** on lahottaja, joka viihtyy ravinteisella maalla ruohoisissa
   ja valoisissa paikoissa. Ehtoina ovat lehto/lehtomainen kangas ja
   **puoliavoin latvuspeitto** (10 % … valittu yläraja) — täysin paljas
@@ -82,8 +92,9 @@ yhteen canvasilla (`destination-in`). Saman ehdon vaihtoehdot — esimerkiksi
 kuvan ja lukee pikselin läpinäkyvyydestä, täyttyykö ehto.
 
 Uuden sienen lisääminen on yksi merkintä `SPECIES`-taulukkoon `index.html`:ssä:
-laji kuvaa suodattimensa (`conditions`), säätimensä (`controls`), mittarinsa
-(`metrics`) ja tekstinsä — käyttöliittymä rakentuu niistä.
+laji kuvaa suodattimensa (`conditions`), hyväksymänsä maapohjat (`mainTypes`),
+säätimensä (`controls`), mittarinsa (`metrics`) ja tekstinsä — käyttöliittymä
+rakentuu niistä.
 
 ## Aineistot ja lisenssit
 
