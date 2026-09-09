@@ -109,13 +109,90 @@ precipitation), which are the "honest" alternative to raw latitude/longitude.
 
 ## 4. Empirical check of the current filter against the observations
 
-_Running now: for the 104 fine presences, 300 random forestry-land points and 300
-target-group fungi points, sample MVMI 2023 (site, main type, age, pine, spruce, canopy,
-basal area, height), the DEM (elevation, slope, northness, TPI) and GTK soil (surface soil
-class, glaciofluvial formation), plus the back-tracked MVMI cycle for each presence.
-The table below is filled in from that run._
+Run on 2026-09-09: the 104 fine GBIF presences, 300 random forestry-land points and
+300 target-group points (other fungi, Aug–Sep, 2010+, ≤ 250 m), all sampled from
+MVMI 2023 (Paituli GeoTIFFs), the MML 10 m DEM (210 m window) and GTK soil WMS.
+Points without MVMI data (water, field, built-up) are excluded: n = 101 / 300 / 232.
 
-(see section 4 results appended below once the run completes)
+### 4.1 Single conditions
+
+| Condition (MVMI 2023 unless noted) | Presence % | Random forest % | Other fungi % |
+|---|---|---|---|
+| kasvupaikka 5–6 (kuiva / karukkokangas) | **13** | 8 | 6 |
+| kasvupaikka 4 (kuivahko kangas) | **49** | 26 | 13 |
+| kasvupaikka 3 (tuore kangas) | 30 | 51 | 55 |
+| kasvupaikka 7 (kalliomaa / hietikko) | 4 | 1 | 3 |
+| paatyyppi 1 (kivennäismaa) | 97 | 72 | 94 |
+| ika ≥ 60 | 82 | 52 | 54 |
+| ika ≥ 80 | 64 | 28 | 27 |
+| manty ≥ 20 m³/ha | 90 | 65 | 73 |
+| manty ≥ 50 m³/ha | 76 | 44 | 46 |
+| kuusi ≥ 20 m³/ha | **17** | 40 | 63 |
+| latvuspeitto ≤ 50 % | **70** | 42 | 19 |
+| ppa ≤ 20 m²/ha | 87 | 75 | 48 |
+| slope ≥ 2° (DEM) | 74 | 44 | 70 |
+| north-facing (northness > 0.3) | 41 | 44 | 41 |
+| south-facing (northness < −0.3) | 50 | 31 | 39 |
+| TPI > +1 m (ridge / upper slope) | **42** | 17 | 21 |
+| GTK surface soil sand or gravel | _pending_ | _pending_ | _pending_ |
+| GTK glaciofluvial formation (esker) | _pending_ | _pending_ | _pending_ |
+
+| Median | Presence | Random forest | Other fungi |
+|---|---|---|---|
+| stand age (yr) | 88 | 62 | 62 |
+| pine (m³/ha) | 81 | 42 | 47 |
+| spruce (m³/ha) | 2 | 9 | 38 |
+| canopy cover (%) | 45 | 55 | 66 |
+| basal area (m²/ha) | 15 | 16 | 21 |
+| mean height (dm) | 132 | 128 | 168 |
+| elevation (m) | 154 | 150 | 58 |
+| slope (°) | 3.9 | 1.7 | 3.5 |
+| TPI (m) | +0.7 | 0.0 | −0.1 |
+
+### 4.2 Rule filters as classifiers
+
+| Rule | Recall (presence %) | Random forest % | Other fungi % |
+|---|---|---|---|
+| A — **current app default** (site 5–6, mineral, age ≥ 60, pine ≥ 20) | **9** | 0 (0/300) | 1 |
+| B — A + kuivahko (site 4–6) | 49 | 9 | 9 |
+| C — B + spruce < 20 m³/ha | 48 | 7 | 7 |
+| D — C + canopy ≤ 60 % | 45 | 6 | 7 |
+| E — site 3–7, mineral, age ≥ 60, pine ≥ 40, spruce < 20, canopy ≤ 60 | **58** | 9 | 9 |
+| F — E + TPI > 0 (upper slope / ridge) | 47 | 7 | 6 |
+
+### 4.3 Backtracking effect
+
+79 of 104 presences date from before the 2023 cycle (cycle counts: 2009 ×16,
+2011 ×1, 2013 ×18, 2015 ×4, 2017 ×4, 2019 ×14, 2021 ×25, 2023 ×22). Comparing the
+matched cycle with 2023 at the same pixel: the site class differs for 36 of 79, and
+the age estimate is more than 15 years lower than expected for 36 of 79 (harvest,
+thinning or re-estimation). Age ≥ 60 holds for 82 % of finds in both versions, so the
+headline numbers are robust, but pixel-level labels are noisy enough that the model
+must see neighbourhood aggregates and the matched cycle.
+
+### 4.4 What this says
+
+1. **The current default map misses 91 % of the known finds.** Not because the
+   ecology is wrong, but because MVMI's `kasvupaikka` theme rarely says "kuiva kangas":
+   Luke's own accuracy note puts pixel-level site-class agreement at ~55 %, and the
+   finds land on class 4 (49 %) and even class 3 (30 %) far more than on 5–6 (13 %).
+   The literal "kuiva kangas" rule is therefore the wrong proxy for the literal
+   "kuiva kangas" ecology.
+2. **The strongest signals are not in the filter at all:** little or no spruce
+   (17 % vs 63 % of other-fungi sites), open canopy (70 % ≤ 50 % vs 19 %), old age,
+   high pine volume, and positive TPI (ridge / upper slope, 42 % vs 17–21 %).
+3. **Aspect shows no north-slope preference** in this sample (if anything south-facing),
+   so the Suomen Luonto anecdote should be a feature, not a rule.
+4. **Observer bias is real:** the other-fungi background sits at 58 m elevation
+   median vs 150 m for random forest, i.e. people report from the coast and the south.
+   Contrasting against that background is what keeps the model from just learning
+   "Lapland".
+5. A hand-tuned rule (E) already reaches 58 % recall at ~9 % of forest area, but every
+   rule is a hard box; the probability model is expected to do clearly better because
+   it can trade these signals off continuously and use the soil/terrain layers.
+
+_Immediate, low-risk app change worth doing regardless of the model: make "kuivahko
+kangas" default on and add a "little spruce" condition. Not done yet — pending your go._
 
 ## 5. Experiment design
 
