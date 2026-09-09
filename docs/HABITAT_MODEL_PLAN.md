@@ -113,6 +113,7 @@ Run on 2026-09-09: the 104 fine GBIF presences, 300 random forestry-land points 
 300 target-group points (other fungi, Aug–Sep, 2010+, ≤ 250 m), all sampled from
 MVMI 2023 (Paituli GeoTIFFs), the MML 10 m DEM (210 m window) and GTK soil WMS.
 Points without MVMI data (water, field, built-up) are excluded: n = 101 / 300 / 232.
+GTK's 1:200k soil map does not separate sand from gravel; both are "karkearakeinen".
 
 ### 4.1 Single conditions
 
@@ -134,8 +135,11 @@ Points without MVMI data (water, field, built-up) are excluded: n = 101 / 300 / 
 | north-facing (northness > 0.3) | 41 | 44 | 41 |
 | south-facing (northness < −0.3) | 50 | 31 | 39 |
 | TPI > +1 m (ridge / upper slope) | **42** | 17 | 21 |
-| GTK surface soil sand or gravel | _pending_ | _pending_ | _pending_ |
-| GTK glaciofluvial formation (esker) | _pending_ | _pending_ | _pending_ |
+| GTK 1:200k surface soil: coarse-grained (sand / gravel, "karkearakeinen") | **44** | 6 | 16 |
+| GTK surface soil: mixed-grained (till, "sekalajitteinen") | 24 | 46 | 24 |
+| GTK surface soil: rock (kalliomaa / kalliopaljastuma) | 21 | 14 | 40 |
+| GTK surface soil: peat (turve) | 4 | 23 | 2 |
+| GTK glacigenic formation mapped at the point (esker, ice-marginal or extramarginal glaciofluvial, littoral) | **53** | 13 | 27 |
 
 | Median | Presence | Random forest | Other fungi |
 |---|---|---|---|
@@ -178,9 +182,12 @@ must see neighbourhood aggregates and the matched cycle.
    finds land on class 4 (49 %) and even class 3 (30 %) far more than on 5–6 (13 %).
    The literal "kuiva kangas" rule is therefore the wrong proxy for the literal
    "kuiva kangas" ecology.
-2. **The strongest signals are not in the filter at all:** little or no spruce
-   (17 % vs 63 % of other-fungi sites), open canopy (70 % ≤ 50 % vs 19 %), old age,
-   high pine volume, and positive TPI (ridge / upper slope, 42 % vs 17–21 %).
+2. **The strongest signals are not in the filter at all:** coarse-grained soil
+   (44 % of finds vs 6 % of random forest — the single strongest variable, exactly the
+   "hiekkapohjainen" of the sources), a mapped glaciofluvial / esker formation (53 % vs
+   13 %), little or no spruce (17 % vs 63 % of other-fungi sites), open canopy (70 %
+   ≤ 50 % vs 19 %), old age, high pine volume, and positive TPI (ridge / upper slope,
+   42 % vs 17–21 %). Peat is almost absent under finds (4 % vs 23 %).
 3. **Aspect shows no north-slope preference** in this sample (if anything south-facing),
    so the Suomen Luonto anecdote should be a feature, not a rule.
 4. **Observer bias is real:** the other-fungi background sits at 58 m elevation
