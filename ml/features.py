@@ -35,13 +35,13 @@ def soil_group(name):
     n = (name or "").lower()
     if any(k in n for k in ("karkearakeinen", "hiekka", "sora", "kivikko", "lohkare")):
         return "coarse"
-    if "hieno hieta" in n or any(k in n for k in ("savi", "hiesu", "lieju")):
+    if "hieno hieta" in n or any(k in n for k in ("savi", "hiesu", "lieju", "hienojakoinen", "hienorakeinen")):
         return "fine"
     if "hieta" in n:
         return "coarse"
     if any(k in n for k in ("sekalajitteinen", "moreeni")):
         return "till"
-    if "kallio" in n:
+    if any(k in n for k in ("kallio", "rakka", "kivi")):
         return "rock"
     if any(k in n for k in ("turve", "soistuma", "rahka", "sara")):
         return "peat"
@@ -50,12 +50,12 @@ def soil_group(name):
 
 def glac_group(name):
     n = (name or "").lower()
-    if any(k in n for k in ("esker", "glaciofluvial", "extramarginal", "ice-contact", "ice contact", "delta", "sandur")):
-        return "glaciofluvial"
+    if "moraine" in n or "morainic" in n or "diamicton" in n:
+        return "moraine"
     if "littoral" in n or "beach" in n or "aeolian" in n or "dune" in n:
         return "littoral"
-    if "moraine" in n or "morainic" in n:
-        return "moraine"
+    if any(k in n for k in ("esker", "glaciofluvial", "extramarginal", "ice-contact", "ice contact", "delta", "sandur")):
+        return "glaciofluvial"
     return "other"
 
 
