@@ -925,7 +925,8 @@ async function showProb() {
     await ensureGeoraster();
     if (!prob.rasters.length || prob.rasters[0]._species !== species.key) {
       hideProb(true);
-      prob.rasters = await Promise.all(meta.files.map(f => parseGeoraster(f.url)));
+      // geotiff.js fetches inside a worker, where relative URLs cannot be resolved
+      prob.rasters = await Promise.all(meta.files.map(f => parseGeoraster(new URL(f.url, location.href).href)));
       prob.rasters.forEach(r => { r._species = species.key; });
     }
     if (!prob.layers.length) {
