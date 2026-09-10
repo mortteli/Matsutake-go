@@ -55,24 +55,30 @@ def download(key, threads=4):
     starts = list(range(0, total, PAGE))
     log(key, "features to fetch", total, "pages", len(starts))
 
+    def fetch_range(start, count):
+        """GeoJSON for [start, start+count); a page the server cannot serialize (broken
+        attribute text) is halved until the offending single feature is isolated and skipped."""
+        q = dict(service="WFS", version="2.0.0", request="GetFeature", typeNames=layer,
+                 count=count, startIndex=start, outputFormat="GEOJSON", srsName="urn:ogc:def:crs:EPSG::3067")
+        for attempt in range(3):
+            try:
+                feats = json.loads(get(BASE + urllib.parse.urlencode(q))).get("features", [])
+                if len(feats) == count or start + count >= total:
+                    return feats
+                log(key, "short page", start, count, len(feats))
+            except ValueError as e:
+                log(key, "bad json", start, count, str(e)[:40])
+            time.sleep(3 * (attempt + 1))
+        if count == 1:
+            log(key, "SKIPPING unreadable feature at", start); return []
+        h = count // 2
+        return fetch_range(start, h) + fetch_range(start + h, count - h)
+
     def page(start):
         pf = os.path.join(pdir, f"{start}.json.gz")
         if os.path.exists(pf):
             return start
-        q = dict(service="WFS", version="2.0.0", request="GetFeature", typeNames=layer,
-                 count=PAGE, startIndex=start, outputFormat="GEOJSON", srsName="urn:ogc:def:crs:EPSG::3067")
-        feats = None
-        for attempt in range(10):                    # a cut connection can yield a truncated body
-            try:
-                feats = json.loads(get(BASE + urllib.parse.urlencode(q))).get("features", [])
-                if len(feats) == PAGE or start + PAGE >= total:
-                    break
-                log(key, "short page", start, len(feats)); feats = None
-            except ValueError as e:
-                log(key, "bad json, refetch", start, str(e)[:50]); feats = None
-            time.sleep(5 * (attempt + 1))
-        if feats is None:
-            raise RuntimeError(f"page {start} failed")
+        feats = fetch_range(start, PAGE)
         rows = [{"c": ft["properties"].get(code_f), "n": ft["properties"].get(name_f), "g": ft["geometry"]} for ft in feats]
         tmp = pf + ".tmp"
         with gzip.open(tmp, "wt") as f:
