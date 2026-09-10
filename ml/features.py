@@ -156,7 +156,7 @@ def block_features(src, margin=MARGIN):
 class Sources:
     """Opens every input once for a given MVMI cycle; reads any window as float32/NaN."""
 
-    def __init__(self, grid: Grid, cycle=2023, local_dir=os.path.join(RASTERS, "mvmi2023")):
+    def __init__(self, grid: Grid, cycle=2023, local_dir=os.path.join(RASTERS, "mvmi2023"), require_soil=True):
         self.grid = grid
         self.cycle = cycle
         self._env = env(); self._env.__enter__()
@@ -172,18 +172,42 @@ class Sources:
         self._clim = {k: rasterio.open(os.path.join(CLIMATE, f)) for k, f in
                       (("thermal_sum", "thermal_sum_dd.tif"), ("precip", "precip_annual_mm.tif"))}
         self.clim = {k: WarpedVRT(d, **warp) for k, d in self._clim.items()}
-        self.soil = rasterio.open(os.path.join(RASTERS, "gtk_soil_16m.tif"))
-        self.glac = rasterio.open(os.path.join(RASTERS, "gtk_glac_16m.tif"))
+        soil_path, glac_path = os.path.join(RASTERS, "gtk_soil_16m.tif"), os.path.join(RASTERS, "gtk_glac_16m.tif")
+        if require_soil or (os.path.exists(soil_path) and os.path.exists(glac_path)):
+            self.soil, self.glac = rasterio.open(soil_path), rasterio.open(glac_path)
+        else:                                   # testing without GTK: every cell "no polygon"
+            self.soil = self.glac = None
         self.soil_lut, self.glac_lut = class_lookup("soil"), class_lookup("glac")
 
     @staticmethod
     def _read(ds, window, nodata=None):
-        a = ds.read(1, window=window, boundless=True, fill_value=ds.nodata if ds.nodata is not None else 0)
-        nd = ds.nodata if nodata is None else nodata
-        a = a.astype(np.float32)
-        if nd is not None:
-            a[a == nd] = np.nan
-        return a
+        """Window read that also works past the raster edge (WarpedVRT forbids boundless
+        reads): read the overlapping part and pad with NaN."""
+        r0, c0 = int(window.row_off), int(window.col_off)
+        h, w = int(window.height), int(window.width)
+        rr0, cc0 = max(r0, 0), max(c0, 0)
+        rr1, cc1 = min(r0 + h, ds.height), min(c0 + w, ds.width)
+        out = np.full((h, w), np.nan, dtype=np.float32)
+        if rr1 > rr0 and cc1 > cc0:
+            a = ds.read(1, window=Window(cc0, rr0, cc1 - cc0, rr1 - rr0)).astype(np.float32)
+            nd = ds.nodata if nodata is None else nodata
+            if nd is not None:
+                a[a == nd] = np.nan
+            out[rr0 - r0:rr1 - r0, cc0 - c0:cc1 - c0] = a
+        return out
+
+    @staticmethod
+    def _read_int(ds, window, shape):
+        if ds is None:
+            return np.zeros(shape, np.uint8)
+        r0, c0 = int(window.row_off), int(window.col_off)
+        h, w = shape
+        rr0, cc0 = max(r0, 0), max(c0, 0)
+        rr1, cc1 = min(r0 + h, ds.height), min(c0 + w, ds.width)
+        out = np.zeros((h, w), np.uint8)
+        if rr1 > rr0 and cc1 > cc0:
+            out[rr0 - r0:rr1 - r0, cc0 - c0:cc1 - c0] = ds.read(1, window=Window(cc0, rr0, cc1 - cc0, rr1 - rr0))
+        return out
 
     def read(self, window: Window):
         src = {}
@@ -196,10 +220,9 @@ class Sources:
         src["elev"] = z
         for k, ds in self.clim.items():
             src[k] = self._read(ds, window)
-        s = self.soil.read(1, window=window, boundless=True, fill_value=0)
-        src["soil_group"] = self.soil_lut[s].astype(np.float32)
-        g = self.glac.read(1, window=window, boundless=True, fill_value=0)
-        src["glac_group"] = self.glac_lut[g].astype(np.float32)
+        shape = (int(window.height), int(window.width))
+        src["soil_group"] = self.soil_lut[self._read_int(self.soil, window, shape)].astype(np.float32)
+        src["glac_group"] = self.glac_lut[self._read_int(self.glac, window, shape)].astype(np.float32)
         return src
 
     def features(self, window: Window, margin=MARGIN):

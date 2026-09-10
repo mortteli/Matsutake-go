@@ -38,28 +38,35 @@ def get(url, tries=6):
     raise RuntimeError("WFS request failed: " + url[:120])
 
 
-def download(key):
+def download(key, threads=6):
+    """Page through the layer in parallel (pages are independent) and write NDJSON."""
+    import re
+    from concurrent.futures import ThreadPoolExecutor
     layer, code_f, name_f = LAYERS[key]
     os.makedirs(RAW, exist_ok=True)
     out = os.path.join(RAW, f"gtk_{key}.ndjson.gz")
     done = os.path.join(RAW, f"gtk_{key}.done")
     if os.path.exists(done):
         log(key, "already downloaded"); return
-    start, n = 0, 0
-    with gzip.open(out, "wt") as f:
-        while True:
-            q = dict(service="WFS", version="2.0.0", request="GetFeature", typeNames=layer,
-                     count=PAGE, startIndex=start, outputFormat="GEOJSON",
-                     srsName="urn:ogc:def:crs:EPSG::3067")
-            j = json.loads(get(BASE + urllib.parse.urlencode(q)))
-            feats = j.get("features", [])
+    hits = get(BASE + urllib.parse.urlencode(dict(service="WFS", version="2.0.0", request="GetFeature",
+                                                  typeNames=layer, resultType="hits")))
+    total = int(re.search(rb'numberMatched="(\d+)"', hits).group(1))
+    log(key, "features to fetch", total)
+
+    def page(start):
+        q = dict(service="WFS", version="2.0.0", request="GetFeature", typeNames=layer,
+                 count=PAGE, startIndex=start, outputFormat="GEOJSON", srsName="urn:ogc:def:crs:EPSG::3067")
+        return json.loads(get(BASE + urllib.parse.urlencode(q))).get("features", [])
+
+    n = 0
+    with gzip.open(out, "wt") as f, ThreadPoolExecutor(threads) as ex:
+        for feats in ex.map(page, range(0, total, PAGE)):
             for ft in feats:
                 p = ft["properties"]
                 f.write(json.dumps({"c": p.get(code_f), "n": p.get(name_f), "g": ft["geometry"]}) + "\n")
-            n += len(feats); start += PAGE
-            log(key, "features", n)
-            if len(feats) < PAGE:
-                break
+            n += len(feats)
+            if n % (PAGE * 10) < PAGE:
+                log(key, "features", n)
     open(done, "w").write(str(n))
     log(key, "download complete", n)
 
