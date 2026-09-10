@@ -103,6 +103,68 @@ def _work(item):
     return np.nanmean(np.stack(vecs), axis=0)
 
 
+def _key(p):
+    return f"{p['cycle']}:{p['row']}:{p['col']}:{p['samples'] or ''}"
+
+
+def run_all(pts, workers, chunk=100, chunk_timeout=900, item_timeout=180):
+    """Feature vectors for all points, cycle by cycle, with a JSONL cache so a restart resumes,
+    and chunk/item timeouts so a hung or crashed worker cannot stall the pool forever."""
+    cache_path = os.path.join(HERE, "data", "raw", "feature_cache.jsonl")
+    os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+    cache = {}
+    if os.path.exists(cache_path):
+        for line in open(cache_path):
+            try:
+                d = json.loads(line); cache[d["k"]] = d["v"]
+            except ValueError:
+                pass
+    log("cache entries", len(cache))
+    ctx = mp.get_context("fork")
+    out = [None] * len(pts)
+    with open(cache_path, "a") as cf:
+        for cycle in sorted(set(p["cycle"] for p in pts)):
+            idx = [i for i, p in enumerate(pts) if p["cycle"] == cycle]
+            todo = [i for i in idx if _key(pts[i]) not in cache]
+            for i in idx:
+                if _key(pts[i]) in cache:
+                    out[i] = cache[_key(pts[i])]
+            log("cycle", cycle, "points", len(idx), "to compute", len(todo))
+            if not todo:
+                continue
+            nw = workers if cycle == 2023 else min(workers, 4)
+            pool = ctx.Pool(nw, initializer=_init, initargs=(cycle,))
+            done_n = 0
+            try:
+                for c0 in range(0, len(todo), chunk):
+                    ids = todo[c0:c0 + chunk]
+                    args = [(pts[i]["row"], pts[i]["col"], pts[i]["samples"]) for i in ids]
+                    try:
+                        res = pool.map_async(_work, args, chunksize=4).get(timeout=chunk_timeout)
+                    except mp.TimeoutError:
+                        log("chunk timed out — restarting pool and retrying items one by one")
+                        pool.terminate(); pool.join()
+                        pool = ctx.Pool(nw, initializer=_init, initargs=(cycle,))
+                        res = []
+                        for arg in args:
+                            try:
+                                res.append(pool.apply_async(_work, (arg,)).get(timeout=item_timeout))
+                            except mp.TimeoutError:
+                                log("item timed out", arg[:2]); res.append(None)
+                                pool.terminate(); pool.join()
+                                pool = ctx.Pool(nw, initializer=_init, initargs=(cycle,))
+                    for i, v in zip(ids, res):
+                        vv = None if v is None else [float(x) for x in v]
+                        out[i] = vv; cache[_key(pts[i])] = vv
+                        cf.write(json.dumps({"k": _key(pts[i]), "v": vv}) + "\n")
+                    cf.flush()
+                    done_n += len(ids)
+                    log("  done", done_n, "of", len(todo))
+            finally:
+                pool.terminate(); pool.join()
+    return [None if v is None else np.array(v, dtype=np.float32) for v in out]
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--coarse", action="store_true", help="also use 250 m < unc <= 1000 m presences")
@@ -146,17 +208,7 @@ def main():
                         year=int(r["year"]) if r["year"] else None, cycle=2023, unc_m=None, samples=None, id=r["id"]))
     log("total points", len(pts))
 
-    feats = [None] * len(pts)
-    ctx = mp.get_context("fork")
-    for cycle in sorted(set(p["cycle"] for p in pts)):
-        idx = [i for i, p in enumerate(pts) if p["cycle"] == cycle]
-        workers = a.workers if cycle == 2023 else min(a.workers, 4)
-        log("cycle", cycle, "points", len(idx), "workers", workers)
-        with ctx.Pool(workers, initializer=_init, initargs=(cycle,)) as pool:
-            for k, v in zip(idx, pool.imap(_work, [(pts[i]["row"], pts[i]["col"], pts[i]["samples"]) for i in idx], chunksize=8)):
-                feats[k] = v
-                if len([1 for j in idx[:idx.index(k) + 1]]) % 250 == 0:
-                    log("  done", idx.index(k) + 1)
+    feats = run_all(pts, a.workers)
     meta = ["group", "weight", "id", "lat", "lon", "x", "y", "row", "col", "year", "cycle", "unc_m"]
     n_ok = 0
     with open(a.out, "w", newline="") as f:
