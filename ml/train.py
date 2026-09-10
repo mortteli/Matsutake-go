@@ -79,12 +79,14 @@ def class_weights(d):
 
 # ----------------------------------------------------------------------------- metrics
 def recall_at_area(score, d, frac):
+    m = eval_mask(d); score, d = score[m], d[m]
     bg = score[(d.group == "bg_random").values]
     thr = np.quantile(bg, 1 - frac)
     return float((score[(d.y == 1).values] >= thr).mean())
 
 
 def boyce(score, d, nbins=10):
+    m = eval_mask(d); score, d = score[m], d[m]
     p, b = score[(d.y == 1).values], score[(d.group == "bg_random").values]
     edges = np.quantile(b, np.linspace(0, 1, nbins + 1))
     edges[-1] += 1e-9
@@ -96,7 +98,15 @@ def boyce(score, d, nbins=10):
     return float(spearmanr(mids, ratios).correlation) if len(ratios) > 2 else float("nan")
 
 
+def eval_mask(d):
+    """Coarse presences (unc > 250 m) may train the model but are never used for scoring."""
+    unc = pd.to_numeric(d.get("unc_m"), errors="coerce") if "unc_m" in d else pd.Series(np.nan, index=d.index)
+    return ~((d.y == 1) & (unc > 250)).values
+
+
 def summarize(score, d):
+    m = eval_mask(d)
+    score, d = score[m], d[m]
     y = d.y.values
     fungi = (d.group != "bg_random").values; rand = (d.group != "bg_fungi").values
     out = dict(
@@ -231,13 +241,18 @@ def main():
     ap.add_argument("--trials", type=int, default=12)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--no-ablation", action="store_true")
+    ap.add_argument("--fine-only", action="store_true", help="drop presences with unc > 250 m from training too")
     a = ap.parse_args()
     path = a.dataset or os.path.join(HERE, "data", a.species, "dataset.csv")
     d = load(path)
+    if a.fine_only:
+        d = d[eval_mask(d)].reset_index(drop=True)
+    n_coarse = int((~eval_mask(d)).sum())
     cols = [c for c in FEATURES if c in d.columns]
     folds = assign_folds(d, seed=a.seed)
     log("rows", len(d), "presences", int(d.y.sum()), "features", len(cols), "blocks", d.block.nunique())
-    report = {"n": int(len(d)), "n_presence": int(d.y.sum()), "n_bg_random": int((d.group == "bg_random").sum()),
+    report = {"n": int(len(d)), "n_presence": int(d.y.sum()) - n_coarse, "n_presence_coarse": n_coarse,
+              "n_bg_random": int((d.group == "bg_random").sum()),
               "n_bg_fungi": int((d.group == "bg_fungi").sum()), "n_features": len(cols), "results": {}}
 
     for name, fn in RULES.items():
@@ -262,7 +277,8 @@ def main():
     d["score_mlp"] = scores
 
     # precision/recall vs area curve (pooled out-of-fold)
-    bg = scores[(d.group == "bg_random").values]; pr = scores[(d.y == 1).values]; fu = scores[(d.group == "bg_fungi").values]
+    em = eval_mask(d)
+    bg = scores[em & (d.group == "bg_random").values]; pr = scores[em & (d.y == 1).values]; fu = scores[em & (d.group == "bg_fungi").values]
     curve = []
     for frac in (0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.30, 0.50):
         thr = float(np.quantile(bg, 1 - frac))
