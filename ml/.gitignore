@@ -1,4 +1,6 @@
 # large derived rasters and raw downloads are rebuilt by the scripts, never committed
-data/rasters/
+data/rasters/*
+!data/rasters/gtk_soil_16m.tif
+!data/rasters/gtk_glac_16m.tif
 data/raw/
 __pycache__/

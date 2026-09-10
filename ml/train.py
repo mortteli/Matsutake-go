@@ -42,6 +42,15 @@ def log(*a):
 # ----------------------------------------------------------------------------- data
 def load(path):
     d = pd.read_csv(path)
+    # data governance: a presence whose record is no longer in observations.csv (e.g. dropped
+    # for its licence) must not train the model either
+    obs = os.path.join(os.path.dirname(path), "observations.csv")
+    if os.path.exists(obs) and "id" in d.columns:
+        keep = set(pd.read_csv(obs, dtype=str)["id"])
+        before = len(d)
+        d = d[(d.group != "presence") | d["id"].astype(str).isin(keep)].reset_index(drop=True)
+        if len(d) != before:
+            log("dropped", before - len(d), "presence rows not in observations.csv")
     d["y"] = (d.group == "presence").astype(int)
     d["block"] = (d.x // BLOCK_M).astype(int) * 100000 + (d.y // BLOCK_M).astype(int)
     return d

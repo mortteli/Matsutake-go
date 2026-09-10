@@ -12,7 +12,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "data", "matsutake", "observations.csv")
 GBIF_TAXON = 5241820          # Tricholoma matsutake (S.Ito & S.Imai) Singer
 LAJI_TAXON = "MX.72541"
-FIELDS = ["source", "id", "date", "year", "month", "day", "lat", "lon", "unc_m", "basis", "dataset", "locality"]
+FIELDS = ["source", "id", "date", "year", "month", "day", "lat", "lon", "unc_m", "basis", "dataset", "dataset_key", "license", "locality"]
 
 
 def get_json(url, tries=5):
@@ -36,7 +36,8 @@ def gbif():
                              year=r.get("year"), month=r.get("month"), day=r.get("day"),
                              lat=r["decimalLatitude"], lon=r["decimalLongitude"],
                              unc_m=r.get("coordinateUncertaintyInMeters"), basis=r.get("basisOfRecord"),
-                             dataset=r.get("datasetName", ""), locality=(r.get("locality") or "")[:80]))
+                             dataset=r.get("datasetName", ""), dataset_key=r.get("datasetKey", ""),
+                             license=r.get("license", ""), locality=(r.get("locality") or "")[:80]))
         off += 300
         if j.get("endOfRecords") or not j["results"]:
             break
@@ -62,11 +63,20 @@ def laji(token):
                              year=y, month=m, day=dd, lat=pt["lat"], lon=pt["lon"],
                              unc_m=g.get("interpretations", {}).get("coordinateAccuracy"),
                              basis=u.get("recordBasis"), dataset=(r.get("document", {}).get("collectionId") or "").replace("http://tun.fi/", ""),
+                             dataset_key=(r.get("document", {}).get("collectionId") or "").replace("http://tun.fi/", ""),
+                             license=(r.get("document", {}).get("licenseId") or "").replace("http://tun.fi/MY.intellectualRights", ""),
                              locality=(g.get("locality") or "")[:80]))
         if page >= j.get("lastPage", 1):
             break
         page += 1
     return rows
+
+
+def redistributable(lic):
+    """Records we may keep in a public repository: CC0 / CC BY / CC BY-NC. All-rights-reserved and
+    share-alike records are dropped entirely (not used for training either)."""
+    l = (lic or "").upper()
+    return not ("ARR" in l or "-SA" in l or "SA-4" in l)
 
 
 def main():
@@ -79,6 +89,9 @@ def main():
         new = [r for r in lrows if (round(r["lat"], 3), round(r["lon"], 3), r["date"]) not in seen]
         print("laji records:", len(lrows), "new after de-dup:", len(new))
         rows += new
+    n0 = len(rows)
+    rows = [r for r in rows if redistributable(r.get("license"))]
+    print("dropped for licence (ARR / share-alike):", n0 - len(rows))
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=FIELDS); w.writeheader(); w.writerows(rows)

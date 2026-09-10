@@ -131,6 +131,18 @@ laji kuvaa suodattimensa (`conditions`), hyväksymänsä maapohjat (`mainTypes`)
 säätimensä (`controls`), mittarinsa (`metrics`) ja tekstinsä — käyttöliittymä
 rakentuu niistä.
 
+## Todennäköisyyskartta (🧠)
+
+🗺️-valikon **Todennäköisyyskartta** on havainnoista opetettu neuroverkko, joka
+antaa jokaiselle 16 m ruudulle arvion siitä, kuinka matsutaken tunnettujen
+löytöpaikkojen kaltainen se on. Malli yhdistää Luken metsätiedot, MML:n
+korkeusmallin (rinne, suunta, harjanne), GTK:n maaperä- ja harjukartan sekä
+Ilmatieteen laitoksen lämpösumman. Säädin *Näytä parhaat X % metsämaasta*
+valitsee kynnyksen: pienempi prosentti = tiukempi kartta. Menetelmä, aineisto ja
+tarkkuusluvut: [docs/HABITAT_MODEL_PLAN.md](docs/HABITAT_MODEL_PLAN.md) ja
+[docs/MODEL_REPORT_matsutake.md](docs/MODEL_REPORT_matsutake.md); koodi ja
+data kansiossa [`ml/`](ml/README.md).
+
 ## Aineistot ja lisenssit
 
 - Metsävaratiedot: Luonnonvarakeskus (Luke), monilähteisen valtakunnan metsien
@@ -140,6 +152,17 @@ rakentuu niistä.
   / Suomen Lajitietokeskus (ei osa sovellusta — käytetty vain oletusrajojen tarkistukseen)
 - Taustakartat: © OpenStreetMap-tekijät, © OpenTopoMap (CC-BY-SA), © Esri
 - Karttakirjasto: [Leaflet](https://leafletjs.com/)
+
+- Havaintoaineisto mallin opetukseen: GBIF ja Suomen Lajitietokeskus (FinBIF) —
+  tietuekohtaiset lisenssit (CC0 / CC BY / CC BY-NC) on kirjattu
+  `ml/data/matsutake/observations.csv`-tiedostoon; kaikki oikeudet pidättävät ja
+  share-alike-tietueet on jätetty pois. Koko erittely: [DATA_LICENSES.md](DATA_LICENSES.md).
+- Maaperä: Geologian tutkimuskeskus (GTK), Maaperä 1:200 000 ja jäätikkösyntyiset
+  muodostumat, CC BY 4.0. Korkeusmalli 10 m: Maanmittauslaitos, CC BY 4.0.
+  Ilmastonormaalit: Ilmatieteen laitos, CC BY 4.0.
+- Johdettu todennäköisyyskartta ja mallin painot: CC BY-NC 4.0 (opetusaineistossa
+  on CC BY-NC-tietueita).
+- Sovelluksen koodi: [MIT](LICENSE). Kirjastot: [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
 
 **Vastuuvapaus:** kartta on tilastollinen arvio metsän rakenteesta, ei
 sienihavaintoja. Tarkista aina tunnistus itse, kunnioita luonnonsuojelualueiden
