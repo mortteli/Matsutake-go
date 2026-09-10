@@ -14,7 +14,7 @@ import numpy as np, pandas as pd
 from scipy.stats import spearmanr
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score, average_precision_score
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import SplineTransformer
 import torch, torch.nn as nn
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -185,6 +185,68 @@ class Prep:
         return dict(features=list(self.cols), median=self.median.tolist(), mean=self.mean.tolist(), std=self.std.tolist())
 
 
+def continuous_mask(X):
+    """columns that are not 0/1 indicators (splines / hinges are only built for these)"""
+    return np.array([not np.all(np.isin(X[np.isfinite(X[:, j]), j], [0.0, 1.0])) for j in range(X.shape[1])])
+
+
+class GamBasis:
+    """Spline-basis logistic GAM: natural cubic splines (6 knots) for every continuous feature,
+    indicators passed through, ridge penalty via the logistic C. Fitted on standardized inputs."""
+    def __init__(self, n_knots=6):
+        self.n_knots = n_knots
+    def fit(self, X):
+        self.cont = continuous_mask(X)
+        self.spl = SplineTransformer(n_knots=self.n_knots, degree=3, include_bias=False, extrapolation="linear")
+        self.spl.fit(X[:, self.cont])
+        return self
+    def transform(self, X):
+        return np.hstack([self.spl.transform(X[:, self.cont]), X[:, ~self.cont]])
+
+
+class MaxentBasis:
+    """MaxEnt feature classes on standardized inputs: linear, quadratic, forward and reverse
+    hinges at 5 quantile knots per continuous feature; indicators passed through."""
+    def fit(self, X):
+        self.cont = continuous_mask(X)
+        Xc = X[:, self.cont]
+        self.knots = np.nanquantile(Xc, [0.1, 0.3, 0.5, 0.7, 0.9], axis=0)     # (5, n_cont)
+        return self
+    def transform(self, X):
+        Xc = X[:, self.cont]
+        parts = [Xc, Xc ** 2]
+        for k in self.knots:
+            parts.append(np.maximum(0, Xc - k)); parts.append(np.maximum(0, k - Xc))
+        return np.hstack(parts + [X[:, ~self.cont]])
+
+
+def fit_predict_other(model, Xtr, ytr, wtr, Xte, cfg, seed=0):
+    if model == "logreg":
+        m = LogisticRegression(C=cfg.get("C", 0.3), max_iter=3000).fit(Xtr, ytr, sample_weight=wtr)
+        return m.predict_proba(Xte)[:, 1]
+    if model == "gam":
+        b = GamBasis().fit(Xtr)
+        m = LogisticRegression(C=cfg.get("C", 0.2), max_iter=5000).fit(b.transform(Xtr), ytr, sample_weight=wtr)
+        return m.predict_proba(b.transform(Xte))[:, 1]
+    if model == "maxent":
+        # Infinitely-weighted logistic regression (Fithian & Hastie 2013) == MaxEnt / Poisson point
+        # process: background weights >> presence weights, L1 penalty as in MaxEnt's lasso.
+        b = MaxentBasis().fit(Xtr)
+        w = wtr.copy(); w[ytr == 0] *= cfg.get("W", 50.0)
+        m = LogisticRegression(penalty="l1", solver="saga", C=cfg.get("C", 0.1), max_iter=4000, tol=1e-3)
+        m.fit(b.transform(Xtr), ytr, sample_weight=w)
+        return m.decision_function(b.transform(Xte))                      # log relative intensity
+    if model == "lgbm":
+        import lightgbm as lgb
+        m = lgb.LGBMClassifier(**cfg, verbose=-1, random_state=seed).fit(Xtr, ytr, sample_weight=wtr)
+        return m.predict_proba(Xte)[:, 1]
+    if model == "xgb":
+        import xgboost as xgb
+        m = xgb.XGBClassifier(**cfg, random_state=seed, n_jobs=4, verbosity=0).fit(Xtr, ytr, sample_weight=wtr)
+        return m.predict_proba(Xte)[:, 1]
+    raise ValueError(model)
+
+
 def inner_split(dtr, seed):
     """One inner validation split by block (for early stopping / tuning)."""
     rnd = np.random.default_rng(seed)
@@ -209,13 +271,8 @@ def run_cv(d, cols, folds, cfg, seed=0, model="mlp", lgb_params=None):
             itr, iva = inner_split(dtr, seed + f)
             m = fit_mlp(Xtr[itr], dtr.y.values[itr], w[itr], Xtr[iva], dtr.y.values[iva], w[iva], seed=seed + f, **cfg)
             score[te] = predict_mlp(m, Xte)
-        elif model == "logreg":
-            m = LogisticRegression(C=cfg.get("C", 0.3), max_iter=2000).fit(Xtr, dtr.y.values, sample_weight=w)
-            score[te] = m.predict_proba(Xte)[:, 1]
-        elif model == "lgbm":
-            import lightgbm as lgb
-            m = lgb.LGBMClassifier(**(lgb_params or {}), verbose=-1, random_state=seed).fit(Xtr, dtr.y.values, sample_weight=w)
-            score[te] = m.predict_proba(Xte)[:, 1]
+        else:
+            score[te] = fit_predict_other(model, Xtr, dtr.y.values, w, Xte, lgb_params or cfg, seed)
     return score
 
 
@@ -259,12 +316,28 @@ def main():
         s = fn(d).astype(float).values + 1e-3 * np.random.default_rng(0).random(len(d))   # tiny jitter breaks ties
         report["results"][name] = summarize(s, d)
         log(name, report["results"][name])
-    report["results"]["logreg"] = summarize(run_cv(d, cols, folds, {"C": 0.3}, model="logreg"), d)
-    log("logreg", report["results"]["logreg"])
-    lgbp = dict(n_estimators=400, learning_rate=0.03, num_leaves=15, min_child_samples=20, subsample=0.8,
-                subsample_freq=1, colsample_bytree=0.8, reg_lambda=1.0)
-    report["results"]["lgbm"] = summarize(run_cv(d, cols, folds, {}, model="lgbm", lgb_params=lgbp), d)
-    log("lgbm", report["results"]["lgbm"])
+    def best_of(model, grid):
+        best = None
+        for cfg in grid:
+            s = run_cv(d, cols, folds, cfg, model=model, lgb_params=cfg)
+            met = summarize(s, d)
+            log(f"  {model} {cfg} -> prauc_fungi {met['prauc_vs_fungi']} recall@5 {met['recall_at_5']}")
+            if best is None or (met["prauc_vs_fungi"], met["recall_at_5"]) > (best[0]["prauc_vs_fungi"], best[0]["recall_at_5"]):
+                best = (met, cfg)
+        report["results"][model] = dict(best[0], cfg=best[1])
+        log(model, report["results"][model])
+
+    best_of("logreg", [{"C": 0.1}, {"C": 0.3}, {"C": 1.0}])
+    best_of("gam", [{"C": 0.05}, {"C": 0.2}, {"C": 1.0}])
+    best_of("maxent", [{"C": 0.03, "W": 50.0}, {"C": 0.1, "W": 50.0}, {"C": 0.3, "W": 50.0}])
+    best_of("lgbm", [dict(n_estimators=400, learning_rate=0.03, num_leaves=15, min_child_samples=20, subsample=0.8,
+                          subsample_freq=1, colsample_bytree=0.8, reg_lambda=1.0),
+                     dict(n_estimators=300, learning_rate=0.05, num_leaves=7, min_child_samples=30, subsample=0.8,
+                          subsample_freq=1, colsample_bytree=0.7, reg_lambda=3.0)])
+    best_of("xgb", [dict(n_estimators=400, learning_rate=0.03, max_depth=4, min_child_weight=5, subsample=0.8,
+                         colsample_bytree=0.8, reg_lambda=1.0),
+                    dict(n_estimators=300, learning_rate=0.05, max_depth=3, min_child_weight=10, subsample=0.8,
+                         colsample_bytree=0.7, reg_lambda=3.0)])
 
     trials = tune_mlp(d, cols, folds, seed=a.seed, n_trials=a.trials)
     best_cfg, best_met = trials[0][2], trials[0][3]
@@ -334,6 +407,14 @@ def write_report(r, species):
         L.append(f"| {k} | {m['auc_vs_fungi']} | {m['prauc_vs_fungi']} | {m['auc_vs_random']} | {m['recall_at_5']} | {m['recall_at_10']} | {m['recall_at_20']} | {m['boyce']} |")
     L += ["", "recall@k %: share of held-out finds scoring above the top-k % of random forest cells "
           "(i.e. if the map is coloured over k % of forest land).", "",
+          "All models are fitted in the presence-background setting: presences vs. a background made of "
+          "random forestry-land cells (what habitat is available) and other-fungi observation sites "
+          "(where people actually look, i.e. the target-group correction for observer bias). "
+          "`maxent` is the MaxEnt-equivalent infinitely-weighted L1 logistic regression on MaxEnt feature "
+          "classes (linear, quadratic, forward/reverse hinges); `gam` is a spline-basis logistic GAM; "
+          "`logreg` is a ridge logistic regression; `lgbm`/`xgb` are gradient-boosted trees; `mlp` is the "
+          "neural network used for the map. Baseline configs are the best of a small grid on the same folds "
+          "(slightly optimistic for them, not for the MLP whose config is chosen by nested CV).", "",
           "## MLP threshold curve (out-of-fold)", "",
           "| Map covers (share of forest) | Recall of finds | Other-fungi sites kept | Lift vs random |", "|---|---|---|---|"]
     for c in r["curve"]:
