@@ -28,7 +28,10 @@ def short_license(l):
          "http://creativecommons.org/licenses/by-nc/4.0/legalcode": "CC BY-NC 4.0",
          "CC_BY_4_0": "CC BY 4.0", "CC_BY_NC_4_0": "CC BY-NC 4.0", "CC0_1_0": "CC0 1.0", "CC-BY": "CC BY 4.0"}
     if l in m: return m[l]
-    if "intellectualRights" in l: return l.split("intellectualRights")[-1].replace("-", " ").replace("4.0", "4.0")
+    if "intellectualRights" in l:
+        s = l.split("intellectualRights")[-1]                     # e.g. CC-BY-NC-4.0, CC-BY-4.0, ARR
+        s = s.replace("CC-BY-NC-SA", "CC BY-NC-SA").replace("CC-BY-NC", "CC BY-NC").replace("CC-BY", "CC BY").replace("CC0-", "CC0 ")
+        return s.replace("-4.0", " 4.0").replace("-1.0", " 1.0")
     return l or "unknown"
 
 
