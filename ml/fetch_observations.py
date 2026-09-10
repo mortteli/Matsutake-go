@@ -44,24 +44,24 @@ def gbif():
 
 
 def laji(token):
-    """FinBIF warehouse: public records only; coordinates in WGS84, accuracy in metres."""
+    """FinBIF warehouse (public records only). Coordinates are the WGS84 centre point of the
+    reported area, accuracy in metres; the date comes from the display string."""
     rows, page = [], 1
-    sel = ",".join(["unit.unitId", "gathering.eventDate.begin", "gathering.conversions.wgs84CenterPoint.lat",
-                    "gathering.conversions.wgs84CenterPoint.lon", "gathering.interpretations.coordinateAccuracy",
-                    "document.collectionId", "gathering.locality", "unit.recordBasis"])
     while True:
-        q = dict(taxonId=LAJI_TAXON, countryId="ML.206", pageSize=1000, page=page, selected=sel,
-                 access_token=token)
+        q = dict(taxonId=LAJI_TAXON, countryId="ML.206", pageSize=1000, page=page, access_token=token)
         j = get_json("https://api.laji.fi/v0/warehouse/query/unit/list?" + urllib.parse.urlencode(q))
         for r in j.get("results", []):
             g, u = r.get("gathering", {}), r.get("unit", {})
             pt = g.get("conversions", {}).get("wgs84CenterPoint", {})
-            if "lat" not in pt: continue
-            d = (g.get("eventDate", {}).get("begin") or "")[:10]
-            y, m, dd = (int(x) for x in d.split("-")) if len(d) == 10 else (None, None, None)
-            rows.append(dict(source="laji", id=u.get("unitId"), date=d, year=y, month=m, day=dd,
-                             lat=pt["lat"], lon=pt["lon"], unc_m=g.get("interpretations", {}).get("coordinateAccuracy"),
-                             basis=u.get("recordBasis"), dataset=r.get("document", {}).get("collectionId", ""),
+            if "lat" not in pt:
+                continue
+            d = (g.get("displayDateTime") or "")[:10]
+            ok = len(d) == 10 and d[4] == "-" and d[7] == "-"
+            y, m, dd = (int(x) for x in d.split("-")) if ok else (None, None, None)
+            rows.append(dict(source="laji", id=(u.get("unitId") or "").replace("http://", ""), date=d if ok else "",
+                             year=y, month=m, day=dd, lat=pt["lat"], lon=pt["lon"],
+                             unc_m=g.get("interpretations", {}).get("coordinateAccuracy"),
+                             basis=u.get("recordBasis"), dataset=(r.get("document", {}).get("collectionId") or "").replace("http://tun.fi/", ""),
                              locality=(g.get("locality") or "")[:80]))
         if page >= j.get("lastPage", 1):
             break
