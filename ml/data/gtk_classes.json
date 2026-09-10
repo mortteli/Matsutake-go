@@ -112,5 +112,71 @@
    "code": "4.4.3",
    "name": "Minor ribbed moraine"
   }
+ },
+ "soil": {
+  "1": {
+   "code": 195110,
+   "name": "Kalliopaljastuma (KaPa) RT"
+  },
+  "2": {
+   "code": 195111,
+   "name": "Kalliomaa (Ka) RT"
+  },
+  "3": {
+   "code": 195112,
+   "name": "Rakka (RaKa) RT"
+  },
+  "4": {
+   "code": 195210,
+   "name": "Sekalajitteinen maalaji, päälajitetta ei selvitetty (SY) RT"
+  },
+  "5": {
+   "code": 195310,
+   "name": "Karkearakeinen maalaji, päälajitetta ei selvitetty (KY) RT"
+  },
+  "6": {
+   "code": 195312,
+   "name": "Kiviä (Ki) RT"
+  },
+  "7": {
+   "code": 195410,
+   "name": "Hienojakoinen maalaji, päälajitetta ei selvitetty (HY) RT"
+  },
+  "8": {
+   "code": 195413,
+   "name": "Savi (Sa) RT"
+  },
+  "9": {
+   "code": 195511,
+   "name": "Lieju (Lj) RT"
+  },
+  "10": {
+   "code": 19551822,
+   "name": "Soistuma (Tvs) RT"
+  },
+  "11": {
+   "code": 19551891,
+   "name": "Ohut turvekerros (Tvo) RT"
+  },
+  "12": {
+   "code": 19551892,
+   "name": "Paksu turvekerros (Tvp) RT"
+  },
+  "13": {
+   "code": 195601,
+   "name": "Täytemaa (Ta)"
+  },
+  "14": {
+   "code": 195602,
+   "name": "Kartoittamaton (0)"
+  },
+  "15": {
+   "code": 195603,
+   "name": "Vesi (Ve)"
+  },
+  "16": {
+   "code": 195618,
+   "name": "Liejuinen hienorakeinen maalaji RT"
+  }
  }
 }
