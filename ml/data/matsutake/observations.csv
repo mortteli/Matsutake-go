@@ -1,0 +1,405 @@
+source,id,date,year,month,day,lat,lon,unc_m,basis,dataset,locality
+gbif,6498547472,2026-08-18,2026,8,18,62.720135,28.997909,84.0,HUMAN_OBSERVATION,iNaturalist research-grade observations,
+gbif,6498661350,2026-08-11,2026,8,11,67.40213,26.062365,,HUMAN_OBSERVATION,iNaturalist research-grade observations,
+gbif,5760866864,2025-08-28,2025,8,28,68.966095,27.003345,9.0,HUMAN_OBSERVATION,iNaturalist research-grade observations,
+gbif,5867901307,2025-08-16,2025,8,16,69.14909,27.217232,,HUMAN_OBSERVATION,iNaturalist research-grade observations,
+gbif,5888911706,2025-08-19,2025,8,19,68.466551,28.465853,1000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Raja-Joosepin kenttä
+gbif,5892121656,2025-08-22,2025,8,,68.128505,28.477306,1000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Jaurujoki
+gbif,5898726671,2025-08-26,2025,8,26,68.421437,28.396171,1000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Alempi Kiertämäjärvi
+gbif,5762416521,2025-09-03,2025,9,3,64.746114,24.791228,10000.0,HUMAN_OBSERVATION,The Atlas of Finnish Fungi,
+gbif,5830700863,2025-09-03,2025,9,3,69.195739,27.878549,6.0,HUMAN_OBSERVATION,iNaturalist research-grade observations,
+gbif,5844788659,2025-09-18,2025,9,18,68.308578,28.005396,250.0,HUMAN_OBSERVATION,,Urho-Kekkonen-Nationalpark
+gbif,5844793621,2025-09-27,2025,9,27,68.308578,28.005396,250.0,HUMAN_OBSERVATION,,Urho-Kekkonen-Nationalpark
+gbif,5844797852,2025-09-17,2025,9,17,68.308578,28.005396,250.0,HUMAN_OBSERVATION,,Urho-Kekkonen-Nationalpark
+gbif,6133405962,2025-09-03,2025,9,3,69.194937,27.877096,,HUMAN_OBSERVATION,iNaturalist research-grade observations,
+gbif,6499727194,2025-09-09,2025,9,9,68.657637,27.539706,2293.0,HUMAN_OBSERVATION,iNaturalist research-grade observations,
+gbif,4925234382,2024-08-18,2024,8,18,65.114456,25.640388,1.0,HUMAN_OBSERVATION,Löydös Open Finnish Observation Database,
+gbif,4927217726,2024-08-27,2024,8,27,65.153615,25.241415,1.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,"Haukipudas, Keskiniemi"
+gbif,4929449643,2024-08-31,2024,8,31,65.15874,25.446694,1.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Haukipudas
+gbif,4979541032,2024-08-19,2024,8,19,66.471109,25.85725,100.0,PRESERVED_SPECIMEN,The Atlas of Finnish Fungi,Toramomaa
+gbif,4929450281,2024-09-01,2024,9,1,64.600457,26.47871,1.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Rokuan kansallispuisto
+gbif,4938773872,2024-09-04,2024,9,4,66.257046,26.035752,1.0,MACHINE_OBSERVATION,"Notebook, general observations",
+gbif,4939429523,2024-09-06,2024,9,6,61.178607,28.365914,1.0,HUMAN_OBSERVATION,Löydös Open Finnish Observation Database,Taipalsaaren PÄIHÄNIEMI. Kotiselän puoleinen hiekkaranta. Sienet on laskettu 1 k
+gbif,4979541595,2024-09-14,2024,9,14,66.53989,25.50549,1.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Mellavaara
+gbif,4979544599,2024-09-05,2024,9,5,61.754005,29.417053,1000.0,PRESERVED_SPECIMEN,The Atlas of Finnish Fungi,"Punkaharju, Pakkasharju"
+gbif,4169789348,2023-07-30,2023,7,30,66.455843,25.895782,25000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,
+gbif,4176990070,2023-08-04,2023,8,4,62.796909,29.564842,31.0,HUMAN_OBSERVATION,iNaturalist research-grade observations,
+gbif,4403547350,2023-08-14,2023,8,14,61.312901,23.417445,100.0,HUMAN_OBSERVATION,"Notebook, general observations",
+gbif,4403473055,2023-09-01,2023,9,1,65.147295,25.286319,1000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Virpiniemi
+gbif,4406204622,2023-09-05,2023,9,5,66.500553,25.758758,1000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Ounasvaara
+gbif,4412461436,2023-09-11,2023,9,11,59.992641,24.449354,100.0,HUMAN_OBSERVATION,"Notebook, general observations",
+gbif,4412691435,2023-09-02,2023,9,2,61.178489,28.365735,1.0,HUMAN_OBSERVATION,Löydös Open Finnish Observation Database,Taipalsaaren PÄIHÄNIEMI Kotiselän puoleinen hiekkaranta.
+gbif,4418547819,2023-09-09,2023,9,9,64.205882,29.179715,1.0,HUMAN_OBSERVATION,"Notebook, general observations",
+gbif,4604652320,2023-09-14,2023,9,14,62.044518,24.848276,1000.0,PRESERVED_SPECIMEN,"Notebook, general observations","Keuruu, Matolammin, Heräjärven vanhojen metsien suojelualue"
+gbif,4858923525,2023-09-23,2023,9,23,60.29257,24.501465,1000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Kolmoislammit
+gbif,6194034300,2023-09-03,2023,9,3,66.500983,25.761039,1.0,MACHINE_OBSERVATION,"Notebook, general observations","Rovaniemi, Ounasvaara"
+gbif,6194038551,2023-09-02,2023,9,2,66.500721,25.767725,1.0,MACHINE_OBSERVATION,"Notebook, general observations",
+gbif,6500091939,2023-09-02,2023,9,2,60.617021,24.83365,203.0,HUMAN_OBSERVATION,iNaturalist research-grade observations,
+gbif,4421727536,2023-10-05,2023,10,5,59.82941,23.03314,1000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Täktom Malmhugget
+gbif,4846505304,2023-10-03,2023,10,3,61.74856,25.19531,1000.0,PRESERVED_SPECIMEN,"Notebook, general observations","Jämsä, Hassi, Muurainvuori pieni"
+gbif,3892777484,2022-08-14,2022,8,14,65.52377,27.15784,100000.0,HUMAN_OBSERVATION,Löydös Open Finnish Observation Database,Pintamo
+gbif,3899685966,2022-08-21,2022,8,21,66.002045,28.326792,1.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Hirsiniemi
+gbif,3899686038,2022-08-16,2022,8,16,66.473553,25.860447,100.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Toramo
+gbif,3902036211,2022-08-21,2022,8,21,64.800908,25.289505,227.0,HUMAN_OBSERVATION,iNaturalist research-grade observations,
+gbif,3962798523,2022-08-24,2022,8,24,66.290847,27.193143,1.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,
+gbif,4879692628,2022-08-20,2022,8,20,68.709326,27.274347,1.0,HUMAN_OBSERVATION,LajiGIS: Miscellaneous occurrences,Paatsjoen vesistöalue
+gbif,4879695019,2022-08-20,2022,8,20,68.710027,27.273368,1.0,HUMAN_OBSERVATION,LajiGIS: Miscellaneous occurrences,Paatsjoen vesistöalue
+gbif,4879695746,2022-08-20,2022,8,20,68.70673,27.28226,1.0,HUMAN_OBSERVATION,LajiGIS: Miscellaneous occurrences,Paatsjoen vesistöalue
+gbif,4879696073,2022-08-20,2022,8,20,68.706199,27.283043,1.0,HUMAN_OBSERVATION,LajiGIS: Miscellaneous occurrences,Paatsjoen vesistöalue
+gbif,4879698727,2022-08-20,2022,8,20,68.70206,27.27485,1.0,HUMAN_OBSERVATION,LajiGIS: Miscellaneous occurrences,Paatsjoen vesistöalue
+gbif,4879699376,2022-08-20,2022,8,20,68.706128,27.28287,1.0,HUMAN_OBSERVATION,LajiGIS: Miscellaneous occurrences,Paatsjoen vesistöalue
+gbif,4879704230,2022-08-20,2022,8,20,68.698494,27.289063,1.0,HUMAN_OBSERVATION,LajiGIS: Miscellaneous occurrences,Paatsjoen vesistöalue
+gbif,4879707291,2022-08-20,2022,8,20,68.69923,27.294006,1.0,HUMAN_OBSERVATION,LajiGIS: Miscellaneous occurrences,Paatsjoen vesistöalue
+gbif,3901266301,2022-09-13,2022,9,13,68.455388,28.415464,1.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,UKK
+gbif,3901266349,2022-09-13,2022,9,13,68.45241,28.427351,1.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,UKK
+gbif,3901266393,2022-09-13,2022,9,13,68.457075,28.451169,1.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,UKK
+gbif,3901266455,2022-09-13,2022,9,13,68.456069,28.418349,1.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,UKK
+gbif,3901266459,2022-09-13,2022,9,13,68.45257,28.422259,1.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,UKK
+gbif,3901266460,2022-09-13,2022,9,13,68.454254,28.403738,1.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,UKK
+gbif,3908238349,2022-09-15,2022,9,15,68.761187,27.286741,1.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Rahajärvi
+gbif,3910013327,2022-09-17,2022,9,17,60.87182,21.093841,100000.0,HUMAN_OBSERVATION,Löydös Open Finnish Observation Database,Kalanti
+gbif,3913109541,2022-09-17,2022,9,17,68.896304,26.965222,1.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Juutua
+gbif,3441151134,2021-08-19,2021,8,19,65.165,25.461,1.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,"Haukipudas, Kiviharju"
+gbif,3441176697,2021-08-16,2021,8,16,65.159401,25.598219,25000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,
+gbif,3441199263,2021-08-11,2021,8,11,65.29759,28.421043,1000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,
+gbif,3441206649,2021-08-31,2021,8,31,66.612928,26.324151,1.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,
+gbif,3453909039,2021-08-30,2021,8,30,60.353024,26.22869,50000.0,HUMAN_OBSERVATION,Löydös Open Finnish Observation Database,
+gbif,3453911603,2021-08-21,2021,8,21,65.036196,24.586681,100000.0,HUMAN_OBSERVATION,Löydös Open Finnish Observation Database,
+gbif,5062887890,2021-08-29,2021,8,29,63.660082,28.297349,16076.0,HUMAN_OBSERVATION,iNaturalist research-grade observations,
+gbif,6498956498,2021-08-26,2021,8,26,63.34409,23.370234,3.0,HUMAN_OBSERVATION,iNaturalist research-grade observations,
+gbif,3441131063,2021-09-25,2021,9,25,60.348612,25.880321,1.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,
+gbif,3441143299,2021-09-15,2021,9,15,62.789743,21.996576,10000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,
+gbif,3441145512,2021-09-02,2021,9,2,65.29759,28.421043,1000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,
+gbif,3441208240,2021-09-12,2021,9,12,64.137812,28.30137,1.0,PRESERVED_SPECIMEN,The Atlas of Finnish Fungi,Vuokatinhovi
+gbif,3453927968,2021-09-18,2021,9,18,61.478918,22.118561,50000.0,HUMAN_OBSERVATION,Löydös Open Finnish Observation Database,Joutsijärven luontopolku
+gbif,3441171979,2020-07-28,2020,7,28,66.455843,25.895782,25000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,
+gbif,2860183838,2020-08-30,2020,8,30,63.169543,23.913217,24410.0,HUMAN_OBSERVATION,iNaturalist research-grade observations,
+gbif,3441128614,2020-08-14,2020,8,14,60.285835,25.20057,1.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Älgspångsberget
+gbif,3441142287,2020-08-10,2020,8,10,60.615453,24.830894,1.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,"Sonninmäki, Hyvinkää"
+gbif,3441144003,2020-08-24,2020,8,24,65.161838,25.300031,1000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Kellonkangas
+gbif,3441152502,2020-08-20,2020,8,20,65.148124,25.301711,10000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Haukipudas
+gbif,3441158876,2020-08-24,2020,8,24,66.455843,25.895782,25000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,
+gbif,3441170911,2020-08-19,2020,8,19,64.608195,26.470607,1000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Rokua
+gbif,3441172274,2020-08-21,2020,8,,64.605137,26.489836,1000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Rokua
+gbif,3441180556,2020-08-14,2020,8,14,61.765044,29.385568,1.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Punkasalmi
+gbif,3441183347,2020-08-19,2020,8,19,65.154681,25.287248,5000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Haukipudas
+gbif,3441183733,2020-08-29,2020,8,29,68.590135,27.55956,1000.0,HUMAN_OBSERVATION,The Atlas of Finnish Fungi,Korppivaara
+gbif,3441198580,2020-08-11,2020,8,11,66.4996,25.760908,1000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Ounasvaara
+gbif,3441204190,2020-08-25,2020,8,25,66.46029,25.802411,1000.0,PRESERVED_SPECIMEN,The Atlas of Finnish Fungi,Pöyliörakka
+gbif,3441216976,2020-08-18,2020,8,18,66.325541,26.230054,1.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,"Narkaus, Kampsavaara"
+gbif,3448000052,2020-08-09,2020,8,9,60.637136,24.744766,1000.0,MACHINE_OBSERVATION,"Notebook, general observations",Piilolammi
+gbif,3448441499,2020-08-29,2020,8,29,64.18277,29.220636,1000.0,HUMAN_OBSERVATION,"Notebook, general observations",Roukonkangas
+gbif,3448477984,2020-08-15,2020,8,15,63.998852,28.779969,1000.0,HUMAN_OBSERVATION,"Notebook, general observations",Iso Varislampi
+gbif,3453898277,2020-08-14,2020,8,14,62.998091,27.826245,100000.0,HUMAN_OBSERVATION,Löydös Open Finnish Observation Database,
+gbif,3453909699,2020-08-28,2020,8,28,63.275163,27.463617,1.0,HUMAN_OBSERVATION,Löydös Open Finnish Observation Database,
+gbif,5069872465,2020-08-25,2020,8,25,67.742542,24.089976,253.0,HUMAN_OBSERVATION,iNaturalist research-grade observations,
+gbif,2864769344,2020-09-05,2020,9,5,63.137954,30.739222,,HUMAN_OBSERVATION,iNaturalist research-grade observations,
+gbif,3441136525,2020-09-11,2020,9,11,64.451392,26.791578,1.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Säräisniemi
+gbif,3441167251,2020-09-01,2020,9,1,62.657545,29.67942,1000.0,HUMAN_OBSERVATION,The Atlas of Finnish Fungi,"Onttola, Kanavanranta"
+gbif,3441175695,2020-09-01,2020,9,1,66.368746,29.29534,1.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Oulanka
+gbif,3441179198,2020-09-19,2020,9,19,60.941964,25.76445,1.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Linnainen
+gbif,3441207199,2020-09-17,2020,9,17,65.442985,29.596713,1.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Pahamaailma
+gbif,3441213351,2020-09-01,2020,9,1,62.656283,29.6814,1.0,HUMAN_OBSERVATION,The Atlas of Finnish Fungi,Onttola
+gbif,3441214949,2020-09-05,2020,9,5,67.004321,27.226094,1.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Pyhätunturi
+gbif,3448990896,2020-09-01,2020,9,1,62.705957,29.745996,1000.0,MACHINE_OBSERVATION,"Notebook, general observations",
+gbif,3441163071,2019-09-13,2019,9,13,61.292289,22.152113,1000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Hiittenharju
+gbif,3441171144,2019-09-25,2019,9,25,61.2597,27.711698,1.0,PRESERVED_SPECIMEN,The Atlas of Finnish Fungi,Kärnäkoski
+gbif,3441199850,2019-09-25,2019,9,25,61.259655,27.711807,1.0,HUMAN_OBSERVATION,The Atlas of Finnish Fungi,Kärnäkösken linnoitus
+gbif,3447948430,2019-09-20,2019,9,20,60.642223,22.826288,1000.0,HUMAN_OBSERVATION,"Notebook, general observations",
+gbif,3448703265,2019-09-20,2019,9,20,60.458446,22.178108,10000.0,MACHINE_OBSERVATION,"Notebook, general observations",
+gbif,3441162546,2019-10-08,2019,10,8,60.483669,22.105114,1.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Paikkari
+gbif,3441128826,2018-08-21,2018,8,21,66.482954,25.961481,25000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Rovaniemi
+gbif,3441134655,2018-08-27,2018,8,27,66.816009,25.289398,10000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,
+gbif,3441160823,2018-08-31,2018,8,31,69.149748,27.216612,1000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Tuuruharju
+gbif,3441164367,2018-08-31,2018,8,31,69.155197,27.225507,1000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Tuuruharju
+gbif,3441164429,2018-08-31,2018,8,31,69.002476,26.996377,1000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Korppivaara
+gbif,3441168416,2018-08-29,2018,8,29,66.501464,25.729144,50000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Rovaniemi
+gbif,3441186530,2018-08-31,2018,8,31,62.674605,29.632062,10000.0,HUMAN_OBSERVATION,The Atlas of Finnish Fungi,
+gbif,3441194525,2018-08-31,2018,8,31,69.145936,27.215646,1000.0,PRESERVED_SPECIMEN,The Atlas of Finnish Fungi,Tuurunkangas
+gbif,3441205285,2018-08-26,2018,8,26,66.501114,25.763024,1000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Ounasvaara
+gbif,3441211462,2018-08-31,2018,8,31,69.146893,27.21057,1000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Tuuruharju
+gbif,3447898290,2018-08-20,2018,8,20,62.699458,29.728109,100.0,HUMAN_OBSERVATION,"Notebook, general observations",Jaamankangas
+gbif,3441134000,2018-09-30,2018,9,30,66.473085,25.695183,1000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Paavalniemi
+gbif,3441149178,2018-09-02,2018,9,2,66.493163,25.73376,100000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Rovaniemi
+gbif,3441161483,2018-09-06,2018,9,6,64.841517,28.787741,10000.0,HUMAN_OBSERVATION,The Atlas of Finnish Fungi,
+gbif,3441161990,2018-09-12,2018,9,12,60.708552,24.890516,10000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,
+gbif,3441176316,2018-09-13,2018,9,13,64.759529,26.050976,10000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,
+gbif,3441193044,2018-09-10,2018,9,10,66.504834,25.853008,25000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Rovaniemi
+gbif,4877408939,2018-09-14,2018,9,14,65.009696,27.459829,1.0,HUMAN_OBSERVATION,LajiGIS: Species monitoring sites,"Lippolankangas, Kiiminkijoen vesistöalue"
+gbif,3441159119,2018-10-06,2018,10,6,62.080845,27.385235,1000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Ankele
+gbif,3441128052,2018-08-31,2018,,,69.14708,27.211058,1000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Tuuruharjun länsipuoli
+gbif,3441127256,2017-08-19,2017,8,19,61.690905,25.018425,1.0,HUMAN_OBSERVATION,The Atlas of Finnish Fungi,kuorejärvi n
+gbif,3441157693,2017-08-29,2017,8,29,64.373649,27.123216,1000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,"Vaala, Manamansalo, Hautausmaa"
+gbif,3441163214,2017-08-20,2017,8,20,62.450383,28.76725,1.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,"Kerma, Hyövynniemi"
+gbif,3441186569,2017-08-13,2017,8,13,66.461671,25.762407,10000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,
+gbif,3441208067,2017-08-29,2017,8,29,66.418756,26.296915,5000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Rovaniemi
+gbif,3441211782,2017-08-21,2017,8,21,66.501479,25.760519,1000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Ounasvaara
+gbif,3453913643,2017-08-19,2017,8,19,62.815995,29.924015,50000.0,HUMAN_OBSERVATION,Löydös Open Finnish Observation Database,
+gbif,3441144618,2017-09-28,2017,9,28,60.253924,24.55838,10000.0,HUMAN_OBSERVATION,The Atlas of Finnish Fungi,
+gbif,3441196439,2017-09-11,2017,9,11,66.505612,25.728164,50000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Rovaniemi
+gbif,3441207393,2017-09-07,2017,9,7,60.994097,26.719685,10000.0,HUMAN_OBSERVATION,The Atlas of Finnish Fungi,
+gbif,2992789735,2016-08-23,2016,8,23,66.371331,29.327199,61.0,HUMAN_OBSERVATION,iNaturalist research-grade observations,
+gbif,3435181491,2016-08-26,2016,8,26,66.369252,29.306209,100.0,PRESERVED_SPECIMEN,Botanical Collections of the Åbo Akademi,"Oulanka National Park, Oulankajoki"
+gbif,3441127805,2016-08-04,2016,8,4,66.261681,29.436613,1000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Juuma
+gbif,3441162279,2016-08-23,2016,8,23,66.4996,25.760908,1000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Ounasvaara
+gbif,3453917841,2016-08-25,2016,8,25,62.613711,29.723008,1.0,HUMAN_OBSERVATION,Löydös Open Finnish Observation Database,Linnunlahti
+gbif,4023267989,2016-08-24,2016,8,24,67.860164,23.536187,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Kangosselkä, Rapalampi"
+gbif,4023271757,2016-08-27,2016,8,27,67.980908,23.733431,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Rauhalanmaa, Päämaa"
+gbif,4023271747,2016-09-03,2016,9,3,61.293814,26.427868,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,Sonnasen S-ranta
+gbif,4879706124,2016-09-05,2016,9,5,68.420276,26.860277,1.0,HUMAN_OBSERVATION,LajiGIS: Miscellaneous occurrences,Paatsjoen vesistöalue
+gbif,3916458979,2016-10-01,2016,10,1,60.25,25.3,,MATERIAL_SAMPLE,,
+gbif,3916459116,2016-10-01,2016,10,1,60.25,25.3,,MATERIAL_SAMPLE,,
+gbif,3916507394,2016-10-01,2016,10,1,60.25,25.3,,MATERIAL_SAMPLE,,
+gbif,3916507427,2016-10-01,2016,10,1,60.25,25.3,,MATERIAL_SAMPLE,,
+gbif,3917164035,2016-10-01,2016,10,1,60.25,25.3,,MATERIAL_SAMPLE,,
+gbif,3917164219,2016-10-01,2016,10,1,60.25,25.3,,MATERIAL_SAMPLE,,
+gbif,3917164252,2016-10-01,2016,10,1,60.25,25.3,,MATERIAL_SAMPLE,,
+gbif,3441198516,2015-09-09,2015,9,9,69.27173,27.919434,25000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Partakko
+gbif,3713386330,2015-09-05,2015,9,5,64.169355,29.652735,100000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,"Lentua, Särkkä"
+gbif,3441199985,2014-08-22,2014,8,22,66.850011,24.745657,100.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,"Ruuhijärvi, Korkealaki"
+gbif,4876954302,2014-08-26,2014,8,26,68.642171,27.78895,1.0,HUMAN_OBSERVATION,LajiGIS: Species monitoring sites,"Kivijärvenvaara NE, Paatsjoen vesistöalue"
+gbif,4898625077,2014-08-21,2014,8,21,65.420935,29.718292,1.0,HUMAN_OBSERVATION,LajiGIS: Species mapping and surveys,"Sulanlamminaro. Suomussalmi, Oulujoen vesistöalue"
+gbif,4898625084,2014-08-21,2014,8,21,65.424298,29.703999,1.0,HUMAN_OBSERVATION,LajiGIS: Species mapping and surveys,"Sulanlamminaro. Suomussalmi, Oulujoen vesistöalue"
+gbif,4898631403,2014-08-31,2014,8,31,65.444679,29.642052,1.0,HUMAN_OBSERVATION,LajiGIS: Species mapping and surveys,"Tuohilamminkangas, Pahamaailma, Oulujoen vesistöalue"
+gbif,4898814369,2014-08-21,2014,8,21,65.421569,29.706456,1.0,HUMAN_OBSERVATION,LajiGIS: Species mapping and surveys,"Sulanlamminaro. Suomussalmi, Oulujoen vesistöalue"
+gbif,4898814404,2014-08-22,2014,8,22,65.407548,29.673999,1.0,HUMAN_OBSERVATION,LajiGIS: Species mapping and surveys,"Sulatlammit, Suomussalmi, Oulujoen vesistöalue"
+gbif,4898814411,2014-08-22,2014,8,22,65.410597,29.674676,1.0,HUMAN_OBSERVATION,LajiGIS: Species mapping and surveys,"Sulatlammit, Suomussalmi, Oulujoen vesistöalue"
+gbif,4898994278,2014-08-22,2014,8,22,65.421064,29.699051,1.0,HUMAN_OBSERVATION,LajiGIS: Species mapping and surveys,"Sulatlammit, Suomussalmi, Oulujoen vesistöalue"
+gbif,3441199789,2014-09-26,2014,9,26,64.792604,29.056074,100.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Syväjärvenkangas
+gbif,3441199794,2014-09-26,2014,9,26,64.79671,29.048982,100.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Syväjärvenkangas
+gbif,4898625249,2014-09-08,2014,9,8,65.44622,29.662753,1.0,HUMAN_OBSERVATION,LajiGIS: Species mapping and surveys,"Hirvassuo, Pahamaailma, Oulujoen vesistöalue"
+gbif,4898631415,2014-09-01,2014,9,1,65.44366,29.705307,1.0,HUMAN_OBSERVATION,LajiGIS: Species mapping and surveys,"Hoiluankangas, Pahamaailma"
+gbif,4898631424,2014-09-01,2014,9,1,65.442253,29.695624,1.0,HUMAN_OBSERVATION,LajiGIS: Species mapping and surveys,"Hoiluankangas, Pahamaailma"
+gbif,4898631528,2014-09-08,2014,9,8,65.441593,29.654213,1.0,HUMAN_OBSERVATION,LajiGIS: Species mapping and surveys,"Hirvassuo, Pahamaailma, Oulujoen vesistöalue"
+gbif,4898814436,2014-09-01,2014,9,1,65.44116,29.698489,1.0,HUMAN_OBSERVATION,LajiGIS: Species mapping and surveys,"Hoiluankangas, Pahamaailma"
+gbif,4899007621,2014-09-01,2014,9,1,65.442009,29.688133,1.0,HUMAN_OBSERVATION,LajiGIS: Species mapping and surveys,"Hoiluankangas, Pahamaailma"
+gbif,3441197821,2013-08-18,2013,8,18,65.466755,29.503307,100.0,HUMAN_OBSERVATION,The Atlas of Finnish Fungi,Huosiuslampi
+gbif,3441212686,2013-08-04,2013,8,4,66.501639,25.765452,1000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Ounasvaara
+gbif,4023277137,2013-08-31,2013,8,31,65.151344,25.237419,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Topinperä, Keskiniemi | W of Topinperä"
+gbif,3441207916,2012-08-26,2012,8,26,61.231303,25.634751,1.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Mustassaari
+gbif,3441177226,2011-09-02,2011,9,2,62.844903,27.688415,1000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Jynkänmäki
+gbif,3441155897,2010-08-21,2010,8,21,67.177454,26.183718,1000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,"Seipäjärvi, Kotimännikkö"
+gbif,3441183877,2010-08-21,2010,8,21,66.754698,25.341036,100.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,Kontonulkki
+gbif,773223834,2009-09-12,2009,9,12,62.04529,29.88469,,PRESERVED_SPECIMEN,Fungi collection of the University of Eastern Finland,
+gbif,3713368346,2009-09-07,2009,9,7,68.882898,27.107584,1000.0,HUMAN_OBSERVATION,"Fungal collection of the Botanical Museum, University of Oulu (OULU)","ca 10 km from Inari to tge direction of Ivalo, SW of the road"
+gbif,4876989999,2009-09-07,2009,9,7,68.879753,27.121256,100.0,HUMAN_OBSERVATION,LajiGIS: Species monitoring sites,"Tuulispäät N, Paatsjoen vesistöalue"
+gbif,773223803,2007-08-18,2007,8,18,62.71173,28.99342,,PRESERVED_SPECIMEN,Fungi collection of the University of Eastern Finland,
+gbif,773223833,2007-08-15,2007,8,15,62.60569,29.45381,,PRESERVED_SPECIMEN,Fungi collection of the University of Eastern Finland,
+gbif,3448708900,2007-08-01,2007,8,,62.796779,29.564382,1000.0,PRESERVED_SPECIMEN,"Notebook, general observations",Hanhiluoto
+gbif,4898718570,2007-08-12,2007,8,12,68.528396,27.192682,1.0,PRESERVED_SPECIMEN,LajiGIS: Species mapping and surveys,"Kaitajänkä, Inari, Paatsjoen vesistöalue"
+gbif,4898893703,2007-08-12,2007,8,12,68.535614,27.178296,1.0,PRESERVED_SPECIMEN,LajiGIS: Species mapping and surveys,"Kaitajänkä, Inari, Paatsjoen vesistöalue"
+gbif,5013659177,2007-08-29,2007,8,29,68.62204,26.078142,250.0,HUMAN_OBSERVATION,,UTM25_35W_0450_7600
+gbif,5028220398,2007-08-19,2007,8,19,68.728416,26.268311,250.0,HUMAN_OBSERVATION,,Lemmenjoki-Nationalpark
+gbif,4023270478,2007-09-01,2007,9,1,66.373564,29.287597,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Oulanka biological station, Haaralamminkangas"
+gbif,4023266675,2005-08-30,2005,8,30,66.759354,28.551246,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Salmivaara, Salmijoenkuru midpart."
+gbif,4023268484,2005-09-11,2005,9,11,60.332285,24.670373,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Luukki | Luukkaan ulkoilualue, W part of the outdoor recreation area, N of the m"
+gbif,3441153630,2004-08-24,2004,8,24,60.857805,25.790527,1000.0,MACHINE_OBSERVATION,The Atlas of Finnish Fungi,"Orimattila, Veikkala, Maijankallio"
+gbif,4023294561,2004-08-30,2004,8,30,60.365797,25.864293,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Virvik, Norikemalmen, N side of the road to Norike."
+gbif,4023297572,2004-09-09,2004,9,9,59.947236,23.856027,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Tostholm, Barörund."
+gbif,3713367779,2003-08-28,2003,8,28,65.220263,25.874172,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)",Rönkölänkangas
+gbif,773223831,2003-09-18,2003,9,18,61.80151,29.73087,,PRESERVED_SPECIMEN,Fungi collection of the University of Eastern Finland,
+gbif,773223832,2003-09-12,2003,9,12,61.99516,29.92004,,PRESERVED_SPECIMEN,Fungi collection of the University of Eastern Finland,
+gbif,4023268630,2002-09-16,2002,9,16,65.449047,29.559256,100.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Hossa | W side of the road 913, NW of Kotilampi, surroundings of the sandpit"
+gbif,5908520608,2001-08-17,2001,8,17,66.932491,24.081438,100.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Orajärvi, Riipisenvaara S, by the road 21 (Orajärvi)."
+gbif,4023266742,2001-09-01,2001,9,1,66.088022,27.671373,100.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Korooma, Koronlatvajärvi."
+gbif,4023273542,2001-09-01,2001,9,1,66.088022,27.671373,100.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Korouoma, Koronlatvajärvi."
+gbif,4023283766,2001-09-07,2001,9,7,60.007919,24.155204,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,Island of Ramsö.
+gbif,4876661266,2001-09-02,2001,9,2,63.812495,28.248201,10.0,HUMAN_OBSERVATION,LajiGIS: Species monitoring sites,"Hiidenvaara, Vuoksen vesistöalue"
+gbif,4911675798,2000-08-17,2000,8,17,60.206154,23.523527,100.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Kisko, Määrjärvi SW, Vähä Myllylammi, metsänvartija."
+gbif,3713373629,2000-09-02,2000,9,2,63.268237,27.464655,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)",Pajujärvi | S of Ulpas pond
+gbif,773223827,1998-08-30,1998,8,30,62.52044,30.12681,,PRESERVED_SPECIMEN,Fungi collection of the University of Eastern Finland,
+gbif,773223828,1998-08-30,1998,8,30,62.53879,30.10929,,PRESERVED_SPECIMEN,Fungi collection of the University of Eastern Finland,
+gbif,4023266747,1998-08-17,1998,8,17,67.183889,26.880521,10000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Luosto, Metsä-Luosto forest Station (lakeside, close to sauna)."
+gbif,4023284357,1998-08-19,1998,8,19,61.39143,27.792106,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Pitkälahti, Pakoniemen tila."
+gbif,4023284369,1998-08-14,1998,8,14,62.560261,28.581363,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Varistaipale, Kultovuori."
+gbif,4023295253,1998-08-27,1998,8,27,66.416666,26.0,,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,Jokkavaara
+gbif,57674207,1998-09-20,1998,9,20,62.4212,25.0709,707.0,PRESERVED_SPECIMEN,,Karhunahdas
+gbif,773223829,1998-09-02,1998,9,2,62.64659,29.6718,,PRESERVED_SPECIMEN,Fungi collection of the University of Eastern Finland,
+gbif,773223830,1998-09-04,1998,9,4,62.67421,29.63523,,PRESERVED_SPECIMEN,Fungi collection of the University of Eastern Finland,
+gbif,3713204540,1998-09-17,1998,9,17,63.101848,27.643515,50000.0,PRESERVED_SPECIMEN,KUO Fungal collections,Koivusaari
+gbif,3713373589,1998-09-12,1998,9,12,64.954701,26.541391,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)",Yli-Vuotto | N of Vuoton Joutsen camping area
+gbif,4023284385,1998-09-08,1998,9,8,61.975724,29.033508,100000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Ruokojärvi, Louhi, N side of the lake Keplakko, SW -S of the lime factory and th"
+gbif,216096213,1997-07-25,1997,7,25,67.6851,24.837,707.0,PRESERVED_SPECIMEN,,
+gbif,3713359391,1997-07-25,1997,7,25,67.685142,24.837002,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)",Kirkonkylä | along the road running to Aakenusjoki's Iso Myllykoski
+gbif,773223824,1997-09-23,1997,9,23,62.57419,31.16456,,PRESERVED_SPECIMEN,Fungi collection of the University of Eastern Finland,
+gbif,3713359419,1997-09-05,1997,9,5,65.574926,28.588723,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)","Kylmäluoma, Lintuvana | between Vauluvaara hill and Kylmäluoma lake"
+gbif,3713373517,1997-09-13,1997,9,13,65.207567,25.916375,100.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)","Haukipudas E part, Iso Viitajärvi lake | (private area Kello 28:30), Koniharju, "
+gbif,4023266678,1997-09-05,1997,9,5,65.574926,28.588723,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Kylmäluoma, Vauluvaaran ja Kylmäluomanjärven välillä (Lintuvana)."
+gbif,773223825,1997,1997,,,62.74288,29.79795,,PRESERVED_SPECIMEN,Fungi collection of the University of Eastern Finland,
+gbif,773223826,1997,1997,,,62.59509,29.9983,,PRESERVED_SPECIMEN,Fungi collection of the University of Eastern Finland,
+gbif,4023266740,1996-08-14,1996,8,14,60.30277,24.527718,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Nuuksionpää, Valklampi N."
+gbif,3713373639,1994-08-28,1994,8,28,62.472173,29.273829,100.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)","Mutkanvaara | Kaatamontie road, ca 800 m left (W) from the cross roads"
+gbif,3713359386,1994-09-16,1994,9,16,67.133634,27.560806,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)","Kemijoki S, Kaijanjänkä NW, n of the road | in the area of the planned artificia"
+gbif,3713359677,1994-09-12,1994,9,12,67.142601,27.561014,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)","Sokanaapa | Syväjärvi W, Ahvenlampi SE, in the area of the planned artificial la"
+gbif,4023284358,1994-09-18,1994,9,18,61.247166,27.900242,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,Pönniälänkangas.
+gbif,773223823,1994,1994,,,63.26029,30.72491,,PRESERVED_SPECIMEN,Fungi collection of the University of Eastern Finland,
+gbif,3713373547,1993-08-21,1993,8,21,64.756246,25.630913,10000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)",
+gbif,3713359680,1993-09-08,1993,9,8,68.882927,26.958416,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)","Nukkumajoki, Kivenjärvi | Hammastunturi Wilderness project experimental plot 13/"
+gbif,4023283677,1993-09-03,1993,9,3,60.332601,24.688461,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Luukkaa, Käärlampi."
+gbif,4023284349,1993-09-05,1993,9,5,61.711994,26.713185,10000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,Pöyrynkylä.
+gbif,4023284380,1993-09-12,1993,9,12,62.285177,28.277888,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Pisamaniemi, Itkonsaari."
+gbif,773223820,1993,1993,,,62.61424,29.94176,,PRESERVED_SPECIMEN,Fungi collection of the University of Eastern Finland,
+gbif,773223821,1993,1993,,,62.61259,30.01956,,PRESERVED_SPECIMEN,Fungi collection of the University of Eastern Finland,
+gbif,773223822,1993,1993,,,62.6275,30.15759,,PRESERVED_SPECIMEN,Fungi collection of the University of Eastern Finland,
+gbif,773223819,1992-09-12,1992,9,12,62.01268,29.94083,,PRESERVED_SPECIMEN,Fungi collection of the University of Eastern Finland,
+gbif,4023266450,1992-09-13,1992,9,13,64.189436,23.806165,10000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Kurikkalan kylä, Siipojoen varsi."
+gbif,4023266838,1992-09-04,1992,9,4,66.380821,26.582527,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Rovaniemi rural commune, Vanttauskoski W, S side of the river Kemijoki, at the c"
+gbif,4023283608,1992-09-27,1992,9,27,60.492032,22.236898,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,Kuninkoja.
+gbif,4023292392,1992-09-23,1992,9,23,61.272704,22.193549,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,Near an ironworks
+gbif,773223813,1991-08-25,1991,8,25,62.77988,29.74267,,PRESERVED_SPECIMEN,Fungi collection of the University of Eastern Finland,
+gbif,773223814,1991-08-25,1991,8,25,62.77833,29.82092,,PRESERVED_SPECIMEN,Fungi collection of the University of Eastern Finland,
+gbif,773223816,1991-08-28,1991,8,28,62.51912,30.18497,,PRESERVED_SPECIMEN,Fungi collection of the University of Eastern Finland,
+gbif,773223817,1991-08-01,1991,8,1,62.68016,29.79203,,PRESERVED_SPECIMEN,Fungi collection of the University of Eastern Finland,
+gbif,773223815,1991-09-01,1991,9,1,62.06725,29.90782,,PRESERVED_SPECIMEN,Fungi collection of the University of Eastern Finland,
+gbif,3713202838,1991-09-29,1991,9,29,63.319494,28.493146,10000.0,PRESERVED_SPECIMEN,KUO Fungal collections,Ca. 2 km from Hankamäki towards Säyneinen
+gbif,3713359379,1991-09-01,1991,9,1,66.373234,29.30993,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)",Oulanka national park | NE of the Biological station
+gbif,4023266725,1990-08-26,1990,8,26,68.913025,28.402386,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Kessi, Sarrevääri W."
+gbif,4023283612,1990-09-21,1990,9,21,60.115964,22.813775,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Kemiö. Pederså, ca 1 km S of the village, from the grid number 68 towards W to t"
+gbif,4023283616,1990-09-29,1990,9,29,59.987145,21.78239,100000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Korppoo (Korpo). Bendby, N side of Långviken, between Västergård and the pine pl"
+gbif,4023284221,1990-10-07,1990,10,7,60.96447,22.647062,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Virttaa, Virttaankangas, W side of the small road to N from the Säkylä road, opp"
+gbif,4023283768,1989-08-27,1989,8,27,60.30277,24.527718,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Nuuksio, Nuuksionpään ulkoilualue, Valklammen NE-puoli (Saukkonorosta NW), 80 m."
+gbif,773223807,1988-08-18,1988,8,18,62.84322,30.86848,,PRESERVED_SPECIMEN,Fungi collection of the University of Eastern Finland,
+gbif,773223818,1988-08-25,1988,8,25,63.53529,30.1168,,PRESERVED_SPECIMEN,Fungi collection of the University of Eastern Finland,
+gbif,3713203637,1988-08-25,1988,8,25,63.539996,30.124084,1000.0,PRESERVED_SPECIMEN,KUO Fungal collections,"Nurmijärvi, Jynkänlammen ja Volkijoen välinen kumpare"
+gbif,3713359398,1988-08-01,1988,8,,67.509438,23.790268,100.0,HUMAN_OBSERVATION,"Fungal collection of the Botanical Museum, University of Oulu (OULU)","Äkäsjokisuu, Kurkkiontie | Tapojokisuu"
+gbif,3713359399,1988-08-21,1988,8,21,67.596911,23.833676,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)","Kihlanki, Pakasaivo | near the Sami sacred place Kirkkopahta"
+gbif,3713373545,1988-08-28,1988,8,28,64.684437,26.252648,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)","Hirsijärvi, Torakangas | S of the main road, bit E of the pump station"
+gbif,3713373549,1988-08-01,1988,8,,64.935582,25.621765,10000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)",
+gbif,3713373585,1988-08-22,1988,8,22,64.836815,25.194799,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)",Lumijoki kk | Forest behind the cemetery
+gbif,4023266421,1988-08-25,1988,8,25,64.51374,27.798004,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Saarinen, between the Puolanka road and the lake Saarinen, S of Saarislampi."
+gbif,4023266424,1988-08-28,1988,8,28,65.043585,29.065731,100000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Hossa, NW of the village, N of the lake Iso-Valkeinen, Valkeisenkangas."
+gbif,4023266549,1988-08-31,1988,8,31,67.376677,26.8912,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Orajärvi, Hirveäkuru, Vaarala, N of the road, S foot of Petäjävaara, S sloping."
+gbif,4023266577,1988-08-30,1988,8,30,67.417278,28.173986,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Martti, Sarviselkä, by the road from the church village, at the road crossing to"
+gbif,4023266580,1988-08-31,1988,8,31,67.466287,27.171275,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Kelujärvi, by the road from Tanhua, Riivikkoharjut, on the esker W of the small "
+gbif,4023266607,1988-08-27,1988,8,27,66.342887,29.530516,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Liikasenvaara, at the lower course of the brook Sirkkapuro, N of the Jäkälämutka"
+gbif,4023266726,1988-08-16,1988,8,16,68.969402,28.618176,10000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Kessi, Keinojärvi 2 km SW."
+gbif,4023284375,1988-08-10,1988,8,10,62.703535,29.761704,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Jammankangas, Hirviniemen tien varsi."
+gbif,773223804,1988-09-04,1988,9,4,62.64967,29.96479,,PRESERVED_SPECIMEN,Fungi collection of the University of Eastern Finland,
+gbif,773223805,1988-09-08,1988,9,8,62.63216,29.94353,,PRESERVED_SPECIMEN,Fungi collection of the University of Eastern Finland,
+gbif,773223806,1988-09-05,1988,9,5,62.6895,29.77337,,PRESERVED_SPECIMEN,Fungi collection of the University of Eastern Finland,
+gbif,773223810,1988-09-09,1988,9,9,63.45936,28.78455,,PRESERVED_SPECIMEN,Fungi collection of the University of Eastern Finland,
+gbif,773223812,1988-09-04,1988,9,4,62.64071,29.96389,,PRESERVED_SPECIMEN,Fungi collection of the University of Eastern Finland,
+gbif,4023266572,1988-09-02,1988,9,2,67.869617,26.72246,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Madetkoski, Almanpalo, by the main road on E side of the river Kitinen."
+gbif,4023266695,1988-09-03,1988,9,3,68.72096,27.452342,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Ivalo N, Ukonjärvi, W foot of Sovintovaara, E of the abandoned main road on E si"
+gbif,4023266697,1988-09-02,1988,9,2,68.344715,27.323494,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Kakslauttanen, Laanilantulli, at the communal boundary of Sodankylä, S of the ro"
+gbif,4023266705,1988-09-03,1988,9,3,69.062152,27.158591,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Kaamanen S, by the road to Ivalo, 1,6 km S of the crossing to Sevettijärvi."
+gbif,4023266706,1988-09-02,1988,9,2,68.851078,28.299145,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Nellimö, in the village, at the crossing of the observatory."
+gbif,4023266711,1988-09-03,1988,9,3,69.300784,28.097971,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Suojanperä, by the road to Sevettijärvi, Jokitörmänharju, E side of the river. W"
+gbif,4023266722,1988-09-04,1988,9,4,68.829007,26.78491,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Solojärvi - Isonpaanteenvaara, S of the road to Kittilä, 2,8 km NE of the bounda"
+gbif,4023283606,1988-09-12,1988,9,12,60.210756,22.25344,100.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,Parainen. Stortervolandet.
+gbif,4023283679,1988-09-09,1988,9,9,60.42729,24.990499,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Rusutjärvi, Metsäpirtti, W side of the road."
+gbif,4023283828,1988-09-11,1988,9,11,60.457309,25.206776,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Pohjois-Paippinen, Rörstrand"
+gbif,4023284202,1988-09-02,1988,9,2,61.201312,25.127407,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Lammi. Evo, Pitkäniemenkangas, lähellä Pitkäniemenlampea."
+gbif,4023284363,1988-09-09,1988,9,9,63.615127,29.067622,100000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Savikylä SW, W of Kuikkavaara, the nature conservation forest on the NW side of "
+gbif,4023284386,1988-09-08,1988,9,8,63.028724,28.409105,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Juankoski, Akonpohja, Vehka-Aho, W of the road to Kaavi."
+gbif,3713373569,1986-09-01,1986,9,,63.893998,23.646202,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)","Marinkainen, Pesäkangas | next to the glacial erratics called Pesäkivet"
+gbif,4023283770,1985-09-10,1985,9,10,60.343623,24.551802,10000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Nuuksio, Pitkäjärvi, mäen päällä."
+gbif,773223811,1984-08-09,1984,8,9,63.36772,30.37868,,PRESERVED_SPECIMEN,Fungi collection of the University of Eastern Finland,
+gbif,3713373560,1984-08-26,1984,8,26,63.749854,24.261377,10000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)",
+gbif,4023266048,1984-08-26,1984,8,26,63.749854,24.261377,10000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,
+gbif,4023266829,1984-08-28,1984,8,28,66.373234,29.30993,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Käylä, Oulangan kansallispuisto, biologisen aseman lähellä."
+gbif,4023284374,1984-08-22,1984,8,22,63.377778,30.354404,100000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Nurmijärvi, Puuruu."
+gbif,3713365431,1981-08-27,1981,8,27,63.79692,23.007674,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)",Laajalahti
+gbif,3713385898,1981-08-26,1981,8,26,69.063377,27.11982,100000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,"Kaamanen, Tuuruharju"
+gbif,4023266427,1981-08-27,1981,8,27,64.439964,25.034029,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Jokela, W side of the road to Oulainen, the crossing to Lampinsaari."
+gbif,4023266647,1981-08-28,1981,8,28,66.373234,29.30993,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Oulanka, biol. aseman länsipuolella."
+gbif,4023266869,1981-08-30,1981,8,30,65.403541,27.308382,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Hirvaskoski, Korentokangas, the crossing of the roads 20 and 78 (Kuusamo and Puo"
+gbif,3713204547,1981-09-03,1981,9,3,63.101848,27.643515,50000.0,PRESERVED_SPECIMEN,KUO Fungal collections,Harjamäki
+gbif,3713365543,1981-09-09,1981,9,9,66.373234,29.30993,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)",Oulanka national park | NE of the biological station
+gbif,4023266830,1981-09-02,1981,9,2,66.666254,26.031709,100000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Rovaniemi rural commune, Autti, NE pointing hill on S side of the river Kemijoki"
+gbif,4023266834,1981-09-02,1981,9,2,66.291565,27.207815,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Rovaniemi rural commune, Autti, the nature reserve of Auttiköngäs, N side of the"
+gbif,5281583333,1981-09-12,1981,9,12,61.840544,23.546699,50000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,Pinsiönkangas
+gbif,3713205145,1980-09-10,1980,9,10,62.772265,28.455378,50000.0,PRESERVED_SPECIMEN,KUO Fungal collections,near by the pond Iso-Kankainen
+gbif,3713365502,1979-08-30,1979,8,30,66.373564,29.287597,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)","Oulanka national park, Haaralammenkangas"
+gbif,3713365518,1979-08-30,1979,8,30,66.373234,29.30993,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)",Oulanka national park | NW of the biological station
+gbif,3713365535,1979-08-04,1979,8,4,66.363941,29.33143,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)","Oulanka national park, Kiutaköngäs | SE of Kiutaköngäs falls"
+gbif,3713384176,1979-08-30,1979,8,30,60.535398,22.260258,25000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,"Maaria, Jäkärlä"
+gbif,3713385892,1979-08-25,1979,8,25,60.553493,21.574338,25000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,Leikluoto
+gbif,4023266603,1979-08-24,1979,8,24,66.359294,29.342174,10000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Oulanka National Park, between Biological Station and Rytilampi Pond, Ampumavaar"
+gbif,3713383429,1977-08-30,1977,8,30,60.621152,22.279414,25000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,"Vahto, Valpperi"
+gbif,3713384158,1977-08-31,1977,8,31,60.731685,22.092813,50000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,"Tursunperä, Mahlionkallio"
+gbif,3713384164,1977-08-29,1977,8,29,60.535398,22.260258,25000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,"Nättinummi, Riihikallio"
+gbif,4023266643,1977-08-30,1977,8,30,66.372901,29.332263,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Oulanka, biol. aseman ja Kiutakökään välillä."
+gbif,3713205081,1974-08-20,1974,8,20,63.101848,27.643515,50000.0,PRESERVED_SPECIMEN,KUO Fungal collections,Vuorela
+gbif,3713365407,1974-08-19,1974,8,19,64.806408,25.723087,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)","Ojakylä, Isokangas | Likapuronkangas"
+gbif,3713365432,1974-08-26,1974,8,26,64.806408,25.723087,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)","Ojakylä, Isokangas | area no II Likapuro"
+gbif,3713365514,1974-08-06,1974,8,6,64.806408,25.723087,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)","Ojakylä, Isokangas | experimental plot"
+gbif,3713368818,1974-08-18,1974,8,18,65.573512,28.71865,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)",Kylmäluomanharju
+gbif,3713368858,1974-08-22,1974,8,22,66.373234,29.30993,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)",Oulanka national park | near the biological station
+gbif,3713373524,1974-08-01,1974,8,,64.736903,26.02028,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)","Kylmälä, Karho-ojankangas | W of the road, S of the sandpits"
+gbif,4023266614,1974-08-22,1974,8,22,66.373234,29.30993,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Oulanka National Park, near theBiological Station."
+gbif,4023266648,1974-08-17,1974,8,17,66.359294,29.342174,10000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,Oulankajoki.
+gbif,4023266673,1974-08-17,1974,8,17,66.359294,29.342174,10000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,Oulankajoki.
+gbif,4023266864,1974-08-06,1974,8,6,64.806408,25.723087,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Ojakylä, Isokangas."
+gbif,4023284218,1974-08-10,1974,8,10,60.724879,27.271741,10000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Vehkalahti. Kannusjärvi, Palaneenkangas."
+gbif,4023284383,1974-09-03,1974,9,3,63.056492,27.688672,10000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,Harjamäki.
+gbif,3713384152,1972-08-22,1972,8,22,60.488827,22.158395,10000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,Vaisaari
+gbif,4023284236,1972-08-11,1972,8,11,60.747171,27.336106,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Vehkalahti. Pyhältö, mellan Taipaleenjoki och Harjula."
+gbif,4023284253,1972-08-11,1972,8,11,60.747171,27.336106,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Vehkalahti. Pyhältö, mellan Taipaleenjoki och Harjula."
+gbif,3713205033,1972-09-17,1972,9,17,61.230455,25.56353,50000.0,PRESERVED_SPECIMEN,KUO Fungal collections,Vääksy
+gbif,3713379892,1972-09-24,1972,9,24,61.825829,26.189341,50000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,"Kälö, Vallaspelto"
+gbif,4023269100,1972-10-08,1972,10,8,60.017573,22.422213,10000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Dragsfjärd, Dalsbruk, på östra stranden av Dragsfjärden."
+gbif,3713365094,1970-08-16,1970,8,16,65.011677,24.557119,10000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)",between Kirkonkylä and Virpiniemi
+gbif,3713368673,1970-08-23,1970,8,23,69.761433,27.008472,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)",Kutuniemi E
+gbif,3713368766,1970-08-15,1970,8,15,65.136826,25.558059,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)","Hämeenjärven ja Nurmesjärven välinen tie, lähellä maantietä"
+gbif,3713368771,1970-08-15,1970,8,15,65.136826,25.558059,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)",Hämeenjärvi | W-puoli
+gbif,3713368776,1970-08-16,1970,8,16,65.043558,24.586067,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)",Marjaniemi | NE-puoli
+gbif,3713368787,1970-08-01,1970,8,,64.604698,26.484628,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)",Rokua
+gbif,3713383987,1970-08-21,1970,8,21,60.411837,21.80685,50000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,Luonnonmaa
+gbif,3713383992,1970-08-28,1970,8,28,69.619932,27.018992,100000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,"Kevo, Kutuniemi"
+gbif,4023283781,1970-08-16,1970,8,16,59.917424,23.393656,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Ekenäs lk. Öns Odensö sydöstra del, mo vid lilla berget."
+gbif,4023284231,1970-08-22,1970,8,22,60.738196,27.336012,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Vehkalahti Pyhältö, Ämmänmäki"
+gbif,4023284239,1970-08-25,1970,8,25,60.738196,27.336012,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Vehkalahti Pyhältö, Ämmänmäki"
+gbif,3713205010,1970-09-26,1970,9,26,61.230455,25.56353,50000.0,PRESERVED_SPECIMEN,KUO Fungal collections,Vääksyn harju
+gbif,3713205051,1970-09-26,1970,9,26,61.230455,25.56353,50000.0,PRESERVED_SPECIMEN,KUO Fungal collections,Vääksyn harju
+gbif,3713205105,1970-09-15,1970,9,15,63.101848,27.643515,50000.0,PRESERVED_SPECIMEN,KUO Fungal collections,Harjamäki
+gbif,3713368706,1970-09-12,1970,9,12,61.52244,23.622731,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)",Lamminpää
+gbif,3713379924,1970-09-05,1970,9,5,69.619932,27.018992,100000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,"Tsharsjoki, Tsarsjoki, Čársejohka, Jomppala"
+gbif,4023266611,1970-09-01,1970,9,1,66.359294,29.342174,10000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Oulangan kansallispuisto, 500 m Kiutankökäästä etelään."
+gbif,3713368784,1967-08-27,1967,8,27,65.220102,25.852802,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)","Viitajärvi, Rönkölänkangas"
+gbif,3713368755,1967-09-09,1967,9,9,65.211912,25.960004,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)","Loukkojärvi, Satulakangas | tien N-laidassa n. 100 m SW-kulman taimimänniköstä E"
+gbif,3713368759,1967-09-05,1967,9,5,64.983987,25.523922,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)",Hiirosenkangas | vanhainkodin E-puolella
+gbif,3713368838,1967-09-03,1967,9,3,64.928422,25.357813,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)",lentokentän S-puolella
+gbif,3713384171,1967-09-10,1967,9,10,69.063377,27.11982,100000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,Kaamanen
+gbif,4023269102,1967-10-09,1967,10,9,62.563673,24.209757,50000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Kivijärvi, Arpaisenjärvi-Koirajärvi."
+gbif,3713380870,1966-08-31,1966,8,31,69.619932,27.018992,100000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,"Kevo, Kevojärvi"
+gbif,3713368748,1966-09-11,1966,9,11,65.145792,25.557573,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)","Kello E, Hämeenjärvi"
+gbif,3713368821,1966-09-02,1966,9,2,66.363941,29.33143,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)",Kiutaköngäs | biologisen aseman luona
+gbif,3713378359,1963-09-16,1963,9,16,69.619932,27.018992,100000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,"Kevo, Kevojärvi"
+gbif,3713383430,1963-09-18,1963,9,18,69.619932,27.018992,100000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,"Kevo, Kevonniemi"
+gbif,3713368640,1961-08-29,1961,8,29,69.761433,26.982581,1000.0,PRESERVED_SPECIMEN,"Fungal collection of the Botanical Museum, University of Oulu (OULU)","Kevonsuusta noin 0,5 km N"
+gbif,3713383933,1961-08-29,1961,8,29,69.619932,27.018992,100000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,"Kevo, Kevonsuu"
+gbif,4023284260,1961-09-09,1961,9,9,59.928587,23.387347,100000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,Tammisaari
+gbif,3713378379,1960-08-26,1960,8,26,69.619932,27.018992,100000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,"Kevo, Raessijoki, Rassijoki, Rássejohka"
+gbif,3713383458,1960-08-01,1960,8,,66.666254,26.031709,100000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,Ounasvaara
+gbif,3713383943,1960-08-22,1960,8,22,69.619932,27.018992,100000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,"Kevo, Tsieskula, Cieskul"
+gbif,3713383981,1960-08-22,1960,8,22,69.619932,27.018992,100000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,"Kevo, Tsieskula, Cieskul"
+gbif,3713383995,1960-08-23,1960,8,23,69.619932,27.018992,100000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,"Kevo, Kevonniemi"
+gbif,4023266732,1960-08-20,1960,8,20,69.783799,27.125116,10000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,Kevojärven itäranta.
+gbif,4023284214,1960-08-19,1960,8,19,61.164622,25.417611,10000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Vääksy, Vääksynharju."
+gbif,3713378354,1959-08-31,1959,8,31,69.619932,27.018992,100000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,"Kevo, Kevojärvi, Kevonniemi"
+gbif,3713379240,1959-08-30,1959,8,30,69.619932,27.018992,100000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,"Kevo, Kevojärvi, Kevonniemi"
+gbif,3713383926,1959-08-31,1959,8,31,69.619932,27.018992,100000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,"Kevo, Kevojärvi"
+gbif,3713383439,1959-09-01,1959,9,1,60.788924,22.551291,50000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,"Yläne, Elijärvi, Vanhakartano, Kärrikallio, Lahti"
+gbif,3713383967,1957-09-08,1957,9,8,60.608421,22.096124,50000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,"Masku, Kaukainen, Myllytorppa"
+gbif,3713383977,1957-09-01,1957,9,1,60.788924,22.551291,50000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,"Elijärvi, Kärrikallio, Lahti"
+gbif,3713380024,1953-08-23,1953,8,23,60.788924,22.551291,50000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,"Yläne, Elijärvi, Järvelä, Teinilä"
+gbif,3713383940,1952-07-31,1952,7,31,60.788924,22.551291,50000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,"Yläne, Järvelä, Korpinnokka"
+gbif,3713378432,1952-09-15,1952,9,15,61.090393,22.053864,25000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,"Honkilahti, Komoinen, Lellainen, Koskeljärvi"
+gbif,4023284255,1945-09-23,1945,9,23,60.355805,25.013023,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,Tusby. Mätäkivenmäki.
+gbif,4023283793,1945-10-14,1945,10,14,60.267487,25.461135,10000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,Kitö
+gbif,4023283803,1943-09-03,1943,9,3,60.349795,24.913737,10000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Tusby. Klemetskog, Hästensbergens E-sluttning."
+gbif,4023283789,1942-08-28,1942,8,28,60.32,25.65,,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Borgå socken, Vessö, Köttboda."
+gbif,4023283805,1942-09-08,1942,9,8,60.266776,25.831589,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Borgå socken, Köttboda."
+gbif,4023283817,1937-09-26,1937,9,26,60.267487,25.461135,10000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,Kitö
+gbif,4023284258,1937-09-26,1937,9,26,60.267487,25.461135,10000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,Kitö
+gbif,3713379901,1936-08-18,1936,8,18,61.914253,22.334903,50000.0,PRESERVED_SPECIMEN,TUR Fungus collections of the University of Turku,"Venesjärvi, Susikorpi"
+gbif,4023284216,1936-08-18,1936,8,18,61.806399,22.157667,10000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Venesjärvi, Susikorpi."
+gbif,4023283776,1932-09-01,1932,9,,60.32,25.65,,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,Vessö
+gbif,4023283825,1905-06-07,1905,6,7,60.221662,25.314552,25000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,"Savijärvi, near the lake Savijärvi, ca. 2 km W of the road Kulloo - Hyrylä, ca. "
+gbif,4023284199,1866-08-01,1866,8,,60.816478,23.771034,1000.0,PRESERVED_SPECIMEN,Agaricales Fennoscandiae orientalis,Mustiala
+gbif,773223808,,,,,62.73918,28.95614,,PRESERVED_SPECIMEN,Fungi collection of the University of Eastern Finland,
+gbif,773223809,,,,,62.82838,29.55088,,PRESERVED_SPECIMEN,Fungi collection of the University of Eastern Finland,
+gbif,2249241970,,,,,65.01579,25.657385,,MATERIAL_SAMPLE,,
+gbif,2249249578,,,,,65.01579,25.657385,,MATERIAL_SAMPLE,,
+gbif,5235907046,,,,,63.615127,29.067622,100000.0,MATERIAL_SAMPLE,HAMBI Fungal Biotechnology Culture Collection (FBCC),

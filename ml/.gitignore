@@ -1,0 +1,4 @@
+# large derived rasters and raw downloads are rebuilt by the scripts, never committed
+data/rasters/
+data/raw/
+__pycache__/

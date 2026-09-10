@@ -1,0 +1,9 @@
+numpy
+pandas
+scipy
+rasterio
+pyproj
+shapely>=2.0
+scikit-learn
+lightgbm
+torch            # CPU build is enough: pip install torch --index-url https://download.pytorch.org/whl/cpu
