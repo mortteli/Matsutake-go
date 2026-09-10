@@ -48,17 +48,11 @@ def load(path):
 
 
 def assign_folds(d, k=5, seed=0):
-    """Blocks with presences are sorted by northing and dealt round-robin (so each fold spans
-    the latitude range); the remaining blocks are dealt randomly."""
+    """Blocks with presences are sorted by northing and dealt round-robin in shuffled chunks
+    (so each fold spans the latitude range); the remaining blocks are dealt randomly."""
     rnd = random.Random(seed)
-    pres_blocks = d[d.y_ == 1].groupby("block").y_.count() if "y_" in d else d[d.y == 1].groupby("block").y.count()
-    pb = d[d.y == 1].groupby("block").agg(n=("y", "size"), yy=("y", "size"), north=("y", "size"))
-    pb = d[d.y == 1].groupby("block").agg(n=("y", "size"), north=("y", "mean"))
-    pb["north"] = d[d.y == 1].groupby("block").y.mean()  # placeholder, replaced below
-    pb["north"] = d[d.y == 1].groupby("block")["y"].size()
     north = d[d.y == 1].groupby("block")["row"].mean()      # smaller row = further north
     order = list(north.sort_values().index)
-    # shuffle within chunks of k so folds are still balanced along the gradient
     fold_of = {}
     for i in range(0, len(order), k):
         chunk = order[i:i + k]; rnd.shuffle(chunk)
