@@ -27,23 +27,24 @@ def log(*a):
     print(time.strftime("%H:%M:%S"), *a, flush=True)
 
 
-def get(url, tries=6):
+def get(url, tries=15):
     for i in range(tries):
         try:
             with urllib.request.urlopen(url, timeout=180) as r:
                 return r.read()
         except Exception as e:
-            log("retry", i, e)
-            time.sleep(5 * (i + 1))
+            log("retry", i, str(e)[:60])
+            time.sleep(min(60, 4 * (i + 1)))
     raise RuntimeError("WFS request failed: " + url[:120])
 
 
-def download(key, threads=6):
-    """Page through the layer in parallel (pages are independent) and write NDJSON."""
+def download(key, threads=4):
+    """Page through the layer in parallel; every page is saved to its own file so a crash or
+    restart never loses progress. Pages are concatenated to NDJSON at the end."""
     import re
     from concurrent.futures import ThreadPoolExecutor
     layer, code_f, name_f = LAYERS[key]
-    os.makedirs(RAW, exist_ok=True)
+    pdir = os.path.join(RAW, f"gtk_{key}_pages"); os.makedirs(pdir, exist_ok=True)
     out = os.path.join(RAW, f"gtk_{key}.ndjson.gz")
     done = os.path.join(RAW, f"gtk_{key}.done")
     if os.path.exists(done):
@@ -51,22 +52,32 @@ def download(key, threads=6):
     hits = get(BASE + urllib.parse.urlencode(dict(service="WFS", version="2.0.0", request="GetFeature",
                                                   typeNames=layer, resultType="hits")))
     total = int(re.search(rb'numberMatched="(\d+)"', hits).group(1))
-    log(key, "features to fetch", total)
+    starts = list(range(0, total, PAGE))
+    log(key, "features to fetch", total, "pages", len(starts))
 
     def page(start):
+        pf = os.path.join(pdir, f"{start}.json.gz")
+        if os.path.exists(pf):
+            return start
         q = dict(service="WFS", version="2.0.0", request="GetFeature", typeNames=layer,
                  count=PAGE, startIndex=start, outputFormat="GEOJSON", srsName="urn:ogc:def:crs:EPSG::3067")
-        return json.loads(get(BASE + urllib.parse.urlencode(q))).get("features", [])
+        feats = json.loads(get(BASE + urllib.parse.urlencode(q))).get("features", [])
+        rows = [{"c": ft["properties"].get(code_f), "n": ft["properties"].get(name_f), "g": ft["geometry"]} for ft in feats]
+        tmp = pf + ".tmp"
+        with gzip.open(tmp, "wt") as f:
+            f.write(json.dumps(rows))
+        os.replace(tmp, pf)
+        return start
 
+    with ThreadPoolExecutor(threads) as ex:
+        for i, _ in enumerate(ex.map(page, starts)):
+            if i % 20 == 0:
+                log(key, "pages", i, "of", len(starts))
     n = 0
-    with gzip.open(out, "wt") as f, ThreadPoolExecutor(threads) as ex:
-        for feats in ex.map(page, range(0, total, PAGE)):
-            for ft in feats:
-                p = ft["properties"]
-                f.write(json.dumps({"c": p.get(code_f), "n": p.get(name_f), "g": ft["geometry"]}) + "\n")
-            n += len(feats)
-            if n % (PAGE * 10) < PAGE:
-                log(key, "features", n)
+    with gzip.open(out, "wt") as f:
+        for start in starts:
+            for d in json.load(gzip.open(os.path.join(pdir, f"{start}.json.gz"), "rt")):
+                f.write(json.dumps(d) + "\n"); n += 1
     open(done, "w").write(str(n))
     log(key, "download complete", n)
 
@@ -124,8 +135,9 @@ def rasterize(key):
 
 if __name__ == "__main__":
     mode = sys.argv[1] if len(sys.argv) > 1 else "all"
+    keys = sys.argv[2:] or ["glac", "soil"]
     if mode in ("download", "all"):
-        download("glac"); download("soil")
+        for k in keys: download(k)
     if mode in ("rasterize", "all"):
-        rasterize("glac"); rasterize("soil")
+        for k in keys: rasterize(k)
     log("DONE")
