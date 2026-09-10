@@ -10,7 +10,7 @@ värit ja sama napautustarkastelu.
 
 | Sieni | Mitä kartta etsii | Aineistotasot |
 |---|---|---|
-| 🍄 **Matsutake** (tuoksuvalmuska, _Tricholoma matsutake_) | kuiva kangas / karukkokangas · kivennäismaa · vanha puusto · mäntyä | `kasvupaikka`, `paatyyppi`, `ika`, `manty` |
+| 🍄 **Matsutake** (tuoksuvalmuska, _Tricholoma matsutake_) | kuiva / kuivahko kangas / karukkokangas · kivennäismaa · vanha puusto · mäntyä · **vain vähän kuusta** | `kasvupaikka`, `paatyyppi`, `ika`, `manty`, `kuusi` |
 | 🌰 **Herkkutatti** (_Boletus edulis_) | tuore / lehtomainen kangas · kivennäismaa · runsaasti kuusta · tiheä latvusto | `kasvupaikka`, `paatyyppi`, `ika`, `kuusi` (tai `manty`), `latvuspeitto` |
 | 🌼 **Kanttarelli** (keltavahvero, _Cantharellus cibarius_) | tuore / lehtomainen / kuivahko kangas · kivennäismaa · kuusta, koivua **tai** mäntyä · puolivarjoinen latvusto | `kasvupaikka`, `paatyyppi`, `ika`, `kuusi`/`koivu`/`manty`, `latvuspeitto` |
 | 🎺 **Suppilovahvero** (_Craterellus tubaeformis_) | tuore / lehtomainen kangas · kivennäismaa **tai korpi** · runsaasti kuusta · tiheä latvusto · iäkäs puusto | `kasvupaikka`, `paatyyppi`, `ika`, `kuusi`, `latvuspeitto` |
@@ -24,7 +24,14 @@ Kaikki tasot ovat Luken monilähteisen VMI:n 16 m rasteriaineistoa
 
 - **Matsutake** kasvaa vanhoissa männiköissä kuivilla ja karuilla kankailla.
   Jäkäläisyys korreloi vahvasti karukko-/kuivan kankaan kanssa, joten
-  jäkäläkankaat tulevat mukaan kasvupaikkaluokkien kautta.
+  jäkäläkankaat tulevat mukaan kasvupaikkaluokkien kautta. Luken
+  kasvupaikkateema luokittaa kuitenkin puolet tunnetuista kasvupaikoista
+  *kuivahkoksi* kankaaksi ja vain joka kahdeksannen *kuivaksi*, joten kuivahko
+  on oletuksena mukana. Lisäksi vaaditaan **vähäkuusisuus** (kuusta ≤ 20 m³/ha):
+  laji karttaa kuusikoita selvästi. Havaintoaineiston perusteella tärkeimmät
+  puuttuvat tekijät ovat hiekkainen/harjumaaperä ja puuston harvuus — niitä
+  varten on tekeillä havainnoista opetettu todennäköisyyskartta, ks.
+  [docs/HABITAT_MODEL_PLAN.md](docs/HABITAT_MODEL_PLAN.md).
 - **Herkkutatti** on kuusen (myös männyn ja koivun) sienijuurikumppani ja
   suosii tuoreita kankaita, joilla maassa on neulaskariketta ja vain ohut
   sammalpeite. Siksi ehtoina ovat kuusitilavuus *ja* tiheä latvuspeitto —
@@ -55,9 +62,16 @@ luettiin samat MVMI-tasot, joita kartta käyttää.
 
 | Laji | Havainnoista suodattimen läpi | Verrokkipisteistä | Suhde |
 |---|---|---|---|
+| 🍄 Matsutake, vanhat oletukset (kuiva kangas) | 9 % | 0 % | — |
+| 🍄 Matsutake, uudet oletukset (kuivahko mukana, vähän kuusta) | 48 % | 7 % | 7× |
 | 🌼 Kanttarelli | 72 % | 11 % | 6,5× |
 | 🎺 Suppilovahvero | 51 % | 9 % | 5,8× |
 | 🌰 Herkkutatti (vertailukohta, ennallaan) | 19 % | 2 % | 8,3× |
+
+Matsutaken luvut perustuvat 104 GBIF-havaintoon (tarkkuus ≤ 250 m) ja 300
+satunnaiseen metsäpisteeseen, jotka luettiin suoraan Luken MVMI-rastereista
+(ks. `docs/HABITAT_MODEL_PLAN.md`). Vanha "kuiva kangas" -oletus hukkasi yli
+90 % tunnetuista löytöpaikoista.
 
 Kanttarellin ehtoja kiristämällä kartta kyllä pienenee, mutta osuvuus suhteessa
 verrokkiin romahtaa (6,5× → 3,5×): laji ei yksinkertaisesti ole kovin tarkka

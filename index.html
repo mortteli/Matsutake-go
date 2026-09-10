@@ -323,6 +323,9 @@ const COVER_STEPS  = [10, 25, 40, 55, 70, 85];
 // below this the pixel is bare ground (fresh clear-cut, field edge), not a
 // half-open grassy spot — used as the floor of ukonsieni's canopy band
 const MIN_COVER = 10;
+// matsutake avoids spruce stands: 83 % of known finds have less spruce than this,
+// against 37 % of other mushroom sites (docs/HABITAT_MODEL_PLAN.md)
+const MAX_SPRUCE = 20;
 
 /* ================= SLD mask builders ================= */
 function sldWrap(layerName, colorMap) {
@@ -396,12 +399,16 @@ const SPECIES = [
     stand: "Oikea metsätyyppi — puusto ei täytä ehtoja",
     miss: "Ei matsutake-tyyppiä",
   },
-  defaults: { minAge: 60, minPine: 20, kuivahko: false, karukko: true },
+  // defaults checked against 104 GBIF finds (≤ 100 m accuracy): "kuivahko" on and
+  // "little spruce" lift the share of known finds inside the map from 9 % to ~48 %
+  // while the map still covers only ~7 % of forest land — see docs/HABITAT_MODEL_PLAN.md
+  defaults: { minAge: 60, minPine: 20, kuivahko: true, karukko: true, lowSpruce: true },
   controls: [
     { type: "range", key: "minAge",  label: "Puuston ikä vähintään", min: 40, max: 120, step: 5, unit: " v" },
     { type: "range", key: "minPine", label: "Mäntyä vähintään",      min: 0,  max: 120, step: 5, unit: " m³/ha" },
-    { type: "toggle", key: "kuivahko", label: "Myös kuivahko kangas", hint: "löyhempi haku (puolukkatyyppi)" },
-    { type: "toggle", key: "karukko",  label: "Myös karukkokangas",   hint: "jäkäläkankaat mukaan" },
+    { type: "toggle", key: "kuivahko",  label: "Myös kuivahko kangas", hint: "puolukkatyyppi — puolet havainnoista on täällä" },
+    { type: "toggle", key: "karukko",   label: "Myös karukkokangas",   hint: "jäkäläkankaat mukaan" },
+    { type: "toggle", key: "lowSpruce", label: "Vain vähäkuusiset",     hint: "kuusta enintään " + MAX_SPRUCE + " m³/ha — matsutake karttaa kuusikoita" },
   ],
   siteClasses: c => [5].concat(c.kuivahko ? [4] : [], c.karukko ? [6] : []),
   mainTypes: () => [1], // kivennäismaa
@@ -412,12 +419,14 @@ const SPECIES = [
       [cond(LAYER.age,  maskMin(LAYER.age, c.minAge))],
     ];
     if (c.minPine > 0) g.push([cond(LAYER.pine, maskMin(LAYER.pine, c.minPine))]);
+    if (c.lowSpruce) g.push([cond(LAYER.spruce, maskRange(LAYER.spruce, -1, MAX_SPRUCE))]);
     return g;
   },
   metrics(c) {
     return [
-      { label: "Puuston ikä", dir: "min", limit: c.minAge,  unit: "v",     steps: AGE_STEPS, any: [{ layer: LAYER.age }] },
-      { label: "Mäntyä",      dir: "min", limit: c.minPine, unit: "m³/ha", steps: VOL_STEPS, any: [{ layer: LAYER.pine }] },
+      { label: "Puuston ikä", dir: "min",   limit: c.minAge,    unit: "v",     steps: AGE_STEPS, any: [{ layer: LAYER.age }] },
+      { label: "Mäntyä",      dir: "min",   limit: c.minPine,   unit: "m³/ha", steps: VOL_STEPS, any: [{ layer: LAYER.pine }] },
+      { label: "Kuusta",      dir: "range", lo: -1, limit: MAX_SPRUCE, unit: "m³/ha", steps: VOL_STEPS, any: [{ layer: LAYER.spruce }], soft: !c.lowSpruce },
     ];
   },
   helpers: [
@@ -432,8 +441,12 @@ const SPECIES = [
     '<h2>🍄 Matsutake eli tuoksuvalmuska</h2>' +
     '<p><b>Tricholoma matsutake</b> kasvaa Suomessa vanhoissa männiköissä kuivilla ja ' +
     'karuilla kankailla. Kartan pinkit alueet ovat metsiä, joissa <b>kaikki</b> valitut ehdot täyttyvät:</p>' +
-    '<p>✔️ kasvupaikka on <b>kuiva kangas</b> (kanervatyyppi) tai karukkokangas — kivennäismaalla<br>' +
-    '✔️ puusto on vanhaa (oletus ≥ 60 v)<br>✔️ mäntyä on riittävästi</p>' +
+    '<p>✔️ kasvupaikka on <b>kuiva tai kuivahko kangas</b> (kanerva-/puolukkatyyppi) tai karukkokangas — kivennäismaalla<br>' +
+    '✔️ puusto on vanhaa (oletus ≥ 60 v)<br>✔️ mäntyä on riittävästi<br>' +
+    '✔️ kuusta on vain vähän — matsutake karttaa kuusikoita</p>' +
+    '<p>Tunnetuista havainnoista puolet on Luken aineistossa <i>kuivahkoa</i> kangasta ja vain joka ' +
+    'kahdeksas <i>kuivaa</i>, joten kuivahko on oletuksena mukana. Parhaat paikat ovat hiekkaisia ' +
+    'harjuja ja rinteiden yläosia — <b>maaperä ei ole vielä kartassa</b>, joten suosi harjumaastoa.</p>' +
     '<p>Jäkäläiset, valoisat ja hieman rinteiset paikat ovat parhaita — tarkista rinne napauttamalla ' +
     'karttaa. Mitä pohjoisempana, sitä varmempi esiintyminen: Lappi ja Koillismaa ovat Suomen parasta ' +
     'matsutake-aluetta, mutta lajia löytyy karuilta mäntykankailta koko maasta.</p>' +
