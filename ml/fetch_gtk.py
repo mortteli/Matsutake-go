@@ -61,7 +61,18 @@ def download(key, threads=4):
             return start
         q = dict(service="WFS", version="2.0.0", request="GetFeature", typeNames=layer,
                  count=PAGE, startIndex=start, outputFormat="GEOJSON", srsName="urn:ogc:def:crs:EPSG::3067")
-        feats = json.loads(get(BASE + urllib.parse.urlencode(q))).get("features", [])
+        feats = None
+        for attempt in range(10):                    # a cut connection can yield a truncated body
+            try:
+                feats = json.loads(get(BASE + urllib.parse.urlencode(q))).get("features", [])
+                if len(feats) == PAGE or start + PAGE >= total:
+                    break
+                log(key, "short page", start, len(feats)); feats = None
+            except ValueError as e:
+                log(key, "bad json, refetch", start, str(e)[:50]); feats = None
+            time.sleep(5 * (attempt + 1))
+        if feats is None:
+            raise RuntimeError(f"page {start} failed")
         rows = [{"c": ft["properties"].get(code_f), "n": ft["properties"].get(name_f), "g": ft["geometry"]} for ft in feats]
         tmp = pf + ".tmp"
         with gzip.open(tmp, "wt") as f:
