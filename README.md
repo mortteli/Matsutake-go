@@ -29,8 +29,9 @@ Kaikki tasot ovat Luken monilähteisen VMI:n 16 m rasteriaineistoa
   *kuivahkoksi* kankaaksi ja vain joka kahdeksannen *kuivaksi*, joten kuivahko
   on oletuksena mukana. Lisäksi vaaditaan **vähäkuusisuus** (kuusta ≤ 20 m³/ha):
   laji karttaa kuusikoita selvästi. Havaintoaineiston perusteella tärkeimmät
-  puuttuvat tekijät ovat hiekkainen/harjumaaperä ja puuston harvuus — niitä
-  varten on tekeillä havainnoista opetettu todennäköisyyskartta, ks.
+  puuttuvat tekijät ovat hiekkainen/harjumaaperä ja puuston harvuus — ne ovat
+  mukana havainnoista opetetussa todennäköisyyskartassa (🧠), ks.
+  [Todennäköisyyskartta](#todennäköisyyskartta-) ja
   [docs/HABITAT_MODEL_PLAN.md](docs/HABITAT_MODEL_PLAN.md).
 - **Herkkutatti** on kuusen (myös männyn ja koivun) sienijuurikumppani ja
   suosii tuoreita kankaita, joilla maassa on neulaskariketta ja vain ohut
@@ -92,6 +93,9 @@ oletusikä on 60 v — se puolittaa värjätyn pinta-alan osuvuuden kärsimätt�
 - 🗺️ **Sienitaso**: 3–5 WMS-rasterimaskia yhdistetään selaimessa
   canvas-kompositiolla → näkyviin jäävät vain ruudut, joissa kaikki ehdot
   täyttyvät. Suodattimet säädettävissä livenä.
+- 🧠 **Todennäköisyyskartta**: havainnoista opetettu neuroverkko 16 m ruuduilla,
+  luettuna suoraan staattisista Cloud-Optimised GeoTIFF -tiedostoista. Säädin
+  valitsee, kuinka suuri osa metsämaasta väritetään.
 - 🔎 **Napauta karttaa** → paikan kasvupaikka, maapohja, valitun lajin
   mittarit, rinteen jyrkkyys ja suunta, alue-arvio sekä kokonaisarvio +
   navigointilinkki.
@@ -142,12 +146,59 @@ antaa jokaiselle 16 m ruudulle arvion siitä, kuinka matsutaken tunnettujen
 löytöpaikkojen kaltainen se on. Ristiinvalidoituna (25 km alueblokit, arviointi
 vain ≤ 250 m tarkkuuden havainnoilla) kartta sisältää **66 % tunnetuista
 löydöistä metsämaan parhaassa 5 %:ssa** ja 80 % parhaassa 10 %:ssa; vanha
-sääntökartta ylsi 16 %:iin. Malli yhdistää Luken metsätiedot, MML:n
-korkeusmallin (rinne, suunta, harjanne), GTK:n maaperä- ja harjukartan sekä
-Ilmatieteen laitoksen lämpösumman. Säädin *Näytä parhaat X % metsämaasta*
-valitsee kynnyksen: pienempi prosentti = tiukempi kartta. Kartta kattaa metsämaan
-parhaan 25 %:n; sen ulkopuolella malli ei piirrä mitään. Menetelmä, aineisto ja
-tarkkuusluvut: [docs/HABITAT_MODEL_PLAN.md](docs/HABITAT_MODEL_PLAN.md) ja
+sääntökartta ylsi 16 %:iin. Säädin *Näytä parhaat X % metsämaasta* valitsee
+kynnyksen: pienempi prosentti = tiukempi kartta. Kartta kattaa metsämaan
+parhaan 25 %:n; sen ulkopuolella malli ei piirrä mitään.
+
+### Mikä malli kartalla on
+
+Julkaistu kartta on **viiden MLP-verkon ensemble**: sama arkkitehtuuri
+(1 piilokerros, 32 neuronia, dropout 0,4, weight decay 0,01, lr 0,003) opetettuna
+ristiinvalidoinnin viiteen lohkojakoon, ja ennuste on niiden sigmoidien
+keskiarvo (`ml/models/matsutake/mlp_fold0..4.pt`, ajo `ml/predict.py`).
+Hyperparametrit on valittu sisäkkäisellä ristiinvalidoinnilla, ei silmämääräisesti.
+
+- **Piirteet (62 kpl):** MVMI:n puusto- ja kasvupaikkatiedot, niiden 3×3 ja 9×9
+  naapurustokeskiarvot, MML:n 10 m korkeusmallista rinne, suunta, TPI ja
+  reliefi, GTK:n maaperä- ja jäätikkömuodostumaluokat (myös osuuksina
+  naapurustossa) sekä Ilmatieteen laitoksen lämpösumma ja sademäärä.
+- **Opetusaineisto:** 250 havaintoa — 109 tarkkaa (≤ 250 m) ja 141 karkeampaa
+  (250 m – 1 km), jotka opettavat painolla 0,3 piirteet epävarmuusympyrän yli
+  keskiarvoistettuina eivätkä koskaan ole arvioinnissa mukana — vasten 3000
+  satunnaista metsämaapistettä ja 2587 muun sienen havaintopaikkaa.
+  Jälkimmäinen tausta on havainnointiharhan korjaus: se kertoo, missä ihmiset
+  ylipäätään käyvät etsimässä.
+- **Miksi juuri MLP:** samoilla lohkoilla ajettiin myös MaxEnt, GAM,
+  ridge-logit, LightGBM ja XGBoost. Erot ovat pieniä (AUC 0,87–0,89), mutta
+  MLP ja MaxEnt ovat parhaat sillä mittarilla, joka tässä ratkaisee: osumat
+  metsämaan parhaassa 5 %:ssa (0,66). Rank-keskiarvoistettu `mlp+lgbm+maxent`
+  on aavistuksen tarkempi (AUC 0,894 vs. 0,881), mutta kartalle päätyi pelkkä
+  verkko — `predict.py` ajaa vain verkon painot, joten ensemble vaatisi myös
+  puumallien ajamisen koko Suomen yli.
+- **Mikä aineisto ratkaisee:** ablaatioissa maaperä on tärkein lisäaineisto
+  (PR-AUC 0,37 → 0,25 ilman sitä), naapurustopiirteet toiseksi tärkein
+  (0,30); ilmastomuuttujien poisto ei muuta tulosta käytännössä lainkaan.
+  Karkeat havainnot kannattaa pitää mukana: ilman niitä verkon osuvuus
+  metsämaan parhaassa 5 %:ssa putoaa 0,66 → 0,57.
+
+### Julkaistut tiedostot
+
+`data/matsutake/` sisältää yhdeksän Cloud-Optimised GeoTIFF -palaa (yhteensä
+466 MB, EPSG:3067, 16 m). Pikselin arvo on mallin pistemäärä × 100 ja 255
+tarkoittaa "ei metsävaratietoa". Metsämaan parhaan 25 %:n ulkopuolelle jäävät
+ruudut on tallennettu nollana ja loput kvantisoitu kahden välein, mikä
+puolittaa tiedostokoon ilman näkyvää eroa kartalla. `prob_meta.json` kertoo
+palojen rajat, pistemäärien kvantiilit ja mallin tarkkuusluvut; selain lataa
+HTTP range -pyynnöillä vain näkyvän alueen.
+
+> **Selaintuki:** mallitaso vaatii uudehkon selaimen (Chrome/Edge 73+,
+> Safari 12.1+, Firefox 63+): GeoTIFF-kirjastot käyttävät ES2019-syntaksia ja
+> mm. `Object.fromEntries`-funktiota. Vanhemmissa selaimissa — esimerkiksi
+> autojen sisäänrakennetuissa — sovellus ja sääntötasot toimivat normaalisti,
+> mutta mallitaso jää piirtymättä ja näyttää ilmoituksen
+> "Todennäköisyyskarttaa ei voitu ladata".
+
+Menetelmä, aineisto ja tarkkuusluvut: [docs/HABITAT_MODEL_PLAN.md](docs/HABITAT_MODEL_PLAN.md) ja
 [docs/MODEL_REPORT_matsutake.md](docs/MODEL_REPORT_matsutake.md); koodi ja
 data kansiossa [`ml/`](ml/README.md).
 
