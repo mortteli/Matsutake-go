@@ -114,6 +114,9 @@
     display: flex; align-items: center; gap: 7px; font-size: 12.5px;
     box-shadow: var(--shadow); color: var(--muted);
   }
+  /* a class rule with display:flex outranks the UA's [hidden] { display: none }, so the model
+     chip kept claiming a layer that was switched off */
+  .legend[hidden] { display: none; }
   .legend .dot { width: 12px; height: 12px; border-radius: 3px; background: var(--spot); opacity: .85; }
   .legend.prob { bottom: calc(64px + var(--safe-b)); }
   .legend .grad { width: 34px; height: 12px; border-radius: 3px; background: linear-gradient(90deg, #ffd166, #ff2d78); }
@@ -1350,7 +1353,9 @@ function gotoSearchHit(it) {
   search.marker = L.marker(ll, { title: it.title }).addTo(map).bindPopup(it.title);
   map.flyTo(ll, it.zoom || Math.max(map.getZoom(), 13), { duration: 0.8 });
   closeSearch();
-  inspect(ll);
+  // no automatic inspection: the point of searching is to look at the map there, and the result
+  // sheet would cover it. The marker is tappable like any other place on the map.
+  search.marker.on("click", () => inspect(ll));
 }
 
 async function runSearch(q) {
