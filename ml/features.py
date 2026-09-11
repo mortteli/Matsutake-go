@@ -174,8 +174,17 @@ class Sources:
             else:
                 self._mvmi_raw.append(ds)
                 self.mvmi[t] = WarpedVRT(ds, **dict(warp, resampling=Resampling.nearest, nodata=ds.nodata))
-        self._dem = rasterio.open(DEM_VRT)
-        self.dem = WarpedVRT(self._dem, **warp)
+        # A completed local warp of the 10 m model onto this grid (ml/build_dem16.py) is read
+        # directly; otherwise the remote model is warped on the fly, which is far slower.
+        dem16 = os.path.join(RASTERS, "dem_16m.tif")
+        if os.path.exists(dem16 + ".ok"):
+            self._dem = None
+            self.dem = rasterio.open(dem16)
+            self.dem_scale = 0.1                     # stored as decimetres
+        else:
+            self._dem = rasterio.open(DEM_VRT)
+            self.dem = WarpedVRT(self._dem, **warp)
+            self.dem_scale = 1.0
         self._clim = {k: rasterio.open(os.path.join(CLIMATE, f)) for k, f in
                       (("thermal_sum", "thermal_sum_dd.tif"), ("precip", "precip_annual_mm.tif"))}
         self.clim = {k: WarpedVRT(d, **warp) for k, d in self._clim.items()}
@@ -222,8 +231,8 @@ class Sources:
             a = self._read(ds, window)
             a[a > 60000] = np.nan                       # 32767/65535 style nodata in older cycles
             src[t] = a
-        z = self._read(self.dem, window)
-        z[z < -1000] = np.nan
+        z = self._read(self.dem, window) * self.dem_scale
+        z[z < -100] = np.nan
         src["elev"] = z
         for k, ds in self.clim.items():
             src[k] = self._read(ds, window)

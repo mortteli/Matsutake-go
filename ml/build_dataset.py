@@ -204,8 +204,11 @@ def main():
     for r in fetch_fungi_background(a.n_fungi, 5241820, a.seed):
         x, y = to_grid.transform(float(r["lon"]), float(r["lat"]))
         row, col = grid.xy_to_rowcol(x, y)
+        year = int(r["year"]) if r["year"] else None
+        # the target-group background is cycle-matched exactly like the presences, so that
+        # "which inventory cycle this row came from" cannot itself become a predictor
         pts.append(dict(group="bg_fungi", weight=1.0, lat=float(r["lat"]), lon=float(r["lon"]), x=x, y=y, row=row, col=col,
-                        year=int(r["year"]) if r["year"] else None, cycle=2023, unc_m=None, samples=None, id=r["id"]))
+                        year=year, cycle=cycle_for_year(year), unc_m=None, samples=None, id=r["id"]))
     log("total points", len(pts))
 
     feats = run_all(pts, a.workers)

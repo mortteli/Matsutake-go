@@ -51,6 +51,7 @@ def main():
         vrt.close(); src.close()
     with rasterio.open(OUT, "r+") as dst:
         dst.build_overviews([2, 4, 8, 16, 32], Resampling.average)
+    open(OUT + ".ok", "w").close()          # features.py only trusts a completed warp
     log("DONE", OUT, f"{os.path.getsize(OUT)/1e9:.1f} GB")
 
 
