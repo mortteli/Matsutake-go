@@ -1,0 +1,182 @@
+{
+ "glac": {
+  "1": {
+   "code": "1",
+   "name": "Glaciofluvial deposit"
+  },
+  "2": {
+   "code": "1.1",
+   "name": "Esker"
+  },
+  "3": {
+   "code": "1.1.1",
+   "name": "Coarse grained esker core"
+  },
+  "4": {
+   "code": "1.1.2",
+   "name": "Esker sand"
+  },
+  "5": {
+   "code": "1.2",
+   "name": "Interlobate esker"
+  },
+  "6": {
+   "code": "1.3",
+   "name": "Ice marginal glaciofluvial deposit"
+  },
+  "7": {
+   "code": "1.3.1",
+   "name": "Delta"
+  },
+  "8": {
+   "code": "1.3.2",
+   "name": "Sandur"
+  },
+  "9": {
+   "code": "1.3.3",
+   "name": "Proximal ice-contact deposit"
+  },
+  "10": {
+   "code": "1.4",
+   "name": "Extramarginal deposit"
+  },
+  "11": {
+   "code": "1.5",
+   "name": "Littoral deposit"
+  },
+  "12": {
+   "code": "1.6",
+   "name": "Glaciofluvial erosional area"
+  },
+  "13": {
+   "code": "1.8",
+   "name": "Buried glaciofluvial deposit"
+  },
+  "14": {
+   "code": "1.8.1",
+   "name": "Buried coarse grained esker core"
+  },
+  "15": {
+   "code": "1.8.2",
+   "name": "Buried esker sand"
+  },
+  "16": {
+   "code": "1.8.3",
+   "name": "Supposed buried glaciofluvial deposit"
+  },
+  "17": {
+   "code": "4",
+   "name": "Moraine feature"
+  },
+  "18": {
+   "code": "4.1",
+   "name": "Ice marginal moraine"
+  },
+  "19": {
+   "code": "4.1.1",
+   "name": "Large diamicton-dominated dump-moraine in end moraine complex"
+  },
+  "20": {
+   "code": "4.1.2",
+   "name": "De Geer moraine"
+  },
+  "21": {
+   "code": "4.1.3",
+   "name": "Minor recessional moraine"
+  },
+  "22": {
+   "code": "4.3",
+   "name": "Hummocky moraine"
+  },
+  "23": {
+   "code": "4.3.1",
+   "name": "Subglacial hummocky moraine (active ice)"
+  },
+  "24": {
+   "code": "4.3.2",
+   "name": "Ice contact hummocky moraine  (passive/partly active, pro-glacial/ice frontal)"
+  },
+  "25": {
+   "code": "4.4",
+   "name": "Ribbed moraine"
+  },
+  "26": {
+   "code": "4.4.1",
+   "name": "Hummocky ribbed moraine"
+  },
+  "27": {
+   "code": "4.4.2",
+   "name": "Rogen moraine"
+  },
+  "28": {
+   "code": "4.4.3",
+   "name": "Minor ribbed moraine"
+  }
+ },
+ "soil": {
+  "1": {
+   "code": 195110,
+   "name": "Kalliopaljastuma (KaPa) RT"
+  },
+  "2": {
+   "code": 195111,
+   "name": "Kalliomaa (Ka) RT"
+  },
+  "3": {
+   "code": 195112,
+   "name": "Rakka (RaKa) RT"
+  },
+  "4": {
+   "code": 195210,
+   "name": "Sekalajitteinen maalaji, päälajitetta ei selvitetty (SY) RT"
+  },
+  "5": {
+   "code": 195310,
+   "name": "Karkearakeinen maalaji, päälajitetta ei selvitetty (KY) RT"
+  },
+  "6": {
+   "code": 195312,
+   "name": "Kiviä (Ki) RT"
+  },
+  "7": {
+   "code": 195410,
+   "name": "Hienojakoinen maalaji, päälajitetta ei selvitetty (HY) RT"
+  },
+  "8": {
+   "code": 195413,
+   "name": "Savi (Sa) RT"
+  },
+  "9": {
+   "code": 195511,
+   "name": "Lieju (Lj) RT"
+  },
+  "10": {
+   "code": 19551822,
+   "name": "Soistuma (Tvs) RT"
+  },
+  "11": {
+   "code": 19551891,
+   "name": "Ohut turvekerros (Tvo) RT"
+  },
+  "12": {
+   "code": 19551892,
+   "name": "Paksu turvekerros (Tvp) RT"
+  },
+  "13": {
+   "code": 195601,
+   "name": "Täytemaa (Ta)"
+  },
+  "14": {
+   "code": 195602,
+   "name": "Kartoittamaton (0)"
+  },
+  "15": {
+   "code": 195603,
+   "name": "Vesi (Ve)"
+  },
+  "16": {
+   "code": 195618,
+   "name": "Liejuinen hienorakeinen maalaji RT"
+  }
+ }
+}

@@ -10,7 +10,7 @@ värit ja sama napautustarkastelu.
 
 | Sieni | Mitä kartta etsii | Aineistotasot |
 |---|---|---|
-| 🍄 **Matsutake** (tuoksuvalmuska, _Tricholoma matsutake_) | kuiva kangas / karukkokangas · kivennäismaa · vanha puusto · mäntyä | `kasvupaikka`, `paatyyppi`, `ika`, `manty` |
+| 🍄 **Matsutake** (tuoksuvalmuska, _Tricholoma matsutake_) | kuiva / kuivahko kangas / karukkokangas · kivennäismaa · vanha puusto · mäntyä · **vain vähän kuusta** | `kasvupaikka`, `paatyyppi`, `ika`, `manty`, `kuusi` |
 | 🌰 **Herkkutatti** (_Boletus edulis_) | tuore / lehtomainen kangas · kivennäismaa · runsaasti kuusta · tiheä latvusto | `kasvupaikka`, `paatyyppi`, `ika`, `kuusi` (tai `manty`), `latvuspeitto` |
 | 🌼 **Kanttarelli** (keltavahvero, _Cantharellus cibarius_) | tuore / lehtomainen / kuivahko kangas · kivennäismaa · kuusta, koivua **tai** mäntyä · puolivarjoinen latvusto | `kasvupaikka`, `paatyyppi`, `ika`, `kuusi`/`koivu`/`manty`, `latvuspeitto` |
 | 🎺 **Suppilovahvero** (_Craterellus tubaeformis_) | tuore / lehtomainen kangas · kivennäismaa **tai korpi** · runsaasti kuusta · tiheä latvusto · iäkäs puusto | `kasvupaikka`, `paatyyppi`, `ika`, `kuusi`, `latvuspeitto` |
@@ -24,7 +24,14 @@ Kaikki tasot ovat Luken monilähteisen VMI:n 16 m rasteriaineistoa
 
 - **Matsutake** kasvaa vanhoissa männiköissä kuivilla ja karuilla kankailla.
   Jäkäläisyys korreloi vahvasti karukko-/kuivan kankaan kanssa, joten
-  jäkäläkankaat tulevat mukaan kasvupaikkaluokkien kautta.
+  jäkäläkankaat tulevat mukaan kasvupaikkaluokkien kautta. Luken
+  kasvupaikkateema luokittaa kuitenkin puolet tunnetuista kasvupaikoista
+  *kuivahkoksi* kankaaksi ja vain joka kahdeksannen *kuivaksi*, joten kuivahko
+  on oletuksena mukana. Lisäksi vaaditaan **vähäkuusisuus** (kuusta ≤ 20 m³/ha):
+  laji karttaa kuusikoita selvästi. Havaintoaineiston perusteella tärkeimmät
+  puuttuvat tekijät ovat hiekkainen/harjumaaperä ja puuston harvuus — niitä
+  varten on tekeillä havainnoista opetettu todennäköisyyskartta, ks.
+  [docs/HABITAT_MODEL_PLAN.md](docs/HABITAT_MODEL_PLAN.md).
 - **Herkkutatti** on kuusen (myös männyn ja koivun) sienijuurikumppani ja
   suosii tuoreita kankaita, joilla maassa on neulaskariketta ja vain ohut
   sammalpeite. Siksi ehtoina ovat kuusitilavuus *ja* tiheä latvuspeitto —
@@ -55,9 +62,16 @@ luettiin samat MVMI-tasot, joita kartta käyttää.
 
 | Laji | Havainnoista suodattimen läpi | Verrokkipisteistä | Suhde |
 |---|---|---|---|
+| 🍄 Matsutake, vanhat oletukset (kuiva kangas) | 9 % | 0 % | — |
+| 🍄 Matsutake, uudet oletukset (kuivahko mukana, vähän kuusta) | 48 % | 7 % | 7× |
 | 🌼 Kanttarelli | 72 % | 11 % | 6,5× |
 | 🎺 Suppilovahvero | 51 % | 9 % | 5,8× |
 | 🌰 Herkkutatti (vertailukohta, ennallaan) | 19 % | 2 % | 8,3× |
+
+Matsutaken luvut perustuvat 104 GBIF-havaintoon (tarkkuus ≤ 250 m) ja 300
+satunnaiseen metsäpisteeseen, jotka luettiin suoraan Luken MVMI-rastereista
+(ks. `docs/HABITAT_MODEL_PLAN.md`). Vanha "kuiva kangas" -oletus hukkasi yli
+90 % tunnetuista löytöpaikoista.
 
 Kanttarellin ehtoja kiristämällä kartta kyllä pienenee, mutta osuvuus suhteessa
 verrokkiin romahtaa (6,5× → 3,5×): laji ei yksinkertaisesti ole kovin tarkka
@@ -97,9 +111,13 @@ valitse branch ja `/ (root)`. Sovellus aukeaa osoitteessa
 **Paikallisesti:**
 
 ```bash
-python3 -m http.server 8000
+python3 serve.py 8000
 # avaa http://localhost:8000
 ```
+
+> Käytä `serve.py`:tä, älä `python3 -m http.server`:iä: todennäköisyyskartta luetaan
+> GeoTIFF-tiedostoista HTTP range -pyynnöillä, joita Pythonin oletuspalvelin ei tue —
+> silloin mallitaso jää tyhjäksi. GitHub Pages tukee range-pyyntöjä.
 
 ## Miten se toimii
 
@@ -117,6 +135,22 @@ laji kuvaa suodattimensa (`conditions`), hyväksymänsä maapohjat (`mainTypes`)
 säätimensä (`controls`), mittarinsa (`metrics`) ja tekstinsä — käyttöliittymä
 rakentuu niistä.
 
+## Todennäköisyyskartta (🧠)
+
+🗺️-valikon **Todennäköisyyskartta** on havainnoista opetettu neuroverkko, joka
+antaa jokaiselle 16 m ruudulle arvion siitä, kuinka matsutaken tunnettujen
+löytöpaikkojen kaltainen se on. Ristiinvalidoituna (25 km alueblokit, arviointi
+vain ≤ 250 m tarkkuuden havainnoilla) kartta sisältää **66 % tunnetuista
+löydöistä metsämaan parhaassa 5 %:ssa** ja 80 % parhaassa 10 %:ssa; vanha
+sääntökartta ylsi 16 %:iin. Malli yhdistää Luken metsätiedot, MML:n
+korkeusmallin (rinne, suunta, harjanne), GTK:n maaperä- ja harjukartan sekä
+Ilmatieteen laitoksen lämpösumman. Säädin *Näytä parhaat X % metsämaasta*
+valitsee kynnyksen: pienempi prosentti = tiukempi kartta. Kartta kattaa metsämaan
+parhaan 25 %:n; sen ulkopuolella malli ei piirrä mitään. Menetelmä, aineisto ja
+tarkkuusluvut: [docs/HABITAT_MODEL_PLAN.md](docs/HABITAT_MODEL_PLAN.md) ja
+[docs/MODEL_REPORT_matsutake.md](docs/MODEL_REPORT_matsutake.md); koodi ja
+data kansiossa [`ml/`](ml/README.md).
+
 ## Aineistot ja lisenssit
 
 - Metsävaratiedot: Luonnonvarakeskus (Luke), monilähteisen valtakunnan metsien
@@ -126,6 +160,17 @@ rakentuu niistä.
   / Suomen Lajitietokeskus (ei osa sovellusta — käytetty vain oletusrajojen tarkistukseen)
 - Taustakartat: © OpenStreetMap-tekijät, © OpenTopoMap (CC-BY-SA), © Esri
 - Karttakirjasto: [Leaflet](https://leafletjs.com/)
+
+- Havaintoaineisto mallin opetukseen: GBIF ja Suomen Lajitietokeskus (FinBIF) —
+  tietuekohtaiset lisenssit (CC0 / CC BY / CC BY-NC) on kirjattu
+  `ml/data/matsutake/observations.csv`-tiedostoon; kaikki oikeudet pidättävät ja
+  share-alike-tietueet on jätetty pois. Koko erittely: [DATA_LICENSES.md](DATA_LICENSES.md).
+- Maaperä: Geologian tutkimuskeskus (GTK), Maaperä 1:200 000 ja jäätikkösyntyiset
+  muodostumat, CC BY 4.0. Korkeusmalli 10 m: Maanmittauslaitos, CC BY 4.0.
+  Ilmastonormaalit: Ilmatieteen laitos, CC BY 4.0.
+- Johdettu todennäköisyyskartta ja mallin painot: CC BY-NC 4.0 (opetusaineistossa
+  on CC BY-NC-tietueita).
+- Sovelluksen koodi: [MIT](LICENSE). Kirjastot: [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
 
 **Vastuuvapaus:** kartta on tilastollinen arvio metsän rakenteesta, ei
 sienihavaintoja. Tarkista aina tunnistus itse, kunnioita luonnonsuojelualueiden

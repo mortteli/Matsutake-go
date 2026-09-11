@@ -93,6 +93,9 @@
     box-shadow: var(--shadow); color: var(--muted);
   }
   .legend .dot { width: 12px; height: 12px; border-radius: 3px; background: var(--spot); opacity: .85; }
+  .legend.prob { bottom: calc(64px + var(--safe-b)); }
+  .legend .grad { width: 34px; height: 12px; border-radius: 3px; background: linear-gradient(90deg, #ffd166, #ff2d78); }
+  .note { font-size: 12.5px; color: var(--muted); line-height: 1.45; margin: 4px 0 8px; }
 
   /* ---------- sheets ---------- */
   .sheet {
@@ -235,6 +238,7 @@
 </div>
 
 <div class="legend"><span class="dot"></span> <span id="legendText">matsutake-tyypin metsä</span></div>
+<div class="legend prob" id="legendProb" hidden><span class="grad"></span> <span id="legendProbText">malli</span></div>
 
 <div class="backdrop" id="backdrop"></div>
 <div class="toast" id="toast"></div>
@@ -265,6 +269,9 @@
     <span class="val" id="valOpacity">75 %</span>
   </div>
 
+  <h3>🧠 Todennäköisyyskartta</h3>
+  <div id="probPanel"></div>
+
   <h3>Aputasot</h3>
   <div id="helperLayers"></div>
 </div>
@@ -282,6 +289,11 @@
      ei havaintoja sienistä — maastossa ratkaisee lopulta maapohja, sää ja tuuri.
      Korkeustiedot: Open-Meteo (Copernicus DEM). Taustakartat: © OpenStreetMap,
      OpenTopoMap, Esri.</p>
+  <p><b>Todennäköisyyskartta</b> (🗺️-valikossa) on havainnoista opetettu neuroverkko: se yhdistää
+     Luken metsätiedot, MML:n korkeusmallin, GTK:n maaperäkartan ja Ilmatieteen laitoksen
+     lämpösumman ja ennustaa jokaiselle 16 m ruudulle, kuinka matsutaken löytöpaikkojen
+     kaltainen se on. Havainnot: GBIF / Suomen Lajitietokeskus. Menetelmä ja tulokset:
+     <a href="docs/MODEL_REPORT_matsutake.md" target="_blank" rel="noopener">mallin raportti</a>.</p>
 </div>
 
 <!-- ============ result sheet ============ -->
@@ -323,6 +335,9 @@ const COVER_STEPS  = [10, 25, 40, 55, 70, 85];
 // below this the pixel is bare ground (fresh clear-cut, field edge), not a
 // half-open grassy spot — used as the floor of ukonsieni's canopy band
 const MIN_COVER = 10;
+// matsutake avoids spruce stands: 83 % of known finds have less spruce than this,
+// against 37 % of other mushroom sites (docs/HABITAT_MODEL_PLAN.md)
+const MAX_SPRUCE = 20;
 
 /* ================= SLD mask builders ================= */
 function sldWrap(layerName, colorMap) {
@@ -396,12 +411,16 @@ const SPECIES = [
     stand: "Oikea metsätyyppi — puusto ei täytä ehtoja",
     miss: "Ei matsutake-tyyppiä",
   },
-  defaults: { minAge: 60, minPine: 20, kuivahko: false, karukko: true },
+  // defaults checked against 104 GBIF finds (≤ 100 m accuracy): "kuivahko" on and
+  // "little spruce" lift the share of known finds inside the map from 9 % to ~48 %
+  // while the map still covers only ~7 % of forest land — see docs/HABITAT_MODEL_PLAN.md
+  defaults: { minAge: 60, minPine: 20, kuivahko: true, karukko: true, lowSpruce: true },
   controls: [
     { type: "range", key: "minAge",  label: "Puuston ikä vähintään", min: 40, max: 120, step: 5, unit: " v" },
     { type: "range", key: "minPine", label: "Mäntyä vähintään",      min: 0,  max: 120, step: 5, unit: " m³/ha" },
-    { type: "toggle", key: "kuivahko", label: "Myös kuivahko kangas", hint: "löyhempi haku (puolukkatyyppi)" },
-    { type: "toggle", key: "karukko",  label: "Myös karukkokangas",   hint: "jäkäläkankaat mukaan" },
+    { type: "toggle", key: "kuivahko",  label: "Myös kuivahko kangas", hint: "puolukkatyyppi — puolet havainnoista on täällä" },
+    { type: "toggle", key: "karukko",   label: "Myös karukkokangas",   hint: "jäkäläkankaat mukaan" },
+    { type: "toggle", key: "lowSpruce", label: "Vain vähäkuusiset",     hint: "kuusta enintään " + MAX_SPRUCE + " m³/ha — matsutake karttaa kuusikoita" },
   ],
   siteClasses: c => [5].concat(c.kuivahko ? [4] : [], c.karukko ? [6] : []),
   mainTypes: () => [1], // kivennäismaa
@@ -412,18 +431,22 @@ const SPECIES = [
       [cond(LAYER.age,  maskMin(LAYER.age, c.minAge))],
     ];
     if (c.minPine > 0) g.push([cond(LAYER.pine, maskMin(LAYER.pine, c.minPine))]);
+    if (c.lowSpruce) g.push([cond(LAYER.spruce, maskRange(LAYER.spruce, -1, MAX_SPRUCE))]);
     return g;
   },
   metrics(c) {
     return [
-      { label: "Puuston ikä", dir: "min", limit: c.minAge,  unit: "v",     steps: AGE_STEPS, any: [{ layer: LAYER.age }] },
-      { label: "Mäntyä",      dir: "min", limit: c.minPine, unit: "m³/ha", steps: VOL_STEPS, any: [{ layer: LAYER.pine }] },
+      { label: "Puuston ikä", dir: "min",   limit: c.minAge,    unit: "v",     steps: AGE_STEPS, any: [{ layer: LAYER.age }] },
+      { label: "Mäntyä",      dir: "min",   limit: c.minPine,   unit: "m³/ha", steps: VOL_STEPS, any: [{ layer: LAYER.pine }] },
+      { label: "Kuusta",      dir: "range", lo: -1, limit: MAX_SPRUCE, unit: "m³/ha", steps: VOL_STEPS, any: [{ layer: LAYER.spruce }], soft: !c.lowSpruce },
     ];
   },
   helpers: [
     { label: "Kuiva kangas (kaikki iät)", make: () => helperLayer(LAYER.site, maskValues(LAYER.site, [5], "#ff9d2e")) },
     { label: "Vanha metsä (kaikki tyypit)", make: () => helperLayer(LAYER.age, maskMin(LAYER.age, 60, "#2e86ff")) },
   ],
+  // observation-trained probability layer (ml/), see docs/HABITAT_MODEL_PLAN.md
+  model: "data/matsutake/prob_meta.json",
   slopeGood: s => s.deg >= 2,
   region: lat => lat >= 66 ? "Lappi — paras alue 🌟" :
                  lat >= 64 ? "pohjoinen — hyvä alue" :
@@ -432,8 +455,12 @@ const SPECIES = [
     '<h2>🍄 Matsutake eli tuoksuvalmuska</h2>' +
     '<p><b>Tricholoma matsutake</b> kasvaa Suomessa vanhoissa männiköissä kuivilla ja ' +
     'karuilla kankailla. Kartan pinkit alueet ovat metsiä, joissa <b>kaikki</b> valitut ehdot täyttyvät:</p>' +
-    '<p>✔️ kasvupaikka on <b>kuiva kangas</b> (kanervatyyppi) tai karukkokangas — kivennäismaalla<br>' +
-    '✔️ puusto on vanhaa (oletus ≥ 60 v)<br>✔️ mäntyä on riittävästi</p>' +
+    '<p>✔️ kasvupaikka on <b>kuiva tai kuivahko kangas</b> (kanerva-/puolukkatyyppi) tai karukkokangas — kivennäismaalla<br>' +
+    '✔️ puusto on vanhaa (oletus ≥ 60 v)<br>✔️ mäntyä on riittävästi<br>' +
+    '✔️ kuusta on vain vähän — matsutake karttaa kuusikoita</p>' +
+    '<p>Tunnetuista havainnoista puolet on Luken aineistossa <i>kuivahkoa</i> kangasta ja vain joka ' +
+    'kahdeksas <i>kuivaa</i>, joten kuivahko on oletuksena mukana. Parhaat paikat ovat hiekkaisia ' +
+    'harjuja ja rinteiden yläosia — <b>maaperä ei ole vielä kartassa</b>, joten suosi harjumaastoa.</p>' +
     '<p>Jäkäläiset, valoisat ja hieman rinteiset paikat ovat parhaita — tarkista rinne napauttamalla ' +
     'karttaa. Mitä pohjoisempana, sitä varmempi esiintyminen: Lappi ja Koillismaa ovat Suomen parasta ' +
     'matsutake-aluetta, mutta lajia löytyy karuilta mäntykankailta koko maasta.</p>' +
@@ -731,7 +758,7 @@ const SPECIES = [
 
 /* ================= state ================= */
 const STORE_KEY = "matsutakego.v2";
-const state = { species: SPECIES[0].key, cfg: {}, opacity: 0.75 };
+const state = { species: SPECIES[0].key, cfg: {}, opacity: 0.75, prob: { on: false, pct: 10 } };
 SPECIES.forEach(s => { state.cfg[s.key] = Object.assign({}, s.defaults); });
 
 function sp()  { return SPECIES.find(s => s.key === state.species) || SPECIES[0]; }
@@ -744,6 +771,7 @@ function load() {
     const j = JSON.parse(raw);
     if (j.species && SPECIES.some(s => s.key === j.species)) state.species = j.species;
     if (typeof j.opacity === "number") state.opacity = j.opacity;
+    if (j.prob) { state.prob.on = !!j.prob.on; if (typeof j.prob.pct === "number") state.prob.pct = j.prob.pct; }
     SPECIES.forEach(s => {
       if (j.cfg && j.cfg[s.key]) Object.keys(s.defaults).forEach(k => {
         if (j.cfg[s.key][k] !== undefined) state.cfg[s.key][k] = j.cfg[s.key][k];
@@ -840,6 +868,161 @@ function helperLayer(layerName, sld) {
     layers: layerName, format: "image/png", transparent: true,
     version: "1.1.1", opacity: 0.45, SLD_BODY: sld,
   });
+}
+
+/* ================= probability layer =================
+   A GeoTIFF (EPSG:3067, 16 m, value 0–100 = P × 100, 255 = no data) produced by ml/predict.py
+   and read straight from the static site with HTTP range requests (georaster). The slider
+   picks "the best X % of forest land": the threshold comes from the score quantiles of
+   random forest cells that ml/train.py stores in prob_meta.json. */
+const prob = { meta: null, metaFor: null, rasters: [], layers: [], loading: null };
+
+function loadScript(src) {
+  return new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = src; s.onload = res; s.onerror = () => rej(new Error(src));
+    document.head.appendChild(s);
+  });
+}
+function ensureGeoraster() {
+  if (window.GeoRasterLayer) return Promise.resolve();
+  if (!prob.loading)
+    prob.loading = loadScript("vendor/georaster/georaster.browser.bundle.min.js")
+      .then(() => loadScript("vendor/georaster/georaster-layer-for-leaflet.min.js"));
+  return prob.loading;
+}
+async function loadProbMeta(species) {
+  if (!species.model) return null;
+  if (prob.metaFor === species.key) return prob.meta;
+  const r = await fetch(species.model, { cache: "no-cache" });
+  if (!r.ok) throw new Error("meta");
+  prob.meta = await r.json(); prob.metaFor = species.key;
+  return prob.meta;
+}
+// value (0–100) -> share of forest cells scoring below it, from the stored quantiles
+function probRank(v) {
+  const q = prob.meta.quantiles;
+  let lo = 0, hi = q.length - 1;
+  while (lo < hi) { const m = (lo + hi) >> 1; if (q[m] < v) lo = m + 1; else hi = m; }
+  return lo / (q.length - 1);
+}
+function probMaxPct() { return (prob.meta && prob.meta.max_pct) || 25; }
+function probThreshold() {
+  const q = prob.meta.quantiles;
+  const thr = q[Math.max(0, Math.round((1 - state.prob.pct / 100) * (q.length - 1)))];
+  // cells below the stored floor are kept as 0 ("not in the mapped range"), never as a score
+  return Math.max(thr, (prob.meta.floor || 0));
+}
+function probColorFn() {
+  const thr = probThreshold(), pct = state.prob.pct / 100, nod = prob.meta.nodata;
+  return values => {
+    const v = values[0];
+    if (v == null || v === nod || v < thr) return null;
+    const t = Math.min(1, Math.max(0, (probRank(v) - (1 - pct)) / pct));   // 0 at threshold … 1 at the very best
+    const r = Math.round(255), g = Math.round(209 - 164 * t), b = Math.round(102 + 18 * t);
+    return "rgba(" + r + "," + g + "," + b + ",0.85)";
+  };
+}
+async function showProb() {
+  const species = sp();
+  try {
+    const meta = await loadProbMeta(species);
+    if (!meta) return;
+    await ensureGeoraster();
+    if (!prob.rasters.length || prob.rasters[0]._species !== species.key) {
+      hideProb(true);
+      // geotiff.js fetches inside a worker, where relative URLs cannot be resolved
+      prob.rasters = await Promise.all(meta.files.map(f => parseGeoraster(new URL(f.url, location.href).href)));
+      prob.rasters.forEach(r => { r._species = species.key; });
+    }
+    if (!prob.layers.length) {
+      prob.layers = prob.rasters.map(gr => new GeoRasterLayer({
+        georaster: gr, opacity: state.opacity, resolution: 128, pixelValuesToColorFn: probColorFn(),
+        attribution: "Malli: Matsutake GO ml (GBIF · Luke · MML · GTK · FMI)",
+      }));
+    }
+    prob.layers.forEach(l => { if (!map.hasLayer(l)) l.addTo(map); });
+    updateProbLegend();
+  } catch (e) {
+    state.prob.on = false; save(); renderProb();
+    toast("Todennäköisyyskarttaa ei voitu ladata");
+  }
+}
+function hideProb(drop) {
+  prob.layers.forEach(l => map.removeLayer(l));
+  if (drop) { prob.layers = []; prob.rasters = []; }
+  document.getElementById("legendProb").hidden = true;
+}
+function updateProbLegend() {
+  const el = document.getElementById("legendProb");
+  el.hidden = !state.prob.on || !prob.meta;
+  document.getElementById("legendProbText").textContent = "malli: parhaat " + state.prob.pct + " % metsämaasta";
+}
+function renderProb() {
+  const s = sp(), host = document.getElementById("probPanel");
+  host.innerHTML = "";
+  if (!s.model) {
+    host.innerHTML = '<p class="note">Ei vielä tälle lajille — mallia opetetaan ensin matsutakelle.</p>';
+    return;
+  }
+  host.innerHTML =
+    '<div class="row"><label>Näytä malli<br><small>havainnoista opetettu neuroverkko, 16 m</small></label>' +
+    '<label class="switch"><input type="checkbox" id="probOn"><i></i></label></div>' +
+    '<div class="row"><label>Näytä parhaat<br><small>osuus metsämaasta</small></label>' +
+    '<input type="range" id="probPct" min="1" max="25" step="1"><span class="val" id="probPctVal"></span></div>' +
+    '<p class="note" id="probNote">Väri: keltainen = juuri rajan yli, pinkki = mallin parhaat ruudut. ' +
+    'Sääntökartta jää näkyviin; säädä sen peittävyyttä yllä.</p>';
+  const on = host.querySelector("#probOn"), rng = host.querySelector("#probPct"), val = host.querySelector("#probPctVal");
+  on.checked = state.prob.on; rng.value = state.prob.pct; val.textContent = state.prob.pct + " %";
+  on.addEventListener("change", () => {
+    state.prob.on = on.checked; save();
+    if (on.checked) showProb(); else hideProb(false);
+  });
+  let t = null;
+  rng.addEventListener("input", () => {
+    state.prob.pct = +rng.value; val.textContent = rng.value + " %"; save();
+    clearTimeout(t);
+    t = setTimeout(() => { if (prob.meta) { prob.layers.forEach(l => l.updateColors(probColorFn())); updateProbLegend(); } }, 150);
+  });
+  loadProbMeta(s).then(m => {
+    if (!m) return;
+    rng.max = probMaxPct();
+    if (state.prob.pct > +rng.max) { state.prob.pct = +rng.max; save(); }
+    rng.value = state.prob.pct; val.textContent = state.prob.pct + " %";
+    const note = document.getElementById("probNote");
+    if (note && m.trained) note.insertAdjacentHTML("beforeend",
+      " Opetettu " + m.trained + (m.n_presence ? " · " + m.n_presence + " havaintoa" : "") +
+      ". Kartta kattaa metsämaan parhaan " + probMaxPct() + " %:n; muualla malli ei piirrä mitään.");
+  }).catch(() => {});
+}
+// WGS84 -> ETRS-TM35FIN (EPSG:3067), Snyder's transverse Mercator series, GRS80
+function toTM35(lat, lon) {
+  const a = 6378137, f = 1 / 298.257222101, k0 = 0.9996, lon0 = 27 * Math.PI / 180;
+  const e2 = f * (2 - f), ep2 = e2 / (1 - e2);
+  const phi = lat * Math.PI / 180, lam = lon * Math.PI / 180;
+  const sin = Math.sin(phi), cos = Math.cos(phi), tan = Math.tan(phi);
+  const N = a / Math.sqrt(1 - e2 * sin * sin), T = tan * tan, C = ep2 * cos * cos, A = (lam - lon0) * cos;
+  const e4 = e2 * e2, e6 = e4 * e2;
+  const M = a * ((1 - e2 / 4 - 3 * e4 / 64 - 5 * e6 / 256) * phi - (3 * e2 / 8 + 3 * e4 / 32 + 45 * e6 / 1024) * Math.sin(2 * phi)
+    + (15 * e4 / 256 + 45 * e6 / 1024) * Math.sin(4 * phi) - (35 * e6 / 3072) * Math.sin(6 * phi));
+  const x = 500000 + k0 * N * (A + (1 - T + C) * A ** 3 / 6 + (5 - 18 * T + T * T + 72 * C - 58 * ep2) * A ** 5 / 120);
+  const y = k0 * (M + N * tan * (A * A / 2 + (5 - T + 9 * C + 4 * C * C) * A ** 4 / 24 + (61 - 58 * T + T * T + 600 * C - 330 * ep2) * A ** 6 / 720));
+  return { x, y };
+}
+// model score at a point (null if the layer is not loaded or the point is outside the rasters)
+async function readProb(latlng) {
+  if (!prob.rasters.length || !prob.meta) return null;
+  const { x, y } = toTM35(latlng.lat, latlng.lng);
+  for (const gr of prob.rasters) {
+    if (x < gr.xmin || x > gr.xmax || y < gr.ymin || y > gr.ymax) continue;
+    const col = Math.floor((x - gr.xmin) / gr.pixelWidth), row = Math.floor((gr.ymax - y) / gr.pixelHeight);
+    try {
+      const v = await gr.getValues({ left: col, top: row, right: col + 1, bottom: row + 1, width: 1, height: 1 });
+      const val = v[0][0][0];
+      return (val == null || val === prob.meta.nodata) ? null : val;
+    } catch (e) { return null; }
+  }
+  return null;
 }
 
 /* ================= GPS ================= */
@@ -972,11 +1155,12 @@ async function inspect(latlng) {
   openSheet("sheetResult");
 
   const metrics = species.metrics(c);
-  const [site, main, slope, results] = await Promise.all([
+  const [site, main, slope, results, pv] = await Promise.all([
     readClass(LAYER.site, SITE_CANDIDATES, latlng),
     readClass(LAYER.main, MAIN_CANDIDATES, latlng),
     readSlope(latlng),
     Promise.all(metrics.map(m => readMetric(m, latlng))),
+    state.prob.on ? readProb(latlng).catch(() => null) : Promise.resolve(null),
   ]);
 
   if (site == null && results.every(r => r.alts.every(a => a.val == null))) {
@@ -1030,6 +1214,15 @@ async function inspect(latlng) {
 
   html += checkRow(slope ? (slopeOk ? "ok" : "meh") : "meh", "Rinne",
     slope ? (slope.deg < 1 ? "tasainen" : slope.deg.toFixed(1) + "° " + slope.dir) : "ei tietoa");
+  if (pv != null) {
+    const floor = (prob.meta && prob.meta.floor) || 0;
+    if (pv < floor) {
+      html += checkRow("no", "Malli", "alle kartan rajan");
+    } else {
+      const top = Math.max(1, Math.round((1 - probRank(pv)) * 100));
+      html += checkRow(pv >= probThreshold() ? "ok" : "meh", "Malli", pv + " · parhaat " + top + " % metsästä");
+    }
+  }
   html += "</div>";
 
   html += '<a class="navlink" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=' +
@@ -1096,6 +1289,7 @@ function selectSpecies(key) {
   state.species = key;
   save();
   clearHelpers();
+  hideProb(true);
   applySpecies();
   spots.redraw();
   toast(sp().emoji + " " + sp().name + " — " + sp().tagline);
@@ -1175,6 +1369,8 @@ function applySpecies() {
   renderControls();
   renderHelpers();
   renderSpeciesList();
+  renderProb();
+  if (state.prob.on && s.model) showProb(); else updateProbLegend();
 }
 
 const rngOpacity = document.getElementById("rngOpacity");
@@ -1184,6 +1380,7 @@ rngOpacity.addEventListener("input", () => {
   state.opacity = +rngOpacity.value / 100;
   document.getElementById("valOpacity").textContent = rngOpacity.value + " %";
   spots.setOpacity(state.opacity);
+  prob.layers.forEach(l => l.setOpacity(state.opacity));
   save();
 });
 
