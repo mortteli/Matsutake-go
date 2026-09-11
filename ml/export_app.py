@@ -9,6 +9,7 @@ python ml/export_app.py --species matsutake [--src ml/data/rasters/prob_matsutak
 import argparse, json, math, os, sys, time
 import numpy as np, rasterio
 from rasterio.enums import Resampling
+from rasterio.shutil import copy as rio_copy
 from rasterio.windows import Window, transform as win_transform
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -20,22 +21,30 @@ def log(*a):
 
 
 def write_part(src, window, path, floor, step):
-    """One regional part: scores below `floor` are stored as 0 ("not in the mapped range") and
-    the rest quantised to `step`, which roughly halves the file with no visible difference."""
+    """One regional part as a real Cloud-Optimised GeoTIFF.
+
+    Scores below `floor` are stored as 0 ("not in the mapped range") and the rest quantised to
+    `step`, which roughly halves the file with no visible difference. The COG driver is used
+    rather than plain GTiff plus build_overviews: overviews appended to the end of a large
+    ordinary GeoTIFF make geotiff.js compute negative byte ranges, so the browser can render
+    such a file but cannot read single values out of it.
+    """
+    tmp = path + ".tmp.tif"
     prof = src.profile.copy()
-    prof.update(width=int(window.width), height=int(window.height), transform=win_transform(window, src.transform),
-                tiled=True, blockxsize=512, blockysize=512, compress="deflate", predictor=2, zlevel=9,
-                BIGTIFF="IF_SAFER")
-    with rasterio.open(path, "w", **prof) as dst:
+    prof.update(driver="GTiff", width=int(window.width), height=int(window.height),
+                transform=win_transform(window, src.transform), tiled=True,
+                blockxsize=512, blockysize=512, compress="deflate", predictor=2, BIGTIFF="IF_SAFER")
+    with rasterio.open(tmp, "w", **prof) as dst:
         for r in range(0, int(window.height), 4096):
             for c in range(0, int(window.width), 4096):
                 w = Window(c, r, min(4096, int(window.width) - c), min(4096, int(window.height) - r))
                 ws = Window(window.col_off + c, window.row_off + r, w.width, w.height)
                 a = src.read(1, window=ws)
-                data = a != 255
                 q = np.where(a < floor, 0, np.round(a / step) * step).astype(np.uint8)
-                dst.write(np.where(data, q, 255).astype(np.uint8), 1, window=w)
-        dst.build_overviews([2, 4, 8, 16, 32, 64], Resampling.average)
+                dst.write(np.where(a != 255, q, 255).astype(np.uint8), 1, window=w)
+    rio_copy(tmp, path, driver="COG", COMPRESS="DEFLATE", PREDICTOR="YES", LEVEL=9,
+             BLOCKSIZE=512, OVERVIEW_RESAMPLING="AVERAGE", BIGTIFF="IF_SAFER")
+    os.remove(tmp)
     return os.path.getsize(path)
 
 
