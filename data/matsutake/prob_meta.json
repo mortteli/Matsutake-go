@@ -1,0 +1,267 @@
+{
+ "species": "matsutake",
+ "trained": "2026-09-11",
+ "n_presence": 109,
+ "crs": "EPSG:3067",
+ "pixel_m": 16,
+ "nodata": 255,
+ "value": "model score x 100",
+ "floor": 21,
+ "max_pct": 25,
+ "step": 2,
+ "quantiles": [
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  20.0,
+  22.0,
+  24.0,
+  24.0,
+  24.0,
+  28.0,
+  28.0,
+  30.0,
+  32.0,
+  32.0,
+  36.0,
+  36.0,
+  40.0,
+  42.0,
+  44.0,
+  48.0,
+  52.0,
+  54.0,
+  56.0,
+  60.0,
+  66.0,
+  72.0,
+  76.0,
+  84.0,
+  92.0,
+  100.0
+ ],
+ "files": [
+  {
+   "url": "data/matsutake/prob_matsutake_16m_00.tif",
+   "bounds": [
+    57632,
+    7386448,
+    282912,
+    7778304
+   ]
+  },
+  {
+   "url": "data/matsutake/prob_matsutake_16m_01.tif",
+   "bounds": [
+    282912,
+    7386448,
+    508192,
+    7778304
+   ]
+  },
+  {
+   "url": "data/matsutake/prob_matsutake_16m_02.tif",
+   "bounds": [
+    508192,
+    7386448,
+    733472,
+    7778304
+   ]
+  },
+  {
+   "url": "data/matsutake/prob_matsutake_16m_10.tif",
+   "bounds": [
+    57632,
+    6994608,
+    282912,
+    7386448
+   ]
+  },
+  {
+   "url": "data/matsutake/prob_matsutake_16m_11.tif",
+   "bounds": [
+    282912,
+    6994608,
+    508192,
+    7386448
+   ]
+  },
+  {
+   "url": "data/matsutake/prob_matsutake_16m_12.tif",
+   "bounds": [
+    508192,
+    6994608,
+    733472,
+    7386448
+   ]
+  },
+  {
+   "url": "data/matsutake/prob_matsutake_16m_20.tif",
+   "bounds": [
+    57632,
+    6602752,
+    282912,
+    6994608
+   ]
+  },
+  {
+   "url": "data/matsutake/prob_matsutake_16m_21.tif",
+   "bounds": [
+    282912,
+    6602752,
+    508192,
+    6994608
+   ]
+  },
+  {
+   "url": "data/matsutake/prob_matsutake_16m_22.tif",
+   "bounds": [
+    508192,
+    6602752,
+    733472,
+    6994608
+   ]
+  }
+ ],
+ "metrics": {
+  "auc_vs_fungi": 0.881,
+  "prauc_vs_fungi": 0.367,
+  "auc_vs_random": 0.911,
+  "prauc_vs_random": 0.414,
+  "recall_at_5": 0.661,
+  "recall_at_10": 0.798,
+  "recall_at_20": 0.881,
+  "boyce": 0.888
+ },
+ "curve": [
+  {
+   "area_frac": 0.01,
+   "threshold": 0.9119,
+   "recall": 0.321,
+   "other_fungi_frac": 0.013,
+   "lift": 32.1
+  },
+  {
+   "area_frac": 0.02,
+   "threshold": 0.8517,
+   "recall": 0.44,
+   "other_fungi_frac": 0.024,
+   "lift": 22.0
+  },
+  {
+   "area_frac": 0.05,
+   "threshold": 0.6816,
+   "recall": 0.661,
+   "other_fungi_frac": 0.089,
+   "lift": 13.2
+  },
+  {
+   "area_frac": 0.1,
+   "threshold": 0.5039,
+   "recall": 0.798,
+   "other_fungi_frac": 0.178,
+   "lift": 8.0
+  },
+  {
+   "area_frac": 0.15,
+   "threshold": 0.397,
+   "recall": 0.853,
+   "other_fungi_frac": 0.235,
+   "lift": 5.7
+  },
+  {
+   "area_frac": 0.2,
+   "threshold": 0.3014,
+   "recall": 0.881,
+   "other_fungi_frac": 0.294,
+   "lift": 4.4
+  },
+  {
+   "area_frac": 0.3,
+   "threshold": 0.1907,
+   "recall": 0.917,
+   "other_fungi_frac": 0.417,
+   "lift": 3.1
+  },
+  {
+   "area_frac": 0.5,
+   "threshold": 0.0943,
+   "recall": 0.954,
+   "other_fungi_frac": 0.593,
+   "lift": 1.9
+  }
+ ],
+ "sources": "Luke MVMI 2009-2023, MML DEM 10 m, GTK Maapera 1:200k + glacigenic formations, FMI 10 km climate, GBIF/FinBIF occurrence records"
+}
