@@ -71,7 +71,7 @@ GBIF asks that data use is cited; the records here came through the GBIF occurre
 |---|---|---|
 | `ml/data/matsutake/dataset.csv` | training table: the records above joined with environmental features | CC BY-NC 4.0 (contains CC BY-NC records) |
 | `ml/models/matsutake/` | model weights, scaler, CV report | CC BY-NC 4.0 |
-| `data/matsutake/prob_*.tif`, `prob_meta.json` | 16 m probability map for the app | CC BY-NC 4.0 — attribution as above; non-commercial because CC BY-NC observation records contributed to training |
+| `data/matsutake/prob_*.tif`, `prob_meta.json` | the published 16 m habitat map: 9 Cloud-Optimised GeoTIFF parts, EPSG:3067, value = model score × 100, 255 = no forestry data. Scores below 21 (the best 25 % of forest land) are stored as 0 and the rest quantised to steps of 2, which halves the files with no visible difference | CC BY-NC 4.0 — attribution as above; non-commercial because CC BY-NC observation records contributed to training |
 | `ml/data/climate/*.tif`, `ml/data/rasters/gtk_*_16m.tif`, `ml/data/gtk_classes.json` | rasterized / aggregated copies of FMI and GTK data | CC BY 4.0 (© FMI, © GTK) |
 
 To publish the derived layers under plain CC BY 4.0, re-run the pipeline with the CC BY-NC records removed (`ml/fetch_observations.py` — filter on the `license` column).
