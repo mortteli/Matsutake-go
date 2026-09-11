@@ -139,10 +139,14 @@ rakentuu niistä.
 
 🗺️-valikon **Todennäköisyyskartta** on havainnoista opetettu neuroverkko, joka
 antaa jokaiselle 16 m ruudulle arvion siitä, kuinka matsutaken tunnettujen
-löytöpaikkojen kaltainen se on. Malli yhdistää Luken metsätiedot, MML:n
+löytöpaikkojen kaltainen se on. Ristiinvalidoituna (25 km alueblokit, arviointi
+vain ≤ 250 m tarkkuuden havainnoilla) kartta sisältää **66 % tunnetuista
+löydöistä metsämaan parhaassa 5 %:ssa** ja 80 % parhaassa 10 %:ssa; vanha
+sääntökartta ylsi 16 %:iin. Malli yhdistää Luken metsätiedot, MML:n
 korkeusmallin (rinne, suunta, harjanne), GTK:n maaperä- ja harjukartan sekä
 Ilmatieteen laitoksen lämpösumman. Säädin *Näytä parhaat X % metsämaasta*
-valitsee kynnyksen: pienempi prosentti = tiukempi kartta. Menetelmä, aineisto ja
+valitsee kynnyksen: pienempi prosentti = tiukempi kartta. Kartta kattaa metsämaan
+parhaan 25 %:n; sen ulkopuolella malli ei piirrä mitään. Menetelmä, aineisto ja
 tarkkuusluvut: [docs/HABITAT_MODEL_PLAN.md](docs/HABITAT_MODEL_PLAN.md) ja
 [docs/MODEL_REPORT_matsutake.md](docs/MODEL_REPORT_matsutake.md); koodi ja
 data kansiossa [`ml/`](ml/README.md).

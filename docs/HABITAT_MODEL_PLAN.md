@@ -280,13 +280,13 @@ The existing rule filter stays as a "sääntökartta" toggle for comparison.
 
 ## 7. Phases
 
-| Phase | Deliverable |
-|---|---|
-| 0 (this) | Sources, data audit, empirical comparison, plan |
-| 1 | `ml/` data pipeline: fetch GBIF (+ laji.fi), match MVMI cycle, sample all features, build dataset + background sets |
-| 2 | Baselines + NN, spatial CV, tuning, ablations, report with precision/recall curves |
-| 3 | Full-Finland inference → COG; app layer with threshold slider; README |
-| 4 | Phenology sub-model; second species through the same config |
+| Phase | Deliverable | State |
+|---|---|---|
+| 0 | Sources, data audit, empirical comparison, plan | done |
+| 1 | `ml/` data pipeline: fetch GBIF (+ laji.fi), match MVMI cycle, sample all features, build dataset + background sets | done |
+| 2 | Baselines + NN, spatial CV, tuning, ablations, report with precision/recall curves | done — `docs/MODEL_REPORT_matsutake.md` |
+| 3 | Full-Finland inference → COG; app layer with threshold slider; README | done — `data/matsutake/`, 🧠 panel in the app |
+| 4 | Phenology sub-model; second species through the same config | open |
 
 ## 8. Decisions (answered 2026-09-10)
 
@@ -325,7 +325,21 @@ every model is a **relative** occurrence score; absolute probability of finding 
 identifiable from this data, so the map is calibrated to rank cells and the slider is expressed as
 "the best X % of forest land" rather than as a percentage chance.
 
-## 10. Open items
+## 10. What shipped
+
+- `ml/` — reproducible pipeline: observations, GTK and FMI rasters, a 16 m elevation warp,
+  cycle-matched feature extraction, training with spatial CV, inference, app export.
+- `ml/models/matsutake/` — the five fold networks, the scaler, and the cross-validation report.
+- `data/matsutake/` — the published map, nine Cloud-Optimised GeoTIFF parts at 16 m.
+- The app's 🧠 panel: model layer, "best X % of forest land" slider, and a model row in the
+  tap readout.
+
+Two failures worth remembering, both now fixed in code: a tiled compressed GeoTIFF writes its
+tile index only on close, so an interrupted run leaves unreadable tiles; and the browser reads
+these files with HTTP range requests, which `python3 -m http.server` ignores, so the layer looks
+broken locally unless served with `serve.py`.
+
+## 11. Open items
 
 - Phenology layer (rain accumulation over the season, summer warmth, snowmelt date).
 - Second species through the same configuration once matsutake is validated.
