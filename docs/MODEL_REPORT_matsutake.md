@@ -55,6 +55,21 @@ Best MLP config: `{"hidden": 32, "depth": 1, "dropout": 0.4, "wd": 0.01, "lr": 0
 | without_neigh | 0.304 | 0.615 | 0.706 | 0.86 |
 | with_location | 0.429 | 0.661 | 0.734 | 0.615 |
 
+## Do the coarse records help?
+
+Presences with 250 m – 1 km coordinate uncertainty (141) train at weight 0.3 with features averaged over five draws inside the uncertainty disc, and are never scored. Re-running the whole comparison with those rows dropped (`--fine-only`, 109 presences, identical folds and identical evaluation set) gives:
+
+| Model | recall@5 % with coarse | fine-only | AUC with coarse | fine-only | Boyce with coarse | fine-only |
+|---|---|---|---|---|---|---|
+| logreg | **0.651** | 0.642 | 0.879 | 0.87 | 0.819 | 0.886 |
+| gam | **0.606** | 0.624 | 0.877 | 0.869 | 0.863 | 0.702 |
+| maxent | **0.661** | 0.651 | 0.888 | 0.878 | 0.908 | 0.855 |
+| lgbm | **0.587** | 0.606 | 0.883 | 0.861 | 0.982 | 0.869 |
+| xgb | **0.578** | 0.578 | 0.866 | 0.86 | 0.816 | 0.868 |
+| mlp | **0.661** | 0.569 | 0.881 | 0.871 | 0.888 | 0.665 |
+
+Every model is better with the coarse records included, the neural network most of all (0.661 vs 0.569 recall at 5 % of forest land). Because the evaluation set is the same 109 finds in both columns, this is a like-for-like comparison: the extra records add information about the habitat without degrading the precise ones. Full fine-only numbers are in `MODEL_REPORT_matsutake_fineonly.md`.
+
 ## Hyper-parameter trials
 
 | PR-AUC vs fungi | recall@5 % | config |
