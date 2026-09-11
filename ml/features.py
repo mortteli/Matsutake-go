@@ -153,7 +153,12 @@ def block_features(src, margin=MARGIN):
     out["glacfl_frac31"] = uniform_filter((gg == 0).astype(np.float32), 31, mode="nearest")
     out["thermal_sum"] = src["thermal_sum"]
     out["precip"] = src["precip"]
-    feats = np.stack([out[k][crop].astype(np.float32) for k in FEATURES])
+    # write straight into one preallocated array: stacking 62 cropped copies doubles the
+    # peak memory and costs a full extra gigabyte of copying per 2048² block
+    h, w = out[FEATURES[0]][crop].shape
+    feats = np.empty((len(FEATURES), h, w), dtype=np.float32)
+    for i, k in enumerate(FEATURES):
+        feats[i] = out[k][crop]
     valid = np.isfinite(site[crop]) & np.isfinite(src["ika"][crop])
     return feats, valid
 
