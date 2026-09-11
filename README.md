@@ -111,9 +111,13 @@ valitse branch ja `/ (root)`. Sovellus aukeaa osoitteessa
 **Paikallisesti:**
 
 ```bash
-python3 -m http.server 8000
+python3 serve.py 8000
 # avaa http://localhost:8000
 ```
+
+> Käytä `serve.py`:tä, älä `python3 -m http.server`:iä: todennäköisyyskartta luetaan
+> GeoTIFF-tiedostoista HTTP range -pyynnöillä, joita Pythonin oletuspalvelin ei tue —
+> silloin mallitaso jää tyhjäksi. GitHub Pages tukee range-pyyntöjä.
 
 ## Miten se toimii
 
