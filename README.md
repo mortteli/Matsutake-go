@@ -87,6 +87,8 @@ oletusikä on 60 v — se puolittaa värjätyn pinta-alan osuvuuden kärsimätt�
 
 - 🍄 **Lajivalitsin** oikeassa yläkulmassa: pieni modaali, josta laji vaihtuu
   yhdellä napautuksella. Kartan otsikko, selite ja tietosivu vaihtuvat mukana.
+- 🔎 **Haku**: paikannimet ja osoitteet (Nominatim / OpenStreetMap) sekä
+  koordinaatit joko asteina tai ETRS-TM35FIN-metreinä.
 - 📍 **GPS-piste** joka seuraa laitteen sijaintia (seuranta katkeaa kun karttaa
   raahaa, palaa päälle napista)
 - 🗺️ **Sienitaso**: 3–5 WMS-rasterimaskia yhdistetään selaimessa
@@ -137,19 +139,41 @@ rakentuu niistä.
 
 ## Todennäköisyyskartta (🧠)
 
-🗺️-valikon **Todennäköisyyskartta** on havainnoista opetettu neuroverkko, joka
-antaa jokaiselle 16 m ruudulle arvion siitä, kuinka matsutaken tunnettujen
-löytöpaikkojen kaltainen se on. Ristiinvalidoituna (25 km alueblokit, arviointi
-vain ≤ 250 m tarkkuuden havainnoilla) kartta sisältää **66 % tunnetuista
-löydöistä metsämaan parhaassa 5 %:ssa** ja 80 % parhaassa 10 %:ssa; vanha
-sääntökartta ylsi 16 %:iin. Malli yhdistää Luken metsätiedot, MML:n
-korkeusmallin (rinne, suunta, harjanne), GTK:n maaperä- ja harjukartan sekä
-Ilmatieteen laitoksen lämpösumman. Säädin *Näytä parhaat X % metsämaasta*
-valitsee kynnyksen: pienempi prosentti = tiukempi kartta. Kartta kattaa metsämaan
-parhaan 25 %:n; sen ulkopuolella malli ei piirrä mitään. Menetelmä, aineisto ja
-tarkkuusluvut: [docs/HABITAT_MODEL_PLAN.md](docs/HABITAT_MODEL_PLAN.md) ja
+🗺️-valikon **Todennäköisyyskartta** on havainnoista opetettu malli
+(gradient boosting, LightGBM), joka antaa jokaiselle 16 m ruudulle arvion siitä,
+kuinka matsutaken tunnettujen löytöpaikkojen kaltainen se on. Malli yhdistää Luken
+metsätiedot, MML:n korkeusmallin (rinne, suunta, harjanne), GTK:n maaperä- ja
+harjukartan sekä Ilmatieteen laitoksen lämpösumman.
+
+Säädin *Näytä parhaat X % metsämaasta* valitsee kynnyksen, ja se kannattaa vetää
+alas: kartta on tehty luettavaksi kärjestään. Ristiinvalidoituna (25 km alueblokit,
+arviointi vain ≤ 250 m tarkkuuden havainnoilla) asetukset tarkoittavat tätä:
+
+| Kartta värittää | Tunnetuista löydöistä mukana | Sienihavaintopaikoista matsutakea | Osuvuus vs. satunnainen metsä |
+|---|---|---|---|
+| parhaat 0,25 % | 14 % | 72 % | 59× |
+| parhaat 0,5 % | 23 % | 66 % | 48× |
+| parhaat 1 % | 31 % | 52 % | 31× |
+| parhaat 2 % | 41 % | 41 % | 21× |
+| parhaat 5 % | 61 % | 30 % | 12× |
+| parhaat 15 % | 79 % | 13 % | 5× |
+
+Kolmas sarake on se, joka kertoo kannattaako ajaa: kun kartan värillä olevalta
+alueelta on ylipäätään ilmoitettu sieni, kuinka usein se on matsutake. Vanha
+sääntökartta ylsi 5 %:n kohdalla 16 %:iin löydöistä.
+
+Kartta kattaa metsämaan parhaan 15 %:n; sen ulkopuolella malli ei piirrä mitään.
+Miksi malliperhe on juuri tämä ja mitä vertailu antoi:
+[docs/MODEL_CHOICE_matsutake.md](docs/MODEL_CHOICE_matsutake.md). Menetelmä, aineisto
+ja tarkkuusluvut: [docs/HABITAT_MODEL_PLAN.md](docs/HABITAT_MODEL_PLAN.md) ja
 [docs/MODEL_REPORT_matsutake.md](docs/MODEL_REPORT_matsutake.md); koodi ja
 data kansiossa [`ml/`](ml/README.md).
+
+**Retkisuunnittelu.** `ml/pick_sites.py` tekee kartasta lyhyen listan: se rajaa
+suojelu- ja puolustusvoimien alueet, rakennusten lähistön ja isojen teiden
+päästökäytävät pois, vaatii että paikalle pääsee autolla kävelymatkan päähän, ja
+järjestää loput kuviot sen mukaan miten hyvä niiden *huonoin* neljännes on.
+Aineisto siihen haetaan OpenStreetMapista (`ml/fetch_osm.py`).
 
 ## Aineistot ja lisenssit
 
@@ -159,6 +183,8 @@ data kansiossa [`ml/`](ml/README.md).
 - Suodattimien virittämiseen käytetty havaintoaineisto: [GBIF](https://www.gbif.org/)
   / Suomen Lajitietokeskus (ei osa sovellusta — käytetty vain oletusrajojen tarkistukseen)
 - Taustakartat: © OpenStreetMap-tekijät, © OpenTopoMap (CC-BY-SA), © Esri
+- Paikkahaku: [Nominatim](https://nominatim.openstreetmap.org/) / OpenStreetMap (ODbL)
+- Retkisuunnittelun rajaukset (suojelualueet, rakennukset, tiet): OpenStreetMap (ODbL)
 - Karttakirjasto: [Leaflet](https://leafletjs.com/)
 
 - Havaintoaineisto mallin opetukseen: GBIF ja Suomen Lajitietokeskus (FinBIF) —
