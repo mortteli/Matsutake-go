@@ -54,13 +54,17 @@ def _block(args):
     w = Window(col_off, row_off, width, height)
     feats, valid = _W["src"].features(w)
     arr = np.full((height, width), 255, dtype=np.uint8)
-    if valid.any():
+    n = int(valid.sum())
+    if n:
         X = _W["prep"].transform(feats[_W["idx"]][:, valid].T)
+        del feats
         with torch.no_grad():
-            xt = torch.tensor(X, dtype=torch.float32)
-            p = np.mean([torch.sigmoid(m(xt)).numpy() for m in _W["members"]], axis=0)
-        arr[valid] = np.clip(np.round(p * 100), 0, 100).astype(np.uint8)
-    return row_off, col_off, int(valid.sum()), arr
+            scores = np.zeros(len(X), dtype=np.float32)
+            for i in range(0, len(X), 1_000_000):                 # bounded peak memory
+                xt = torch.from_numpy(np.ascontiguousarray(X[i:i + 1_000_000], dtype=np.float32))
+                scores[i:i + 1_000_000] = np.mean([torch.sigmoid(m(xt)).numpy() for m in _W["members"]], axis=0)
+        arr[valid] = np.clip(np.round(scores * 100), 0, 100).astype(np.uint8)
+    return row_off, col_off, n, arr
 
 
 def main():
@@ -70,6 +74,8 @@ def main():
     ap.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) - 1))
     ap.add_argument("--out", default=None)
     ap.add_argument("--limit", type=int, default=0, help="stop after N blocks (testing)")
+    ap.add_argument("--overviews", action="store_true",
+                    help="build overviews on the full raster (slow; the app parts get their own)")
     a = ap.parse_args()
     out = a.out or os.path.join(RASTERS, f"prob_{a.species}_16m.tif")
     grid = Grid()
@@ -104,7 +110,11 @@ def main():
             pf.flush()
             if a.limit:
                 work = work[:a.limit]
-            with ctx.Pool(a.workers, initializer=_init, initargs=(a.species, 2023)) as pool:
+            # maxtasksperchild recycles workers: the large per-block arrays fragment the heap
+            # badly enough that a long-lived worker grew to several GB and was OOM-killed,
+            # which left imap_unordered waiting forever for a result that never came.
+            with ctx.Pool(a.workers, initializer=_init, initargs=(a.species, 2023),
+                          maxtasksperchild=8) as pool:
                 for i, (row_off, col_off, nvalid, arr) in enumerate(
                         pool.imap_unordered(_block, work, chunksize=1), 1):
                     dst.write(arr, 1, window=Window(col_off, row_off, arr.shape[1], arr.shape[0]))
@@ -112,7 +122,7 @@ def main():
                     if i % 20 == 0 or i == len(work):
                         el = time.time() - t0
                         log(f"{i}/{len(work)} blocks  {el/i:.1f}s/block  eta {(len(work)-i)*el/i/60:.0f} min")
-    if not a.limit:
+    if a.overviews and not a.limit:
         with rasterio.open(out, "r+") as dst:
             dst.build_overviews([2, 4, 8, 16, 32, 64, 128], Resampling.average)
             dst.update_tags(ns="rio_overview", resampling="average")
