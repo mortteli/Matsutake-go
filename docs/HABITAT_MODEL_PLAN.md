@@ -288,18 +288,45 @@ The existing rule filter stays as a "sääntökartta" toggle for comparison.
 | 3 | Full-Finland inference → COG; app layer with threshold slider; README |
 | 4 | Phenology sub-model; second species through the same config |
 
-## 8. Open questions for you
+## 8. Decisions (answered 2026-09-10)
 
-1. **laji.fi token**: can you register at laji.fi and paste an API access token (or
-   pull the matsutake records yourself)? It may double the fine-resolution set.
-2. **Private finds**: do you have your own coordinates to add (kept out of the repo)?
-3. **Accuracy cutoff**: strict ≤ 250 m (104 records) or also ≤ 1 km with
-   uncertainty-aware sampling (246 records, noisier)?
-4. **Hosting**: option A, B or C above? Is a ~100–200 MB file on GitHub Releases fine?
-5. **Resolution**: start at 32 m (fast, small) or go straight to 16 m?
-6. **Location as a feature**: lat/lon makes the map more accurate but bakes in where
-   people look; climate normals only is the "honest" alternative. Preference?
-7. **NN as primary** with logistic/GBM baselines — agreed, or baselines only first?
-8. **Phenology** now or as phase 4?
-9. **Python in the repo**: OK to add an `ml/` folder with `requirements.txt`? The app
-   remains a single static page.
+| Question | Decision |
+|---|---|
+| laji.fi records | Token supplied and used; the token lives only in the environment, never in the repo. FinBIF added 56 records, 12 of them at ≤ 250 m. |
+| Private finds | None. |
+| Accuracy cutoff | ≤ 250 m are the evaluation set; 250 m – 1 km records also train, at weight 0.3 and with features averaged over 5 draws inside the uncertainty disc, and are never scored. |
+| Hosting | Cloud-Optimised GeoTIFF read client-side with range requests (`georaster-layer-for-leaflet`, vendored), split into parts under 90 MB so GitHub accepts them. |
+| Resolution | 16 m, the native MVMI grid. |
+| Location features | No raw latitude/longitude. Climate stands in for position: FMI thermal sum (degree days > 5 °C) and precipitation normals, 1991–2020. |
+| Models | Neural network for the published map, compared against a rule baseline, ridge logistic regression, a spline-basis GAM, a MaxEnt-equivalent, LightGBM and XGBoost. |
+| Phenology | Later, as its own layer. It must accumulate rain over the season and account for summer warmth, not just the last few weeks. |
+| Python in the repo | Yes: `ml/` holds the pipeline, the training data, and the model weights. |
+| Quick filter fix | Done: "kuivahko kangas" on by default plus a "little spruce" condition (9 % → 48 % of known finds inside the map). |
+
+## 9. Modelling approach as built
+
+All models are fitted in the **presence-background** setting, which is what presence-only
+observation data supports: the response is not "mushroom vs no mushroom" but "this cell looks
+like the places where the species has been recorded, compared with the places available".
+Two background sets are used together and weighted equally:
+
+- **Random forestry land** — what habitat exists in Finland (the availability distribution).
+- **Other-fungi observation sites** — the *target-group background*: August–September records of
+  other fungi with ≤ 250 m accuracy. Matsutake is only recorded where mushroom pickers walk, so
+  contrasting against other fungal records cancels most of that sampling bias. Without it a model
+  mostly learns "where people go", and the honest metric is the one measured against this set.
+
+`maxent` in the report is MaxEnt's estimator rather than the Java program: infinitely weighted
+logistic regression (Fithian & Hastie 2013), which is equivalent to fitting an inhomogeneous
+Poisson process, over MaxEnt's feature classes (linear, quadratic, forward and reverse hinges at
+five quantile knots) with an L1 penalty. The GAM is a natural-cubic-spline basis (six knots per
+continuous feature) with a ridge penalty. Because the data are presence-background, the output of
+every model is a **relative** occurrence score; absolute probability of finding a mushroom is not
+identifiable from this data, so the map is calibrated to rank cells and the slider is expressed as
+"the best X % of forest land" rather than as a percentage chance.
+
+## 10. Open items
+
+- Phenology layer (rain accumulation over the season, summer warmth, snowmelt date).
+- Second species through the same configuration once matsutake is validated.
+- Lichen cover has no open raster; site class and soil are standing in for it.
