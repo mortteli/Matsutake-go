@@ -906,7 +906,13 @@ function probRank(v) {
   while (lo < hi) { const m = (lo + hi) >> 1; if (q[m] < v) lo = m + 1; else hi = m; }
   return lo / (q.length - 1);
 }
-function probThreshold() { return prob.meta.quantiles[Math.max(0, Math.round((1 - state.prob.pct / 100) * (prob.meta.quantiles.length - 1)))]; }
+function probMaxPct() { return (prob.meta && prob.meta.max_pct) || 25; }
+function probThreshold() {
+  const q = prob.meta.quantiles;
+  const thr = q[Math.max(0, Math.round((1 - state.prob.pct / 100) * (q.length - 1)))];
+  // cells below the stored floor are kept as 0 ("not in the mapped range"), never as a score
+  return Math.max(thr, (prob.meta.floor || 0));
+}
 function probColorFn() {
   const thr = probThreshold(), pct = state.prob.pct / 100, nod = prob.meta.nodata;
   return values => {
@@ -963,7 +969,7 @@ function renderProb() {
     '<div class="row"><label>Näytä malli<br><small>havainnoista opetettu neuroverkko, 16 m</small></label>' +
     '<label class="switch"><input type="checkbox" id="probOn"><i></i></label></div>' +
     '<div class="row"><label>Näytä parhaat<br><small>osuus metsämaasta</small></label>' +
-    '<input type="range" id="probPct" min="1" max="50" step="1"><span class="val" id="probPctVal"></span></div>' +
+    '<input type="range" id="probPct" min="1" max="25" step="1"><span class="val" id="probPctVal"></span></div>' +
     '<p class="note" id="probNote">Väri: keltainen = juuri rajan yli, pinkki = mallin parhaat ruudut. ' +
     'Sääntökartta jää näkyviin; säädä sen peittävyyttä yllä.</p>';
   const on = host.querySelector("#probOn"), rng = host.querySelector("#probPct"), val = host.querySelector("#probPctVal");
@@ -979,8 +985,14 @@ function renderProb() {
     t = setTimeout(() => { if (prob.meta) { prob.layers.forEach(l => l.updateColors(probColorFn())); updateProbLegend(); } }, 150);
   });
   loadProbMeta(s).then(m => {
-    if (m && m.trained) document.getElementById("probNote").insertAdjacentHTML("beforeend",
-      " Opetettu " + m.trained + (m.n_presence ? " · " + m.n_presence + " havaintoa" : "") + ".");
+    if (!m) return;
+    rng.max = probMaxPct();
+    if (state.prob.pct > +rng.max) { state.prob.pct = +rng.max; save(); }
+    rng.value = state.prob.pct; val.textContent = state.prob.pct + " %";
+    const note = document.getElementById("probNote");
+    if (note && m.trained) note.insertAdjacentHTML("beforeend",
+      " Opetettu " + m.trained + (m.n_presence ? " · " + m.n_presence + " havaintoa" : "") +
+      ". Kartta kattaa metsämaan parhaan " + probMaxPct() + " %:n; muualla malli ei piirrä mitään.");
   }).catch(() => {});
 }
 // WGS84 -> ETRS-TM35FIN (EPSG:3067), Snyder's transverse Mercator series, GRS80
@@ -1203,8 +1215,13 @@ async function inspect(latlng) {
   html += checkRow(slope ? (slopeOk ? "ok" : "meh") : "meh", "Rinne",
     slope ? (slope.deg < 1 ? "tasainen" : slope.deg.toFixed(1) + "° " + slope.dir) : "ei tietoa");
   if (pv != null) {
-    const top = Math.max(1, Math.round((1 - probRank(pv)) * 100));
-    html += checkRow(pv >= probThreshold() ? "ok" : "meh", "Malli", pv + " % · parhaat " + top + " % metsästä");
+    const floor = (prob.meta && prob.meta.floor) || 0;
+    if (pv < floor) {
+      html += checkRow("no", "Malli", "alle kartan rajan");
+    } else {
+      const top = Math.max(1, Math.round((1 - probRank(pv)) * 100));
+      html += checkRow(pv >= probThreshold() ? "ok" : "meh", "Malli", pv + " · parhaat " + top + " % metsästä");
+    }
   }
   html += "</div>";
 
