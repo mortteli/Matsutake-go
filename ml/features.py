@@ -160,13 +160,20 @@ class Sources:
         self.grid = grid
         self.cycle = cycle
         self._env = env(); self._env.__enter__()
-        self.mvmi = {}
+        warp = dict(crs=grid.crs, transform=grid.transform, width=grid.width, height=grid.height,
+                    resampling=Resampling.bilinear)
+        # Older cycles sit on other grids (2009–2011: 20 m, origin 61600/7776700; 2013–2021: 16 m,
+        # origin 61600/7778304), so they are warped (nearest) onto the 2023 grid before reading.
+        self.mvmi, self._mvmi_raw = {}, []
         for t in MVMI_THEMES:
             local = os.path.join(local_dir, f"{t}_vmi1x_1923.tif")
             path = local if (cycle == 2023 and os.path.exists(local + ".ok")) else luke_url(t, cycle)
-            self.mvmi[t] = rasterio.open(path)
-        warp = dict(crs=grid.crs, transform=grid.transform, width=grid.width, height=grid.height,
-                    resampling=Resampling.bilinear)
+            ds = rasterio.open(path)
+            if cycle == 2023:
+                self.mvmi[t] = ds
+            else:
+                self._mvmi_raw.append(ds)
+                self.mvmi[t] = WarpedVRT(ds, **dict(warp, resampling=Resampling.nearest, nodata=ds.nodata))
         self._dem = rasterio.open(DEM_VRT)
         self.dem = WarpedVRT(self._dem, **warp)
         self._clim = {k: rasterio.open(os.path.join(CLIMATE, f)) for k, f in
@@ -238,7 +245,7 @@ class Sources:
         return feats[:, half, half], bool(valid[half, half])
 
     def close(self):
-        for ds in list(self.mvmi.values()) + [self.dem, self._dem, self.soil, self.glac] + \
+        for ds in list(self.mvmi.values()) + self._mvmi_raw + [self.dem, self._dem, self.soil, self.glac] + \
                   list(self.clim.values()) + list(self._clim.values()):
             try: ds.close()
             except Exception: pass
