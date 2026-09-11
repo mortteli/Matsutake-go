@@ -325,6 +325,8 @@ def main():
         s = fn(d).astype(float).values + 1e-3 * np.random.default_rng(0).random(len(d))   # tiny jitter breaks ties
         report["results"][name] = summarize(s, d)
         log(name, report["results"][name])
+    oof = {}
+
     def best_of(model, grid):
         best = None
         for cfg in grid:
@@ -332,8 +334,9 @@ def main():
             met = summarize(s, d)
             log(f"  {model} {cfg} -> prauc_fungi {met['prauc_vs_fungi']} recall@5 {met['recall_at_5']}")
             if best is None or (met["prauc_vs_fungi"], met["recall_at_5"]) > (best[0]["prauc_vs_fungi"], best[0]["recall_at_5"]):
-                best = (met, cfg)
+                best = (met, cfg, s)
         report["results"][model] = dict(best[0], cfg=best[1])
+        oof[model] = best[2]
         log(model, report["results"][model])
 
     best_of("logreg", [{"C": 0.1}, {"C": 0.3}, {"C": 1.0}])
@@ -357,6 +360,20 @@ def main():
     report["results"]["mlp"] = summarize(scores, d)
     log("mlp (3-seed ensemble)", report["results"]["mlp"])
     d["score_mlp"] = scores
+    oof["mlp"] = scores
+
+    # Rank-averaged ensembles across model families. Ranks rather than raw scores because the
+    # models are on different scales (maxent returns a log intensity, the rest probabilities).
+    def ranks(s):
+        return pd.Series(s).rank(pct=True).values
+    report["ensembles"] = {}
+    for name, members in [("mlp+lgbm", ["mlp", "lgbm"]), ("mlp+maxent", ["mlp", "maxent"]),
+                          ("mlp+lgbm+maxent", ["mlp", "lgbm", "maxent"]),
+                          ("all", ["mlp", "lgbm", "xgb", "maxent", "gam", "logreg"])]:
+        if all(m in oof for m in members):
+            s = np.mean([ranks(oof[m]) for m in members], axis=0)
+            report["ensembles"][name] = summarize(s, d)
+            log("ensemble", name, report["ensembles"][name])
 
     # precision/recall vs area curve (pooled out-of-fold)
     em = eval_mask(d)
@@ -428,6 +445,11 @@ def write_report(r, species):
           "| Map covers (share of forest) | Recall of finds | Other-fungi sites kept | Lift vs random |", "|---|---|---|---|"]
     for c in r["curve"]:
         L.append(f"| {int(c['area_frac']*100)} % | {int(c['recall']*100)} % | {int(c['other_fungi_frac']*100)} % | {c['lift']}× |")
+    if r.get("ensembles"):
+        L += ["", "## Rank-averaged ensembles (same folds)", "",
+              "| Ensemble | AUC vs fungi | PR-AUC vs fungi | recall@5 % | recall@10 % | recall@20 % | Boyce |", "|---|---|---|---|---|---|---|"]
+        for k, m in r["ensembles"].items():
+            L.append(f"| {k} | {m['auc_vs_fungi']} | {m['prauc_vs_fungi']} | {m['recall_at_5']} | {m['recall_at_10']} | {m['recall_at_20']} | {m['boyce']} |")
     L += ["", f"Best MLP config: `{json.dumps(r['mlp_best_cfg'])}`", ""]
     if "ablation" in r:
         L += ["## Ablations (MLP, same folds)", "", "| Variant | PR-AUC vs fungi | recall@5 % | recall@10 % | Boyce |", "|---|---|---|---|---|"]
