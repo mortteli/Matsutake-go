@@ -104,24 +104,36 @@ def main():
 
         ctx = mp.get_context("fork")
         t0 = time.time()
-        with rasterio.open(out, mode, **(prof if mode == "w" else {})) as dst, open(prog, "a") as pf:
+        if a.limit:
+            work = work[:a.limit]
+        with open(prog, "a") as pf:
             for w in empty:
                 pf.write(f"{w.row_off},{w.col_off}\n")
             pf.flush()
-            if a.limit:
-                work = work[:a.limit]
-            # maxtasksperchild recycles workers: the large per-block arrays fragment the heap
-            # badly enough that a long-lived worker grew to several GB and was OOM-killed,
-            # which left imap_unordered waiting forever for a result that never came.
-            with ctx.Pool(a.workers, initializer=_init, initargs=(a.species, 2023),
-                          maxtasksperchild=8) as pool:
-                for i, (row_off, col_off, nvalid, arr) in enumerate(
-                        pool.imap_unordered(_block, work, chunksize=1), 1):
-                    dst.write(arr, 1, window=Window(col_off, row_off, arr.shape[1], arr.shape[0]))
-                    pf.write(f"{row_off},{col_off}\n"); pf.flush()
-                    if i % 20 == 0 or i == len(work):
-                        el = time.time() - t0
-                        log(f"{i}/{len(work)} blocks  {el/i:.1f}s/block  eta {(len(work)-i)*el/i/60:.0f} min")
+        # The dataset is reopened and closed every FLUSH_EVERY blocks. A tiled, compressed
+        # GeoTIFF only gets its tile index written when the dataset is closed, so a run that
+        # is interrupted without closing leaves the tiles on disk but unreadable.
+        FLUSH_EVERY = 100
+        with ctx.Pool(a.workers, initializer=_init, initargs=(a.species, 2023),
+                      maxtasksperchild=8) as pool:
+            results = pool.imap_unordered(_block, work, chunksize=1)
+            i, exhausted = 0, False
+            while not exhausted:
+                first = not os.path.exists(out)
+                with rasterio.open(out, "w" if first else "r+", **(prof if first else {})) as dst, \
+                     open(prog, "a") as pf:
+                    for _ in range(FLUSH_EVERY):
+                        try:
+                            row_off, col_off, nvalid, arr = next(results)
+                        except StopIteration:
+                            exhausted = True; break
+                        dst.write(arr, 1, window=Window(col_off, row_off, arr.shape[1], arr.shape[0]))
+                        pf.write(f"{row_off},{col_off}\n")
+                        i += 1
+                        if i % 20 == 0 or i == len(work):
+                            el = time.time() - t0
+                            log(f"{i}/{len(work)} blocks  {el/i:.1f}s/block  eta {(len(work)-i)*el/i/60:.0f} min")
+                    pf.flush()
     if a.overviews and not a.limit:
         with rasterio.open(out, "r+") as dst:
             dst.build_overviews([2, 4, 8, 16, 32, 64, 128], Resampling.average)
