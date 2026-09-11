@@ -25,6 +25,11 @@ CLIMATE = os.path.join(HERE, "data", "climate")
 
 MVMI_THEMES = ["kasvupaikka", "paatyyppi", "ika", "manty", "kuusi", "koivu", "tilavuus",
                "ppa", "latvuspeitto", "keskipituus"]
+# Physically possible maximum per theme. Older products carry undocumented secondary no-data
+# values (the 2009 rasters hold 32766 and 24580 alongside the declared 32767), so anything above
+# these ceilings is treated as missing rather than trusted as a measurement.
+MVMI_MAX = {"kasvupaikka": 10, "paatyyppi": 4, "ika": 1000, "manty": 3000, "kuusi": 3000,
+            "koivu": 3000, "tilavuus": 3000, "ppa": 200, "latvuspeitto": 100, "keskipituus": 600}
 MARGIN = 16                     # cells; largest neighbourhood is 31 (radius 15)
 
 SOIL_GROUPS = ["coarse", "till", "fine", "rock", "peat", "other"]
@@ -229,7 +234,7 @@ class Sources:
         src = {}
         for t, ds in self.mvmi.items():
             a = self._read(ds, window)
-            a[a > 60000] = np.nan                       # 32767/65535 style nodata in older cycles
+            a[(a > MVMI_MAX[t]) | (a < 0)] = np.nan
             src[t] = a
         z = self._read(self.dem, window) * self.dem_scale
         z[z < -100] = np.nan
