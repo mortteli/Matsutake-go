@@ -4,3 +4,4 @@ data/rasters/*
 !data/rasters/gtk_glac_16m.tif
 data/raw/
 __pycache__/
+data/osm/

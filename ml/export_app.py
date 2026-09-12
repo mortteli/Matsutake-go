@@ -24,8 +24,11 @@ def write_part(src, window, path, floor, step):
     """One regional part as a real Cloud-Optimised GeoTIFF.
 
     Scores below `floor` are stored as 0 ("not in the mapped range") and the rest quantised to
-    `step`, which roughly halves the file with no visible difference. The COG driver is used
-    rather than plain GTiff plus build_overviews: overviews appended to the end of a large
+    `step`. The two together set how finely the app can slice the top: the 0–100 range is spread
+    over the best `max_pct` of forest land, so at max_pct 15 and step 1 one stored level is about
+    0.15 % of forest land, which is what a "best 0.25 %" setting needs to mean anything.
+
+    The COG driver is used rather than plain GTiff plus build_overviews: overviews appended to a large
     ordinary GeoTIFF make geotiff.js compute negative byte ranges, so the browser can render
     such a file but cannot read single values out of it.
     """
@@ -48,12 +51,18 @@ def write_part(src, window, path, floor, step):
     return os.path.getsize(path)
 
 
+NQ = 1001          # quantile points stored for the app: 0.1 % resolution, enough for its top stop
+
+
 def forest_quantiles(src, decimate=8):
     """Score distribution over forestry land, read from the map itself rather than from the
-    training background sample, so the slider's "best X %" means exactly that on this map."""
+    training background sample, so the slider's "best X %" means exactly that on this map.
+
+    Stored on a 0.1 % grid rather than a 1 % one: a slider stop of "the best 0.25 %" cannot be
+    resolved from whole percentiles."""
     a = src.read(1, out_shape=(src.height // decimate, src.width // decimate))
     v = a[a != 255]
-    return v, np.percentile(v, np.arange(0, 101)).astype(float)
+    return v, np.percentile(v, np.linspace(0, 100, NQ)).astype(float)
 
 
 def main():
@@ -62,9 +71,9 @@ def main():
     ap.add_argument("--src", default=None)
     ap.add_argument("--max-mb", type=float, default=90)
     ap.add_argument("--split", type=int, default=3)
-    ap.add_argument("--max-pct", type=float, default=25,
+    ap.add_argument("--max-pct", type=float, default=15,
                     help="largest share of forest land the app can show; the rest is stored as 0")
-    ap.add_argument("--step", type=int, default=2, help="quantisation of stored scores")
+    ap.add_argument("--step", type=int, default=1, help="quantisation of stored scores")
     a = ap.parse_args()
     src_path = a.src or os.path.join(HERE, "data", "rasters", f"prob_{a.species}_16m.tif")
     outdir = os.path.join(ROOT, "data", a.species); os.makedirs(outdir, exist_ok=True)
@@ -95,13 +104,15 @@ def main():
                 log(f"{name} {size/1e6:.1f} MB" + ("  OVER LIMIT" if size > a.max_mb * 1e6 else ""))
         # quantiles of the values as stored, so the app's threshold and colour ramp match the files
         qv = np.where(v < floor, 0, np.round(v / a.step) * a.step)
-        quant = np.percentile(qv, np.arange(0, 101)).astype(float).round(1).tolist()
+        quant = np.percentile(qv, np.linspace(0, 100, NQ)).astype(float).round(1).tolist()
 
     total = sum(os.path.getsize(os.path.join(ROOT, f["url"])) for f in files)
+    head = model.get("head", "mlp")
     meta = dict(species=a.species, trained=model["trained"], n_presence=report["n_presence"],
-                crs="EPSG:3067", pixel_m=16, nodata=255, value="model score x 100",
+                crs="EPSG:3067", pixel_m=16, nodata=255, value="model score x 100", head=head,
                 floor=round(floor), max_pct=a.max_pct, step=a.step, quantiles=quant, files=files,
-                metrics=report["results"].get("mlp", {}), curve=report.get("curve", []),
+                metrics=report["results"].get("head:" + head, report["results"].get(head, {})),
+                curve=report.get("curve", []),
                 sources="Luke MVMI 2009-2023, MML DEM 10 m, GTK Maapera 1:200k + glacigenic formations, "
                         "FMI 10 km climate, GBIF/FinBIF occurrence records")
     json.dump(meta, open(os.path.join(outdir, "prob_meta.json"), "w"), indent=1)

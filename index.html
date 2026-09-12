@@ -61,6 +61,28 @@
     display: inline-flex; align-items: center; justify-content: center;
   }
 
+  /* ---------- place search ---------- */
+  .searchpanel {
+    position: fixed; top: calc(58px + var(--safe-t)); left: 10px; right: 10px; z-index: 1500;
+    background: var(--panel); border-radius: 16px; box-shadow: var(--shadow);
+    padding: 8px; display: none;
+  }
+  .searchpanel.open { display: block; }
+  .searchpanel input {
+    width: 100%; box-sizing: border-box; border: 0; border-radius: 10px;
+    background: var(--panel2); color: var(--text); font-size: 16px; padding: 11px 12px;
+  }
+  .searchpanel input::placeholder { color: var(--muted); }
+  .searchpanel ul { list-style: none; margin: 6px 0 0; padding: 0; max-height: 46dvh; overflow-y: auto; }
+  .searchpanel li {
+    padding: 10px 12px; border-radius: 10px; font-size: 13.5px; line-height: 1.35; cursor: pointer;
+    color: var(--text);
+  }
+  .searchpanel li + li { margin-top: 2px; }
+  .searchpanel li small { display: block; color: var(--muted); font-size: 12px; }
+  .searchpanel li:active, .searchpanel li:hover { background: var(--panel2); }
+  .searchpanel .hint { color: var(--muted); font-size: 12.5px; padding: 8px 12px; }
+
   /* ---------- species switch (top right) ---------- */
   .speciesbtn {
     position: fixed; top: calc(8px + var(--safe-t)); right: 10px; z-index: 1000;
@@ -92,6 +114,9 @@
     display: flex; align-items: center; gap: 7px; font-size: 12.5px;
     box-shadow: var(--shadow); color: var(--muted);
   }
+  /* a class rule with display:flex outranks the UA's [hidden] { display: none }, so the model
+     chip kept claiming a layer that was switched off */
+  .legend[hidden] { display: none; }
   .legend .dot { width: 12px; height: 12px; border-radius: 3px; background: var(--spot); opacity: .85; }
   .legend.prob { bottom: calc(64px + var(--safe-b)); }
   .legend .grad { width: 34px; height: 12px; border-radius: 3px; background: linear-gradient(90deg, #ffd166, #ff2d78); }
@@ -227,7 +252,14 @@
 <div class="topbar">
   <span class="title" id="appTitle">🍄 Matsutake GO</span>
   <span class="spinner" id="spinner"></span>
+  <button class="iconbtn" id="btnSearch" aria-label="Etsi paikka tai osoite">🔎</button>
   <button class="iconbtn" id="btnInfo" aria-label="Tietoa">ℹ️</button>
+</div>
+
+<div class="searchpanel" id="searchPanel">
+  <input id="searchInput" type="search" enterkeyhint="search" autocomplete="off"
+         placeholder="Paikka, osoite tai koordinaatit">
+  <ul id="searchResults"></ul>
 </div>
 
 <button class="speciesbtn" id="btnSpecies" aria-label="Vaihda sieni">🍄</button>
@@ -289,11 +321,19 @@
      ei havaintoja sienistä — maastossa ratkaisee lopulta maapohja, sää ja tuuri.
      Korkeustiedot: Open-Meteo (Copernicus DEM). Taustakartat: © OpenStreetMap,
      OpenTopoMap, Esri.</p>
-  <p><b>Todennäköisyyskartta</b> (🗺️-valikossa) on havainnoista opetettu neuroverkko: se yhdistää
+  <p><b>Haku</b> (🔎 yläpalkissa) löytää paikannimet ja osoitteet
+     <a href="https://nominatim.openstreetmap.org/" target="_blank" rel="noopener">Nominatimista</a>
+     (© OpenStreetMap-tekijät). Kenttään voi myös liittää koordinaatit joko asteina
+     (<i>61.4978 23.7610</i>) tai ETRS-TM35FIN-metreinä (<i>327614 6822520</i>).</p>
+  <p><b>Todennäköisyyskartta</b> (🗺️-valikossa) on havainnoista opetettu malli: se yhdistää
      Luken metsätiedot, MML:n korkeusmallin, GTK:n maaperäkartan ja Ilmatieteen laitoksen
      lämpösumman ja ennustaa jokaiselle 16 m ruudulle, kuinka matsutaken löytöpaikkojen
-     kaltainen se on. Havainnot: GBIF / Suomen Lajitietokeskus. Menetelmä ja tulokset:
-     <a href="docs/MODEL_REPORT_matsutake.md" target="_blank" rel="noopener">mallin raportti</a>.</p>
+     kaltainen se on. Kartta on tarkoitettu luettavaksi kärjestään: kun se värittää metsämaan
+     parhaan 0,5 %, kaksi kolmesta värillisen alueen sieni-ilmoituksesta on matsutakea, kun
+     koko metsämaassa osuus on prosentin luokkaa. Vedä siis <i>Näytä parhaat</i> alas.
+     Havainnot: GBIF / Suomen Lajitietokeskus. Menetelmä ja tulokset:
+     <a href="docs/MODEL_REPORT_matsutake.md" target="_blank" rel="noopener">mallin raportti</a>,
+     <a href="docs/MODEL_CHOICE_matsutake.md" target="_blank" rel="noopener">mallin valinta</a>.</p>
 </div>
 
 <!-- ============ result sheet ============ -->
@@ -758,7 +798,7 @@ const SPECIES = [
 
 /* ================= state ================= */
 const STORE_KEY = "matsutakego.v2";
-const state = { species: SPECIES[0].key, cfg: {}, opacity: 0.75, prob: { on: false, pct: 10 } };
+const state = { species: SPECIES[0].key, cfg: {}, opacity: 0.75, prob: { on: false, pct: 2 } };
 SPECIES.forEach(s => { state.cfg[s.key] = Object.assign({}, s.defaults); });
 
 function sp()  { return SPECIES.find(s => s.key === state.species) || SPECIES[0]; }
@@ -907,9 +947,24 @@ function probRank(v) {
   return lo / (q.length - 1);
 }
 function probMaxPct() { return (prob.meta && prob.meta.max_pct) || 25; }
+/* The slider stops, not a plain 1–25 range: the whole point of the model layer is the very top of
+   it, and the difference between "best 2 %" and "best 0,5 %" is the difference between a day of
+   walking and one hillside. The stored raster is quantised finely enough to resolve these. */
+const PROB_STOPS = [0.25, 0.5, 1, 1.5, 2, 3, 5, 7, 10, 15, 20, 25];
+function probStops() { return PROB_STOPS.filter(v => v <= probMaxPct()); }
+function fmtPct(v) { return (v < 1 ? v.toFixed(2).replace(".", ",") : String(v)) + " %"; }
+function probStopIndex(pct) {
+  const st = probStops();
+  let best = 0;
+  st.forEach((v, i) => { if (Math.abs(v - pct) < Math.abs(st[best] - pct)) best = i; });
+  return best;
+}
 function probThreshold() {
+  // interpolated, because the stops go below the spacing of the stored quantile grid
   const q = prob.meta.quantiles;
-  const thr = q[Math.max(0, Math.round((1 - state.prob.pct / 100) * (q.length - 1)))];
+  const pos = Math.min(q.length - 1, Math.max(0, (1 - state.prob.pct / 100) * (q.length - 1)));
+  const i = Math.floor(pos), f = pos - i;
+  const thr = i >= q.length - 1 ? q[q.length - 1] : q[i] + (q[i + 1] - q[i]) * f;
   // cells below the stored floor are kept as 0 ("not in the mapped range"), never as a score
   return Math.max(thr, (prob.meta.floor || 0));
 }
@@ -956,7 +1011,7 @@ function hideProb(drop) {
 function updateProbLegend() {
   const el = document.getElementById("legendProb");
   el.hidden = !state.prob.on || !prob.meta;
-  document.getElementById("legendProbText").textContent = "malli: parhaat " + state.prob.pct + " % metsämaasta";
+  document.getElementById("legendProbText").textContent = "malli: parhaat " + fmtPct(state.prob.pct) + " metsämaasta";
 }
 function renderProb() {
   const s = sp(), host = document.getElementById("probPanel");
@@ -966,33 +1021,39 @@ function renderProb() {
     return;
   }
   host.innerHTML =
-    '<div class="row"><label>Näytä malli<br><small>havainnoista opetettu neuroverkko, 16 m</small></label>' +
+    '<div class="row"><label>Näytä malli<br><small>havainnoista opetettu malli, 16 m</small></label>' +
     '<label class="switch"><input type="checkbox" id="probOn"><i></i></label></div>' +
     '<div class="row"><label>Näytä parhaat<br><small>osuus metsämaasta</small></label>' +
-    '<input type="range" id="probPct" min="1" max="25" step="1"><span class="val" id="probPctVal"></span></div>' +
+    '<input type="range" id="probPct" min="0" max="' + (probStops().length - 1) + '" step="1">' +
+    '<span class="val" id="probPctVal"></span></div>' +
     '<p class="note" id="probNote">Väri: keltainen = juuri rajan yli, pinkki = mallin parhaat ruudut. ' +
+    'Pienempi osuus = vähemmän paikkoja mutta parempia: parhaassa 0,5 %:ssa kaksi kolmesta ' +
+    'sieni-ilmoituksesta on matsutakea, parhaassa 5 %:ssa joka kolmas. ' +
     'Sääntökartta jää näkyviin; säädä sen peittävyyttä yllä.</p>';
   const on = host.querySelector("#probOn"), rng = host.querySelector("#probPct"), val = host.querySelector("#probPctVal");
-  on.checked = state.prob.on; rng.value = state.prob.pct; val.textContent = state.prob.pct + " %";
+  on.checked = state.prob.on; rng.value = probStopIndex(state.prob.pct); val.textContent = fmtPct(state.prob.pct);
   on.addEventListener("change", () => {
     state.prob.on = on.checked; save();
     if (on.checked) showProb(); else hideProb(false);
   });
   let t = null;
   rng.addEventListener("input", () => {
-    state.prob.pct = +rng.value; val.textContent = rng.value + " %"; save();
+    state.prob.pct = probStops()[+rng.value]; val.textContent = fmtPct(state.prob.pct); save();
     clearTimeout(t);
     t = setTimeout(() => { if (prob.meta) { prob.layers.forEach(l => l.updateColors(probColorFn())); updateProbLegend(); } }, 150);
   });
   loadProbMeta(s).then(m => {
     if (!m) return;
-    rng.max = probMaxPct();
-    if (state.prob.pct > +rng.max) { state.prob.pct = +rng.max; save(); }
-    rng.value = state.prob.pct; val.textContent = state.prob.pct + " %";
+    const st = probStops();
+    rng.max = st.length - 1;
+    if (state.prob.pct > st[st.length - 1]) { state.prob.pct = st[st.length - 1]; save(); }
+    rng.value = probStopIndex(state.prob.pct);
+    state.prob.pct = st[+rng.value];                 // snap a stored value onto the stop list
+    val.textContent = fmtPct(state.prob.pct);
     const note = document.getElementById("probNote");
     if (note && m.trained) note.insertAdjacentHTML("beforeend",
       " Opetettu " + m.trained + (m.n_presence ? " · " + m.n_presence + " havaintoa" : "") +
-      ". Kartta kattaa metsämaan parhaan " + probMaxPct() + " %:n; muualla malli ei piirrä mitään.");
+      ". Kartta kattaa metsämaan parhaan " + fmtPct(probMaxPct()) + "; muualla malli ei piirrä mitään.");
   }).catch(() => {});
 }
 // WGS84 -> ETRS-TM35FIN (EPSG:3067), Snyder's transverse Mercator series, GRS80
@@ -1008,6 +1069,25 @@ function toTM35(lat, lon) {
   const x = 500000 + k0 * N * (A + (1 - T + C) * A ** 3 / 6 + (5 - 18 * T + T * T + 72 * C - 58 * ep2) * A ** 5 / 120);
   const y = k0 * (M + N * tan * (A * A / 2 + (5 - T + 9 * C + 4 * C * C) * A ** 4 / 24 + (61 - 58 * T + T * T + 600 * C - 330 * ep2) * A ** 6 / 720));
   return { x, y };
+}
+// ETRS-TM35FIN (EPSG:3067) -> WGS84, the inverse of the series above (Snyder 8-21..8-25)
+function fromTM35(x, y) {
+  const a = 6378137, f = 1 / 298.257222101, k0 = 0.9996, lon0 = 27 * Math.PI / 180;
+  const e2 = f * (2 - f), ep2 = e2 / (1 - e2);
+  const e1 = (1 - Math.sqrt(1 - e2)) / (1 + Math.sqrt(1 - e2));
+  const M = y / k0, mu = M / (a * (1 - e2 / 4 - 3 * e2 ** 2 / 64 - 5 * e2 ** 3 / 256));
+  const phi1 = mu + (3 * e1 / 2 - 27 * e1 ** 3 / 32) * Math.sin(2 * mu)
+    + (21 * e1 ** 2 / 16 - 55 * e1 ** 4 / 32) * Math.sin(4 * mu)
+    + (151 * e1 ** 3 / 96) * Math.sin(6 * mu) + (1097 * e1 ** 4 / 512) * Math.sin(8 * mu);
+  const sin = Math.sin(phi1), cos = Math.cos(phi1), tan = Math.tan(phi1);
+  const C1 = ep2 * cos * cos, T1 = tan * tan;
+  const N1 = a / Math.sqrt(1 - e2 * sin * sin), R1 = a * (1 - e2) / (1 - e2 * sin * sin) ** 1.5;
+  const D = (x - 500000) / (N1 * k0);
+  const phi = phi1 - (N1 * tan / R1) * (D * D / 2 - (5 + 3 * T1 + 10 * C1 - 4 * C1 * C1 - 9 * ep2) * D ** 4 / 24
+    + (61 + 90 * T1 + 298 * C1 + 45 * T1 * T1 - 252 * ep2 - 3 * C1 * C1) * D ** 6 / 720);
+  const lam = lon0 + (D - (1 + 2 * T1 + C1) * D ** 3 / 6
+    + (5 - 2 * C1 + 28 * T1 - 3 * C1 * C1 + 8 * ep2 + 24 * T1 * T1) * D ** 5 / 120) / cos;
+  return [phi * 180 / Math.PI, lam * 180 / Math.PI];
 }
 // model score at a point (null if the layer is not loaded or the point is outside the rasters)
 async function readProb(latlng) {
@@ -1219,8 +1299,9 @@ async function inspect(latlng) {
     if (pv < floor) {
       html += checkRow("no", "Malli", "alle kartan rajan");
     } else {
-      const top = Math.max(1, Math.round((1 - probRank(pv)) * 100));
-      html += checkRow(pv >= probThreshold() ? "ok" : "meh", "Malli", pv + " · parhaat " + top + " % metsästä");
+      const top = (1 - probRank(pv)) * 100;
+      html += checkRow(pv >= probThreshold() ? "ok" : "meh", "Malli",
+        pv + " · parhaat " + fmtPct(top < 1 ? Math.max(0.05, Math.round(top * 100) / 100) : Math.round(top)) + " metsästä");
     }
   }
   html += "</div>";
@@ -1231,6 +1312,113 @@ async function inspect(latlng) {
   body.innerHTML = html;
 }
 map.on("click", e => inspect(e.latlng));
+
+/* ================= place search =================
+   Nominatim (OpenStreetMap) geocoding, biased to Finland and to the current view. Its usage
+   policy allows one request a second and no keystroke-by-keystroke autocomplete, so the input is
+   debounced and every earlier request is aborted before a new one goes out. A pair of numbers is
+   read as coordinates without asking anyone: WGS84 degrees, or ETRS-TM35FIN metres (EPSG:3067),
+   which is what Finnish map sheets and this app's own readouts are in. */
+const search = { marker: null, timer: null, abort: null, panel: null, input: null, list: null };
+
+function parseCoords(q) {
+  const m = q.replace(/,\s*(?=[-\d])/g, " ").match(/(-?\d+(?:[.,]\d+)?)\s+(-?\d+(?:[.,]\d+)?)/);
+  if (!m) return null;
+  const a = parseFloat(m[1].replace(",", ".")), b = parseFloat(m[2].replace(",", "."));
+  if (Math.abs(a) <= 90 && Math.abs(b) <= 180) return { lat: a, lon: b, label: "Koordinaatit (WGS84)" };
+  // EPSG:3067: northing is the ~7-million number, easting the ~300-thousand one, either order
+  const [n, e] = a > b ? [a, b] : [b, a];
+  if (n > 6.5e6 && n < 7.9e6 && e > 4e4 && e < 8e5) {
+    const ll = fromTM35(e, n);
+    return { lat: ll[0], lon: ll[1], label: "Koordinaatit (ETRS-TM35FIN)" };
+  }
+  return null;
+}
+
+function showSearchResults(items, hint) {
+  search.list.innerHTML = "";
+  if (hint) { search.list.innerHTML = '<li class="hint"></li>'; search.list.firstChild.textContent = hint; return; }
+  items.forEach(it => {
+    const li = document.createElement("li");
+    li.textContent = it.title;
+    if (it.sub) { const sm = document.createElement("small"); sm.textContent = it.sub; li.appendChild(sm); }
+    li.addEventListener("click", () => gotoSearchHit(it));
+    search.list.appendChild(li);
+  });
+}
+
+function gotoSearchHit(it) {
+  const ll = L.latLng(it.lat, it.lon);
+  if (search.marker) map.removeLayer(search.marker);
+  search.marker = L.marker(ll, { title: it.title }).addTo(map).bindPopup(it.title);
+  map.flyTo(ll, it.zoom || Math.max(map.getZoom(), 13), { duration: 0.8 });
+  closeSearch();
+  // no automatic inspection: the point of searching is to look at the map there, and the result
+  // sheet would cover it. The marker is tappable like any other place on the map.
+  search.marker.on("click", () => inspect(ll));
+}
+
+async function runSearch(q) {
+  const coords = parseCoords(q);
+  if (coords) {
+    showSearchResults([{ title: coords.label, sub: coords.lat.toFixed(5) + ", " + coords.lon.toFixed(5),
+                         lat: coords.lat, lon: coords.lon, zoom: 15 }]);
+    return;
+  }
+  if (q.length < 3) { showSearchResults([], "Kirjoita vähintään kolme merkkiä."); return; }
+  if (search.abort) search.abort.abort();
+  search.abort = new AbortController();
+  showSearchResults([], "Haetaan…");
+  const b = map.getBounds();
+  const url = "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=8&countrycodes=fi" +
+    "&accept-language=fi&viewbox=" + [b.getWest(), b.getNorth(), b.getEast(), b.getSouth()].join(",") +
+    "&q=" + encodeURIComponent(q);
+  try {
+    const r = await fetch(url, { signal: search.abort.signal, headers: { Accept: "application/json" } });
+    if (!r.ok) throw new Error(r.status);
+    const j = await r.json();
+    if (!j.length) { showSearchResults([], "Ei osumia."); return; }
+    showSearchResults(j.map(h => {
+      const parts = h.display_name.split(", ");
+      // a house number has no name of its own: "1, Hämeenkatu" reads better than "1"
+      const title = h.name || parts.slice(0, 2).reverse().join(" ");
+      return { title: title, sub: parts.slice(h.name ? 1 : 2).join(", "),
+               lat: +h.lat, lon: +h.lon, zoom: h.type === "house" || h.addresstype === "road" ? 16 : 13 };
+    }));
+  } catch (e) {
+    if (e.name !== "AbortError") showSearchResults([], "Haku ei juuri nyt onnistu — kokeile hetken päästä.");
+  }
+}
+
+function openSearch() {
+  search.panel.classList.add("open");
+  search.input.focus(); search.input.select();
+}
+function closeSearch() {
+  search.panel.classList.remove("open");
+  search.input.blur();
+}
+
+function initSearch() {
+  search.panel = document.getElementById("searchPanel");
+  search.input = document.getElementById("searchInput");
+  search.list = document.getElementById("searchResults");
+  document.getElementById("btnSearch").addEventListener("click", () => {
+    if (search.panel.classList.contains("open")) closeSearch();
+    else { closeOverlays(); openSearch(); }
+  });
+  search.input.addEventListener("input", () => {
+    clearTimeout(search.timer);
+    const q = search.input.value.trim();
+    if (!q) { showSearchResults([], "Esim. \u201dYlöjärvi Teivo\u201d, \u201dHämeenkatu 1 Tampere\u201d tai \u201d61.4978 23.7610\u201d."); return; }
+    search.timer = setTimeout(() => runSearch(q), 600);      // Nominatim: no per-keystroke queries
+  });
+  search.input.addEventListener("keydown", e => {
+    if (e.key === "Enter") { clearTimeout(search.timer); runSearch(search.input.value.trim()); }
+    if (e.key === "Escape") closeSearch();
+  });
+  map.on("movestart", () => { if (document.activeElement !== search.input) closeSearch(); });
+}
 
 /* ================= UI plumbing ================= */
 const sheets = ["sheetSettings", "sheetInfo", "sheetResult"];
@@ -1245,6 +1433,7 @@ function closeOverlays() {
   sheets.forEach(s => document.getElementById(s).classList.remove("open"));
   modalSpecies.classList.remove("open");
   backdrop.classList.remove("on");
+  if (search.panel) search.panel.classList.remove("open");
 }
 backdrop.addEventListener("click", closeOverlays);
 document.getElementById("btnLayers").addEventListener("click", () => openSheet("sheetSettings"));
@@ -1393,6 +1582,7 @@ document.getElementById("basemapSeg").addEventListener("click", e => {
 });
 
 applySpecies();
+initSearch();
 
 // zoom hint
 let hinted = false;
