@@ -82,6 +82,17 @@
   .searchpanel li small { display: block; color: var(--muted); font-size: 12px; }
   .searchpanel li:active, .searchpanel li:hover { background: var(--panel2); }
   .searchpanel .hint { color: var(--muted); font-size: 12.5px; padding: 8px 12px; }
+  /* "Lähellä sinua" section: a header that must not look tappable, and rows that
+     carry the area on the right the way a price sits in a list */
+  .searchpanel li.sect { font-size: 11.5px; letter-spacing: .4px; text-transform: uppercase;
+    color: var(--muted); padding: 10px 12px 4px; cursor: default; }
+  .searchpanel li.sect:hover, .searchpanel li.sect:active { background: none; }
+  .searchpanel li.sect small { text-transform: none; letter-spacing: 0; }
+  .searchpanel li.spot { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .searchpanel li.spot .area { margin-left: auto; color: var(--accent); font-weight: 600;
+    font-size: 12.5px; white-space: nowrap; }
+  .searchpanel li.spot small { flex-basis: 100%; }
+  .searchpanel li.act { color: var(--accent); }
 
   /* ---------- species switch (top right) ---------- */
   .speciesbtn {
@@ -379,6 +390,40 @@ const MIN_COVER = 10;
 // against 37 % of other mushroom sites (docs/HABITAT_MODEL_PLAN.md)
 const MAX_SPRUCE = 20;
 
+/* ================= "lähellä sinua" =================
+   A *spot* is one contiguous mushroom forest: an 8-connected patch of 32 m cells where every
+   condition of the selected species holds, big enough to be worth the drive and thick enough to
+   have an inside. Two numbers carry that judgement, because the rule mask is boolean — unlike the
+   model raster ml/pick_sites.py ranks, it has no per-cell quality, so size is the only signal:
+
+     5 ha   ≈ 225 × 225 m. At a scanning pace of about 2 ha an hour that is a two-hour forest,
+            a trip rather than a roadside glance. (pick_sites.py allows 1 ha, but only inside an
+            already score-filtered set, and only after the exclusion masks.)
+     80 m   the patch must hold a point 40 m from any non-matching cell. This is what drops the
+            one-cell ribbon along a clearcut edge or a lake shore that totals 5 ha but is never
+            more than one tree deep.
+
+   Before any of that the mask is *closed* by one cell. The MVMI classifies each 16 m cell on its
+   own, so intersecting four or five thresholds leaves a forest looking like buckshot: around
+   Tampere the matsutake mask covers 0.77 % of the land but breaks into 11 599 pieces, the largest
+   6 ha, and almost none of them survive the core test. Two qualifying cells 32 m apart are the
+   same forest to anyone walking it — which is the definition this feature is built on — so the
+   gap between them is filled before the patches are counted. It is the smallest closing there
+   is, and area is still counted over *qualifying cells only*, so the hectares never include the
+   ground that was bridged. Closing by two cells instead would merge the generalists' maps into
+   single region-wide blobs (kanttarelli's largest patch goes from 6 000 ha to 23 000). */
+const NEARBY_CLOSE = 1;         // cells
+const NEARBY_RADIUS_M = 25000;  // 50 km box -> 1563 px per mask, ~190 KB each
+const NEARBY_CELL_M   = 32;     // integer multiple of the 16 m source grid
+const MIN_SPOT_HA     = 5.0;
+const MIN_CORE_M      = 80;     // core diameter, not radius
+const NEARBY_HALF_KM  = 5;      // ranking blend: a forest's hectares count half at 5 km
+const NEARBY_SEP_M    = 2500;   // so the three picks are three forests, not three lobes of one
+const NEARBY_N        = 3;
+const NEARBY_PAR      = 3;      // concurrent mask loads; Luke's GeoServer caps a user at 6
+const FIX_MAX_AGE_MS  = 5 * 60 * 1000;
+const DIR8 = ["pohjoiseen","koilliseen","itään","kaakkoon","etelään","lounaaseen","länteen","luoteeseen"];
+
 /* ================= SLD mask builders ================= */
 function sldWrap(layerName, colorMap) {
   return '<?xml version="1.0" encoding="UTF-8"?>' +
@@ -425,6 +470,47 @@ function loadImg(url) {
     img.onload = () => res(img);
     img.onerror = () => rej(new Error("tile load failed"));
     img.src = url;
+  });
+}
+function newCanvas(w, h) {
+  const cv = document.createElement("canvas");
+  cv.width = w; cv.height = h;
+  return cv;
+}
+// Promise.all with a ceiling on how many run at once. Luke's GeoServer answers with
+// `x-concurrent-limit-user: 6`, and the tile layer is usually already spending those.
+function mapPool(items, limit, fn) {
+  if (!(limit > 0) || limit >= items.length) return Promise.all(items.map(fn));
+  const out = new Array(items.length);
+  let next = 0;
+  const worker = () => next >= items.length ? Promise.resolve() : (i => Promise
+    .resolve(fn(items[i], i)).then(v => { out[i] = v; return worker(); }))(next++);
+  return Promise.all(Array.from({ length: limit }, worker)).then(() => out);
+}
+/* One binary mask per condition member, OR'd inside a condition and AND'd across them — the
+   whole map in one function, so the tile layer and the nearby scan cannot drift apart. Returns
+   an *uncoloured* canvas: the answer is in its alpha channel. Luke serves 1-bit paletted PNGs
+   and resamples nearest-neighbour, so as long as nothing is scaled on the way in, every pixel
+   of the result is alpha 0 or 255. */
+function compositeMask(groups, bbox, w, h, limit) {
+  const jobs = [];
+  groups.forEach((g, gi) => g.forEach(m => jobs.push({ gi, url: wmsURL(m.layer, m.sld, bbox, w, h) })));
+  return mapPool(jobs, limit, j => loadImg(j.url)).then(imgs => {
+    const byGroup = groups.map(() => []);
+    jobs.forEach((j, i) => byGroup[j.gi].push(imgs[i]));
+    // OR inside a group
+    const unions = byGroup.map(list => {
+      if (list.length === 1) return list[0];
+      const cv = newCanvas(w, h), cx = cv.getContext("2d");
+      list.forEach(im => cx.drawImage(im, 0, 0));   // source-over = alpha union
+      return cv;
+    });
+    // AND across groups
+    const off = newCanvas(w, h), octx = off.getContext("2d");
+    octx.drawImage(unions[0], 0, 0);
+    octx.globalCompositeOperation = "destination-in";
+    for (let i = 1; i < unions.length; i++) octx.drawImage(unions[i], 0, 0);
+    return off;
   });
 }
 
@@ -847,28 +933,8 @@ const SpotLayer = L.GridLayer.extend({
       return tile;
     }
 
-    const groups = species.conditions(c);
-    const scratch = () => {
-      const cv = document.createElement("canvas");
-      cv.width = size.x; cv.height = size.y;
-      return cv;
-    };
-
-    Promise.all(groups.map(g =>
-      Promise.all(g.map(m => loadImg(wmsURL(m.layer, m.sld, bbox, size.x, size.y))))
-    )).then(imgGroups => {
-      // OR inside a group
-      const unions = imgGroups.map(imgs => {
-        if (imgs.length === 1) return imgs[0];
-        const cv = scratch(), cx = cv.getContext("2d");
-        imgs.forEach(im => cx.drawImage(im, 0, 0)); // source-over = alpha union
-        return cv;
-      });
-      // AND across groups
-      const off = scratch(), octx = off.getContext("2d");
-      octx.drawImage(unions[0], 0, 0);
-      octx.globalCompositeOperation = "destination-in";
-      for (let i = 1; i < unions.length; i++) octx.drawImage(unions[i], 0, 0);
+    compositeMask(species.conditions(c), bbox, size.x, size.y, 0).then(off => {
+      const octx = off.getContext("2d");
       octx.globalCompositeOperation = "source-in";      // recolor result
       octx.fillStyle = SPOT_COLOR;
       octx.fillRect(0, 0, size.x, size.y);
@@ -1107,9 +1173,13 @@ async function readProb(latlng) {
 
 /* ================= GPS ================= */
 let gpsMarker = null, gpsCircle = null, gpsWatch = null, follow = false, firstFix = true;
+// The last known position, kept in memory only: a home address in localStorage would buy
+// nothing and would quietly hand the nearby list spots from 300 km away after a train ride.
+let lastFix = null;
 const btnLocate = document.getElementById("btnLocate");
 
 function gpsUpdate(pos) {
+  lastFix = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy, t: Date.now() };
   const ll = [pos.coords.latitude, pos.coords.longitude];
   if (!gpsMarker) {
     gpsMarker = L.marker(ll, {
@@ -1125,6 +1195,8 @@ function gpsUpdate(pos) {
   }
   if (firstFix) { firstFix = false; map.setView(ll, Math.max(map.getZoom(), 13)); }
   else if (follow) map.panTo(ll, { animate: true });
+  // the fix may be the one an open, empty search panel was waiting for
+  if (nearbyWaiting()) renderNearby();
 }
 function gpsError(err) {
   toast(err.code === 1 ? "Salli sijainti selaimen asetuksista 📍" : "Sijaintia ei saatu — yritä uudelleen");
@@ -1140,8 +1212,33 @@ function startGps() {
   if (gpsMarker) map.setView(gpsMarker.getLatLng(), Math.max(map.getZoom(), 13));
 }
 function stopGps() {
+  // note: the watch itself is deliberately left running — the marker stays live and `lastFix`
+  // stays fresh, so the nearby list does not have to re-acquire a fix every time it opens.
   follow = false;
   btnLocate.classList.remove("active");
+}
+/* A position for the nearby list, without ever raising a permission prompt on its own. Tapping
+   🔎 must not feel like tapping 📍, so the only silent path is one the user has already granted;
+   everything else comes back as a reason the panel can render. */
+async function ensureFix() {
+  if (lastFix && Date.now() - lastFix.t < FIX_MAX_AGE_MS) return lastFix;
+  if (!navigator.geolocation) return { reason: "unsupported" };
+  let granted = false;
+  try {
+    // no Permissions API (older Safari) -> treat as "ask", i.e. leave it to the 📍 button
+    granted = !!navigator.permissions && (await navigator.permissions.query({ name: "geolocation" })).state === "granted";
+  } catch (e) { granted = false; }
+  if (!granted) return { reason: lastFix ? "stale" : "off" };
+  try {
+    const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej,
+      { maximumAge: FIX_MAX_AGE_MS, timeout: 8000 }));
+    // deliberately not gpsUpdate(): that would drop a marker and, on the first fix, yank the map
+    // out from under someone who only opened a search box
+    lastFix = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy, t: Date.now() };
+    return lastFix;
+  } catch (e) {
+    return lastFix || { reason: e && e.code === 1 ? "denied" : "off" };
+  }
 }
 btnLocate.addEventListener("click", () => (follow ? stopGps() : startGps()));
 map.on("dragstart", () => { if (follow) stopGps(); });
@@ -1214,8 +1311,7 @@ async function readSlope(latlng) {
     const deg = Math.atan(Math.hypot(dzdx, dzdy)) * 180 / Math.PI;
     let bearing = Math.atan2(-dzdx, -dzdy) * 180 / Math.PI; // downslope direction
     bearing = (bearing + 360) % 360;
-    const dirs = ["pohjoiseen","koilliseen","itään","kaakkoon","etelään","lounaaseen","länteen","luoteeseen"];
-    return { deg, dir: dirs[Math.round(bearing / 45) % 8] };
+    return { deg, dir: DIR8[Math.round(bearing / 45) % 8] };
   } catch { return null; }
   finally { clearTimeout(t); }
 }
@@ -1335,9 +1431,18 @@ function parseCoords(q) {
   return null;
 }
 
-function showSearchResults(items, hint) {
+// `lead` is an optional array of ready-made <li> nodes to put above the results — the nearby
+// section. It shares the one scroll container, so nothing about the markup changes.
+function showSearchResults(items, hint, lead) {
   search.list.innerHTML = "";
-  if (hint) { search.list.innerHTML = '<li class="hint"></li>'; search.list.firstChild.textContent = hint; return; }
+  (lead || []).forEach(li => search.list.appendChild(li));
+  if (hint) {
+    const li = document.createElement("li");
+    li.className = "hint";
+    li.textContent = hint;
+    search.list.appendChild(li);
+    return;
+  }
   items.forEach(it => {
     const li = document.createElement("li");
     li.textContent = it.title;
@@ -1351,7 +1456,10 @@ function gotoSearchHit(it) {
   const ll = L.latLng(it.lat, it.lon);
   if (search.marker) map.removeLayer(search.marker);
   search.marker = L.marker(ll, { title: it.title }).addTo(map).bindPopup(it.title);
-  map.flyTo(ll, it.zoom || Math.max(map.getZoom(), 13), { duration: 0.8 });
+  // a spot knows its own extent, so show the whole forest — but capped, or a 5 ha patch would
+  // fly to z19 and fill the screen with pink
+  if (it.bounds) map.flyToBounds(it.bounds, { padding: [40, 40], maxZoom: 16, duration: 0.8 });
+  else map.flyTo(ll, it.zoom || Math.max(map.getZoom(), 13), { duration: 0.8 });
   closeSearch();
   // no automatic inspection: the point of searching is to look at the map there, and the result
   // sheet would cover it. The marker is tappable like any other place on the map.
@@ -1405,12 +1513,15 @@ function initSearch() {
   search.list = document.getElementById("searchResults");
   document.getElementById("btnSearch").addEventListener("click", () => {
     if (search.panel.classList.contains("open")) closeSearch();
-    else { closeOverlays(); openSearch(); }
+    else { closeOverlays(); openSearch(); renderNearby(); }   // opening fires no `input` event
   });
   search.input.addEventListener("input", () => {
     clearTimeout(search.timer);
     const q = search.input.value.trim();
-    if (!q) { showSearchResults([], "Esim. \u201dYlöjärvi Teivo\u201d, \u201dHämeenkatu 1 Tampere\u201d tai \u201d61.4978 23.7610\u201d."); return; }
+    if (!q) { renderNearby(); return; }
+    // repaint on the keystroke, not when the debounce fires, so the nearby list goes away the
+    // moment you start typing rather than lingering under the query for another half second
+    showSearchResults([], q.length < 3 ? "Kirjoita vähintään kolme merkkiä." : "Haetaan…");
     search.timer = setTimeout(() => runSearch(q), 600);      // Nominatim: no per-keystroke queries
   });
   search.input.addEventListener("keydown", e => {
@@ -1418,6 +1529,317 @@ function initSearch() {
     if (e.key === "Escape") closeSearch();
   });
   map.on("movestart", () => { if (document.activeElement !== search.input) closeSearch(); });
+}
+
+/* ================= lähellä sinua =================
+   The app has rasters, not features: nothing in it knows where one forest ends and the next
+   begins. So the scan makes those entities on the spot — one big composite mask around the user,
+   labelled into connected patches, each measured and ranked. See the MIN_SPOT_HA / MIN_CORE_M
+   comment above for what counts as a spot and why.
+
+   Scale: EPSG:3857 metres are not ground metres — at 63° N one is about 0.45 of a real metre, so
+   getting this wrong would overstate every area by ~4×. The correction therefore happens exactly
+   once, in the bbox below, and nowhere else: the image is a fixed 2·R/CELL pixels regardless of
+   latitude, so a cell is CELL² ground metres *by construction*. (cos varies by ~0.8 % across a
+   50 km box; that is well inside the MVMI's own accuracy and is left alone.) Distances shown to
+   the user are a separate, exact calculation in EPSG:3067 via toTM35 — the same convention
+   ml/pick_sites.py and parseCoords already use. */
+// `seq` stands in for an AbortController: an Image load cannot be cancelled, so a scan that is
+// no longer the current one is dropped when it lands rather than stopped in flight.
+const nearby = { key: null, spots: null, seq: 0, geocoding: false };
+
+function clearNearby() { nearby.key = null; nearby.spots = null; }
+function nearbyWaiting() {
+  return !!search.panel && search.panel.classList.contains("open") && !search.input.value.trim();
+}
+function nearbyKey(fix) {
+  return [state.species, JSON.stringify(cfg()), fix.lat.toFixed(2), fix.lon.toFixed(2), NEARBY_RADIUS_M].join("|");
+}
+
+// the scan window, in the projection the WMS speaks
+function scanGeometry(lat, lon) {
+  const c = map.options.crs.project(L.latLng(lat, lon));
+  const k = Math.cos(lat * Math.PI / 180);          // 3857 unit -> ground metre
+  const half = NEARBY_RADIUS_M / k;
+  const N = Math.round(2 * NEARBY_RADIUS_M / NEARBY_CELL_M);
+  const cell = 2 * half / N;                        // exact, so no rounding drift across the box
+  return { N: N, cell: cell, x0: c.x - half, y1: c.y + half, bbox: [c.x - half, c.y - half, c.x + half, c.y + half] };
+}
+function scanCellLatLng(geom, ix, iy) {
+  return map.options.crs.unproject(L.point(geom.x0 + (ix + 0.5) * geom.cell, geom.y1 - (iy + 0.5) * geom.cell));
+}
+
+// the composite, as one byte per cell. Luke's masks are 1-bit, so >= 128 is exact, not a guess.
+async function scanMask(geom, species, c) {
+  const off = await compositeMask(species.conditions(c), geom.bbox, geom.N, geom.N, NEARBY_PAR);
+  const px = off.getContext("2d").getImageData(0, 0, geom.N, geom.N).data;
+  const mask = new Uint8Array(geom.N * geom.N);
+  // the WMS box is square but the radius is a radius: clip to the circle, the way
+  // ml/pick_sites.py does, so a corner of the box cannot offer a spot 35 km away
+  const mid = (geom.N - 1) / 2, rCells = geom.N / 2;
+  for (let y = 0, i = 0; y < geom.N; y++) {
+    const dy = y - mid;
+    for (let x = 0; x < geom.N; x++, i++)
+      mask[i] = (px[i * 4 + 3] >= 128 && (x - mid) * (x - mid) + dy * dy <= rCells * rCells) ? 1 : 0;
+  }
+  // out of the species' range: the tile layer bails per tile, the scan cuts per row — stricter,
+  // and the right thing when a scan box is 50 km tall
+  if (species.maxLat != null) {
+    for (let y = 0; y < geom.N; y++) {
+      if (y3857ToLat(geom.y1 - (y + 1) * geom.cell) <= species.maxLat) break;
+      mask.fill(0, y * geom.N, (y + 1) * geom.N);
+    }
+  }
+  return mask;
+}
+
+// 8-connected components, matching ndimage.label(..., structure=np.ones((3,3))) in pick_sites.py.
+// Flood fill with an explicit queue: 2.4 million cells would bury a recursive fill.
+function labelPatches(mask, w, h) {
+  const lab = new Int32Array(w * h), queue = new Int32Array(w * h);
+  let n = 0;
+  for (let s = 0; s < mask.length; s++) {
+    if (!mask[s] || lab[s]) continue;
+    const id = ++n;
+    let head = 0, tail = 0;
+    lab[s] = id; queue[tail++] = s;
+    while (head < tail) {
+      const p = queue[head++], px = p % w, py = (p - px) / w;
+      for (let dy = -1; dy <= 1; dy++) {
+        const ny = py + dy;
+        if (ny < 0 || ny >= h) continue;
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = px + dx;
+          if (nx < 0 || nx >= w) continue;
+          const q = ny * w + nx;
+          if (mask[q] && !lab[q]) { lab[q] = id; queue[tail++] = q; }
+        }
+      }
+    }
+  }
+  return { lab: lab, n: n };
+}
+
+/* Chamfer distance to the nearest non-matching cell, weights 3 (orthogonal) / 4 (diagonal), so
+   every distance is three times its value in cells. It does double duty below: the closing is
+   built out of two of these, and the value it leaves behind *is* the core measurement, so a
+   patch's width costs no pass of its own. Cells outside the image count as background, which
+   makes a patch clipped by the scan edge report a conservative core and area — truncation can
+   only lose it a place in the list, never win one, so the edge needs no special case. */
+function chamfer(mask, w, h) {
+  const INF = 30000;                                 // not 65535: 65535 + 3 would wrap
+  const d = new Uint16Array(w * h);
+  for (let i = 0; i < d.length; i++) d[i] = mask[i] ? INF : 0;
+  const at = (x, y) => (x < 0 || y < 0 || x >= w || y >= h) ? 0 : d[y * w + x];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x;
+    if (!d[i]) continue;
+    const v = Math.min(d[i], at(x - 1, y - 1) + 4, at(x, y - 1) + 3, at(x + 1, y - 1) + 4, at(x - 1, y) + 3);
+    if (v < d[i]) d[i] = v;
+  }
+  for (let y = h - 1; y >= 0; y--) for (let x = w - 1; x >= 0; x--) {
+    const i = y * w + x;
+    if (!d[i]) continue;
+    const v = Math.min(d[i], at(x + 1, y + 1) + 4, at(x, y + 1) + 3, at(x - 1, y + 1) + 4, at(x + 1, y) + 3);
+    if (v < d[i]) d[i] = v;
+  }
+  return d;
+}
+
+/* Close the mask by `r` cells — dilate, then erode — and hand back the closed mask together with
+   its distance transform. Two chamfer passes do the whole job: the erosion is `d > r` on the
+   dilated mask, and the closed mask's own distance is that same d less r, because a distance
+   transform changes by exactly the amount you erode. Closing keeps thin structures (unlike
+   opening), so the core test below still has ribbons to reject. */
+function closeMask(mask, w, h, r) {
+  const inv = new Uint8Array(mask.length);
+  for (let i = 0; i < mask.length; i++) inv[i] = mask[i] ? 0 : 1;
+  const dInv = chamfer(inv, w, h);                 // background cells: how far to a matching one
+  const dil = new Uint8Array(mask.length);
+  for (let i = 0; i < mask.length; i++) dil[i] = dInv[i] <= r ? 1 : 0;
+  const dDil = chamfer(dil, w, h);
+  const closed = new Uint8Array(mask.length), dist = new Uint16Array(mask.length);
+  for (let i = 0; i < mask.length; i++) if (dDil[i] > r) { closed[i] = 1; dist[i] = dDil[i] - r; }
+  return { closed: closed, dist: dist };
+}
+
+/* One linear pass into parallel arrays per component: how big, how far across, where it is. The
+   point we hand back is the cell *deepest inside* the patch, not its centroid — a centroid can
+   land in the clearcut a horseshoe curls around, and the deepest cell is also simply where you
+   want to be standing. pick_sites.py picks its bx/by the same way and for the same reason. */
+function patchStats(lab, n, dist, mask, geom, fix) {
+  const cells = new Int32Array(n + 1), best = new Int32Array(n + 1).fill(-1), bestD = new Uint16Array(n + 1);
+  const minX = new Int32Array(n + 1).fill(geom.N), maxX = new Int32Array(n + 1).fill(-1);
+  const minY = new Int32Array(n + 1).fill(geom.N), maxY = new Int32Array(n + 1).fill(-1);
+  for (let i = 0; i < lab.length; i++) {
+    const id = lab[i];
+    if (!id) continue;
+    const x = i % geom.N, y = (i - x) / geom.N;
+    if (mask[i]) cells[id]++;      // hectares count cells that really qualify, not bridged gaps
+    if (x < minX[id]) minX[id] = x;
+    if (x > maxX[id]) maxX[id] = x;
+    if (y < minY[id]) minY[id] = y;
+    if (y > maxY[id]) maxY[id] = y;
+    if (dist[i] > bestD[id]) { bestD[id] = dist[i]; best[id] = i; }
+  }
+  const cellHa = NEARBY_CELL_M * NEARBY_CELL_M / 1e4;
+  const me = toTM35(fix.lat, fix.lon);
+  const out = [];
+  for (let id = 1; id <= n; id++) {
+    const areaHa = cells[id] * cellHa;
+    // the chamfer counts the step out to the first *background* cell, so the deepest cell of an
+    // n-wide patch reads (n+1)/2 — subtract the one cell back off. Values are built from 3s and
+    // 4s, so 80 m lands on the next reachable step up, a 3-cell (96 m) core.
+    const coreM = (2 * (bestD[id] / 3) - 1) * NEARBY_CELL_M;
+    if (areaHa < MIN_SPOT_HA || coreM < MIN_CORE_M) continue;
+    const bx = best[id] % geom.N, by = (best[id] - bx) / geom.N;
+    const ll = scanCellLatLng(geom, bx, by);
+    const there = toTM35(ll.lat, ll.lng);
+    // row indices grow southward, so the patch's south-west corner is (minX, maxY)
+    const sw = scanCellLatLng(geom, minX[id], maxY[id]), ne = scanCellLatLng(geom, maxX[id], minY[id]);
+    out.push({
+      areaHa: areaHa, coreM: coreM, lat: ll.lat, lon: ll.lng, tm: there,
+      distM: Math.hypot(there.x - me.x, there.y - me.y),
+      bounds: [[sw.lat, sw.lng], [ne.lat, ne.lng]],
+      name: null,
+    });
+  }
+  return out;
+}
+
+async function findNearbySpots(fix) {
+  const species = sp(), geom = scanGeometry(fix.lat, fix.lon);
+  const mask = await scanMask(geom, species, cfg());
+  const closed = closeMask(mask, geom.N, geom.N, NEARBY_CLOSE * 3);   // chamfer counts 3 per cell
+  const { lab, n } = labelPatches(closed.closed, geom.N, geom.N);
+  const spots = patchStats(lab, n, closed.dist, mask, geom, fix);
+  // Size is the only quality the boolean mask offers, but the biggest forest in a 25 km circle
+  // is not always the one to drive to — so hectares count half at NEARBY_HALF_KM.
+  spots.sort((a, b) => (b.areaHa / (1 + b.distM / 1000 / NEARBY_HALF_KM)) -
+                       (a.areaHa / (1 + a.distM / 1000 / NEARBY_HALF_KM)));
+  const picked = [];
+  for (const s of spots) {
+    if (picked.every(p => Math.hypot(s.tm.x - p.tm.x, s.tm.y - p.tm.y) > NEARBY_SEP_M)) picked.push(s);
+    if (picked.length === NEARBY_N) break;
+  }
+  return picked;
+}
+
+/* ---------- rendering ---------- */
+const fmtKm = m => m < 1000 ? Math.round(m / 10) * 10 + " m" : (m / 1000).toFixed(1).replace(".", ",") + " km";
+const fmtHa = ha => (ha < 10 ? ha.toFixed(1) : Math.round(ha).toString()).replace(".", ",") + " ha";
+
+function nearbyRow(s, fix) {
+  const me = toTM35(fix.lat, fix.lon), dE = s.tm.x - me.x, dN = s.tm.y - me.y;
+  const where = fmtKm(Math.hypot(dE, dN)) + " " +
+    DIR8[(Math.round(Math.atan2(dE, dN) * 4 / Math.PI) + 8) % 8];
+  const li = document.createElement("li");
+  li.className = "spot";
+  li.appendChild(document.createTextNode(sp().emoji + " " + (s.name || where)));
+  const area = document.createElement("span");
+  area.className = "area";
+  area.textContent = fmtHa(s.areaHa);
+  li.appendChild(area);
+  const sm = document.createElement("small");
+  sm.textContent = (s.name ? where + " · " : "") + "ydin ~" + Math.round(s.coreM / 10) * 10 + " m";
+  li.appendChild(sm);
+  li.addEventListener("click", () => gotoSearchHit({
+    title: s.name || (sp().name + ", " + where), lat: s.lat, lon: s.lon, bounds: s.bounds }));
+  return li;
+}
+
+function nearbySection(nodes, sub) {
+  const head = document.createElement("li");
+  head.className = "sect";
+  head.appendChild(document.createTextNode("Lähellä sinua"));
+  if (sub) { const sm = document.createElement("small"); sm.textContent = sub; head.appendChild(sm); }
+  return [head].concat(nodes);
+}
+
+// one row standing in for the whole list: scanning, or a reason there is nothing to show
+function nearbyNotice(text, action) {
+  const li = document.createElement("li");
+  li.className = action ? "act" : "hint";
+  li.textContent = text;
+  if (action) li.addEventListener("click", action);
+  return li;
+}
+
+const HINT_SHORT = "Tai hae paikkaa, osoitetta tai koordinaatteja.";
+const HINT_LONG = "Esim. ”Ylöjärvi Teivo”, ”Hämeenkatu 1 Tampere” tai ”61.4978 23.7610”.";
+
+function paintNearby(lead) { showSearchResults([], lead ? HINT_SHORT : HINT_LONG, lead); }
+
+async function renderNearby() {
+  const seq = ++nearby.seq;
+  const species = sp();
+  const fix = await ensureFix();
+  if (seq !== nearby.seq || !nearbyWaiting()) return;
+
+  if (fix.reason === "unsupported") return paintNearby([nearbyNotice("Selain ei tue paikannusta")]);
+  if (fix.reason === "denied") return paintNearby([nearbyNotice("Salli sijainti selaimen asetuksista 📍")]);
+  if (fix.reason) return paintNearby([nearbyNotice("📍 Näytä lähimmät paikat", () => { startGps(); renderNearby(); })]);
+  if (species.maxLat != null && fix.lat > species.maxLat)
+    return paintNearby(nearbySection([], species.name + " ei kasva näin pohjoisessa"));
+
+  const sub = "yli " + MIN_SPOT_HA + " ha yhtenäistä metsää, jossa ehdot täyttyvät";
+  const key = nearbyKey(fix);
+  if (nearby.key === key && nearby.spots) {
+    // distance and bearing are recomputed from the current fix, so a cached list never shows
+    // stale kilometres to someone who has walked since
+    return paintNearby(nearbySection(nearby.spots.map(s => nearbyRow(s, fix)), sub));
+  }
+  paintNearby(nearbySection([nearbyNotice("Etsitään lähimpiä metsiä…")], sub));
+
+  let spots;
+  try {
+    spots = await findNearbySpots(fix);
+  } catch (e) {
+    if (seq === nearby.seq && nearbyWaiting())
+      paintNearby([nearbyNotice("Metsätietoa ei juuri nyt saatu — kokeile hetken päästä.")]);
+    return;
+  }
+  if (seq !== nearby.seq) return;
+  nearby.key = key; nearby.spots = spots;
+  if (!nearbyWaiting()) return;
+  if (!spots.length)
+    return paintNearby([nearbyNotice("Ei yli " + MIN_SPOT_HA + " ha:n yhtenäisiä alueita " +
+      (NEARBY_RADIUS_M / 1000) + " km säteellä — löysää suodattimia asetuksista.")]);
+  paintNearby(nearbySection(spots.map(s => nearbyRow(s, fix)), sub));
+  geocodeNearby(spots, seq, fix, sub);
+}
+
+/* Names, filled in after the rows are already on screen — the list must never wait on the
+   network. Nominatim allows one request a second, so these go out one at a time; zoom 14 asks
+   for the village rather than the municipality, and where that still comes back the same for two
+   spots the row keeps its distance-and-bearing title instead of repeating a name. */
+async function geocodeNearby(spots, seq, fix, sub) {
+  if (nearby.geocoding) return;                       // one queue at a time, however often we repaint
+  const todo = spots.filter(s => s.name === null);    // `null` = not asked yet, "" = asked, no usable name
+  if (!todo.length) return;
+  nearby.geocoding = true;
+  try {
+    const seen = new Set(spots.map(s => s.name).filter(Boolean));
+    for (const s of todo) {
+      if (seq !== nearby.seq) return;
+      try {
+        const r = await fetch("https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=14" +
+          "&accept-language=fi&lat=" + s.lat.toFixed(5) + "&lon=" + s.lon.toFixed(5),
+          { headers: { Accept: "application/json" } });
+        const a = (r.ok ? await r.json() : {}).address || {};
+        const place = a.village || a.hamlet || a.suburb || a.town || a.city_district || a.city;
+        const admin = a.town || a.city;
+        const title = !place ? "" : (admin && admin !== place) ? place + ", " + admin : place;
+        // a forest often sits in the same village as the last one; repeating the name would make
+        // three different places look like one, so that row keeps its bearing instead
+        s.name = seen.has(title) ? "" : title;
+        if (title) seen.add(title);
+      } catch (e) { s.name = ""; }
+      if (seq === nearby.seq && nearbyWaiting())
+        paintNearby(nearbySection(spots.map(x => nearbyRow(x, fix)), sub));
+      await new Promise(res => setTimeout(res, 1100));   // Nominatim: at most one request a second
+    }
+  } finally { nearby.geocoding = false; }
 }
 
 /* ================= UI plumbing ================= */
@@ -1455,6 +1877,7 @@ function toast(msg) {
 
 let redrawTimer = null;
 function refreshSpots() {
+  clearNearby();          // every filter control funnels through here, so this covers them all
   clearTimeout(redrawTimer);
   redrawTimer = setTimeout(() => spots.redraw(), 350);
 }
@@ -1478,6 +1901,7 @@ function selectSpecies(key) {
   state.species = key;
   save();
   clearHelpers();
+  clearNearby();
   hideProb(true);
   applySpecies();
   spots.redraw();
