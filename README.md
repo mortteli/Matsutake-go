@@ -89,6 +89,9 @@ oletusikä on 60 v — se puolittaa värjätyn pinta-alan osuvuuden kärsimätt�
   yhdellä napautuksella. Kartan otsikko, selite ja tietosivu vaihtuvat mukana.
 - 🔎 **Haku**: paikannimet ja osoitteet (Nominatim / OpenStreetMap) sekä
   koordinaatit joko asteina tai ETRS-TM35FIN-metreinä.
+- 📍 **Lähellä sinua**: kun sijainti on sallittu, tyhjä hakukenttä näyttää kolme
+  lähintä käymisen arvoista kuviota — ks. alla. Heti kun alat kirjoittaa, lista
+  väistyy hakutulosten tieltä.
 - 📍 **GPS-piste** joka seuraa laitteen sijaintia (seuranta katkeaa kun karttaa
   raahaa, palaa päälle napista)
 - 🗺️ **Sienitaso**: 3–5 WMS-rasterimaskia yhdistetään selaimessa
@@ -131,6 +134,33 @@ yhteen canvasilla (`destination-in`). Saman ehdon vaihtoehdot — esimerkiksi
 "kuusta *tai* mäntyä riittävästi" — yhdistetään ensin unionilla
 (`source-over`). Napautustarkastelu hakee saman rajapinnan kautta 3×3 px
 kuvan ja lukee pikselin läpinäkyvyydestä, täyttyykö ehto.
+
+### Mikä on "kuvio" ja milloin se on käymisen arvoinen
+
+**Lähellä sinua** -lista tekee rasterista paikkoja. Se hakee samat maskit kerran
+25 km säteeltä (yksi kuva ehtoa kohden, 32 m ruutu — sama tulos kuin 16 m:llä,
+neljäsosa datasta), yhdistää ne kuten karttataso, ja etsii yhtenäiset kuviot.
+**Kuvio on yksi yhtenäinen sienimetsä:** 8-naapuruudessa kiinni oleva alue,
+jossa kaikki lajin ehdot täyttyvät, ja joka läpäisee kaksi kynnystä:
+
+| | | |
+|---|---|---|
+| **≥ 5 ha** | n. 225 × 225 m | Noin 2 ha tunnissa haravoiden tämä on parin tunnin metsä — retki, ei tienvarsipysähdys. |
+| **ydin ≥ 80 m** | löydyttävä piste 40 m:n päästä lähimmästä ei-kelpaavasta ruudusta | Pudottaa hakkuuaukon tai rannan reunaa kiertävän yhden ruudun nauhan, jota kertyy 5 ha mutta joka ei ole missään kohtaa metsää. |
+
+Maski **suljetaan ensin yhdellä ruudulla** (morfologinen sulkeminen). MVMI
+luokittaa jokaisen 16 m ruudun erikseen, joten neljän–viiden ehdon leikkaus
+hajottaa metsän hauliksi: Tampereen ympäriltä matsutake-maski peittää 0,77 %
+maasta mutta hajoaa 11 599 palaseen, joista suurin on 6 ha — ilman sulkemista
+lista jäisi lajilla aina tyhjäksi. Kaksi kelpaavaa ruutua 32 m päässä toisistaan
+ovat metsässä kulkijalle sama metsä. Pinta-ala lasketaan silti **vain aidosti
+kelpaavista ruuduista**, joten hehtaarit eivät kasva umpeen kurotusta maasta.
+
+Kuviot pannaan järjestykseen suhteella `pinta-ala / (1 + km/5)` — hehtaarit
+painavat puolet 5 km:n päässä — ja peräkkäisten valintojen välille vaaditaan
+2,5 km, jotta kolme ehdotusta ovat kolme eri metsää. Osoitettu piste on kuvion
+**syvin ruutu**, ei painopiste: se on varmasti kuvion sisällä ja se on myös se
+kohta, jossa kannattaa seistä. Sama valinta tehdään `ml/pick_sites.py`:ssä.
 
 Uuden sienen lisääminen on yksi merkintä `SPECIES`-taulukkoon `index.html`:ssä:
 laji kuvaa suodattimensa (`conditions`), hyväksymänsä maapohjat (`mainTypes`),
