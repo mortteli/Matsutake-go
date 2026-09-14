@@ -46,6 +46,22 @@ iässä, joten korjaus tehdään vasta pisteytyksen jälkeen, samaan tapaan kuin
 `ml/pick_sites.py` soveltaa poissulkumaskinsa. Korjauksen voi kytkeä pois
 🗺️-valikosta.
 
+Korjaus tulee kahta reittiä. **Sääntötaso ja napautustiedot** hakevat sen
+suoraan Metsäkeskuksen rajapinnasta, jolloin se on aina tuore eikä vaadi
+julkaisua. **Todennäköisyyskartta** tarvitsee sen valmiiksi laskettuna, jotta
+värit ovat oikein jo ennen napautusta: `ml/fetch_harvests.py` lataa
+maakunnittaiset GeoPackage-paketit ja rasteroi ne samaan ruudukkoon
+mallirasterin kanssa (`data/matsutake/cut_*.tif`, 9 osaa, 66 MB). Sovellus
+lukee ne mallirasterin rinnalla toisena kaistana. Napautettaessa elävä
+rajapinta voittaa aina; julkaistua tasoa käytetään vain kun yhteyttä ei saada,
+ja silloin se myös sanotaan ääneen.
+
+Koko maan ajossa aineistoon kertyi 1 796 598 aukeaa tai taimikkokuviota ja
+710 531 vuoden 2021 jälkeen ilmoitettua uudistushakkuuta. Kartan värittämistä
+ruuduista Etelä-Suomessa noin 13 % osuu hakattuun maahan — enemmän kuin
+metsäpinta-alasta keskimäärin, juuri siksi että malli suosii vanhaa männikköä
+ja uudistushakkuu kohdistuu samaan puustoon.
+
 ### Miksi juuri nämä ehdot
 
 - **Matsutake** kasvaa vanhoissa männiköissä kuivilla ja karuilla kankailla.
