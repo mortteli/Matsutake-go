@@ -1178,7 +1178,7 @@ function helperLayer(layerName, sld) {
    and read straight from the static site with HTTP range requests (georaster). The slider
    picks "the best X % of forest land": the threshold comes from the score quantiles of
    random forest cells that ml/train.py stores in prob_meta.json. */
-const prob = { meta: null, metaFor: null, rasters: [], layers: [], loading: null };
+const prob = { meta: null, metaFor: null, rasters: [], cut: [], layers: [], loading: null };
 
 function loadScript(src) {
   return new Promise((res, rej) => {
@@ -1231,13 +1231,32 @@ function probThreshold() {
   // cells below the stored floor are kept as 0 ("not in the mapped range"), never as a score
   return Math.max(thr, (prob.meta.floor || 0));
 }
+/* The model score, corrected for forest that has been cut since the inventory. When the baked
+   cut layer is loaded it rides along as a second band (values[1]), so one pixel carries both
+   "how good was this" and "is it still there":
+
+     2  the stand register says open ground or seedling — drawn grey, whatever it scored. The
+        score is deliberately kept rather than blanked: "was excellent forest, now cut" is worth
+        seeing, and it is not the same thing as "never was anything".
+     1  a regeneration felling was declared but never confirmed — drawn in the score's own
+        colour, desaturated and paler, because it may still be standing.
+
+   With `hideCut` off, or where no cut layer is published, values[1] is undefined and this
+   behaves exactly as it did before. */
+const CUT_GREY = "rgba(150,163,155,0.72)";
+
 function probColorFn() {
   const thr = probThreshold(), pct = state.prob.pct / 100, nod = prob.meta.nodata;
+  const useCut = state.hideCut;
   return values => {
-    const v = values[0];
+    const v = values[0], cut = values.length > 1 ? values[1] : 0;
     if (v == null || v === nod || v < thr) return null;
+    if (useCut && cut === 2) return CUT_GREY;
     const t = Math.min(1, Math.max(0, (probRank(v) - (1 - pct)) / pct));   // 0 at threshold … 1 at the very best
     const r = Math.round(255), g = Math.round(209 - 164 * t), b = Math.round(102 + 18 * t);
+    if (useCut && cut === 1)
+      return "rgba(" + r + "," + Math.round(g + (235 - g) * 0.45) + "," +
+             Math.round(b + (235 - b) * 0.45) + ",0.55)";
     return "rgba(" + r + "," + g + "," + b + ",0.85)";
   };
 }
@@ -1252,11 +1271,19 @@ async function showProb() {
       // geotiff.js fetches inside a worker, where relative URLs cannot be resolved
       prob.rasters = await Promise.all(meta.files.map(f => parseGeoraster(new URL(f.url, location.href).href)));
       prob.rasters.forEach(r => { r._species = species.key; });
+      // The cut layer is optional: a species may not have one, and a failed load must leave the
+      // probability map working rather than take it down with it.
+      prob.cut = meta.cut ? await Promise.all(
+        meta.cut.files.map(f => parseGeoraster(new URL(f.url, location.href).href)
+          .catch(() => null))).catch(() => []) : [];
+      if (prob.cut.some(c => !c)) prob.cut = [];
     }
     if (!prob.layers.length) {
-      prob.layers = prob.rasters.map(gr => new GeoRasterLayer({
-        georaster: gr, opacity: state.opacity, resolution: 128, pixelValuesToColorFn: probColorFn(),
-        attribution: "Malli: Matsutake GO ml (GBIF · Luke · MML · GTK · FMI)",
+      prob.layers = prob.rasters.map((gr, i) => new GeoRasterLayer({
+        georasters: prob.cut[i] ? [gr, prob.cut[i]] : [gr],
+        opacity: state.opacity, resolution: 128, pixelValuesToColorFn: probColorFn(),
+        attribution: "Malli: Matsutake GO ml (GBIF · Luke · MML · GTK · FMI)" +
+          (prob.cut.length ? " · hakkuut © Suomen metsäkeskus" : ""),
       }));
     }
     prob.layers.forEach(l => { if (!map.hasLayer(l)) l.addTo(map); });
@@ -1268,13 +1295,22 @@ async function showProb() {
 }
 function hideProb(drop) {
   prob.layers.forEach(l => map.removeLayer(l));
-  if (drop) { prob.layers = []; prob.rasters = []; }
+  if (drop) { prob.layers = []; prob.rasters = []; prob.cut = []; }
   document.getElementById("legendProb").hidden = true;
 }
+// Recolour in place — the rasters stay loaded, only the colour function changes.
+function repaintProb() {
+  if (!prob.meta || !prob.layers.length) return;
+  prob.layers.forEach(l => l.updateColors(probColorFn()));
+  updateProbLegend();
+}
+
 function updateProbLegend() {
   const el = document.getElementById("legendProb");
   el.hidden = !state.prob.on || !prob.meta;
-  document.getElementById("legendProbText").textContent = "malli: parhaat " + fmtPct(state.prob.pct) + " metsämaasta";
+  const showCut = state.hideCut && prob.cut.length;
+  document.getElementById("legendProbText").textContent =
+    "malli: parhaat " + fmtPct(state.prob.pct) + " metsämaasta" + (showCut ? " · harmaa = hakattu" : "");
 }
 function renderProb() {
   const s = sp(), host = document.getElementById("probPanel");
@@ -1382,6 +1418,23 @@ const fiDate = s => {
   return m ? +m[3] + "." + +m[2] + "." + m[1] : null;
 };
 
+// The same answer read off the baked layer: no stand details and no dates, but it works with no
+// network at all. Only ever a fallback — the live register is newer than any published raster.
+async function readCutBaked(latlng) {
+  if (!prob.cut.length) return null;
+  const { x, y } = toTM35(latlng.lat, latlng.lng);
+  for (const gr of prob.cut) {
+    if (x < gr.xmin || x > gr.xmax || y < gr.ymin || y > gr.ymax) continue;
+    const col = Math.floor((x - gr.xmin) / gr.pixelWidth), row = Math.floor((gr.ymax - y) / gr.pixelHeight);
+    try {
+      const v = await gr.getValues({ left: col, top: row, right: col + 1, bottom: row + 1, width: 1, height: 1 });
+      const val = v[0][0][0];
+      return val === 2 ? "cut" : val === 1 ? "declared" : null;
+    } catch (e) { return null; }
+  }
+  return null;
+}
+
 async function readHarvest(latlng) {
   const p = toTM35(latlng.lat, latlng.lng);
   const bb = { xmin: p.x - 1, ymin: p.y - 1, xmax: p.x + 1, ymax: p.y + 1 };
@@ -1389,6 +1442,10 @@ async function readHarvest(latlng) {
     mkFeatures("stand", bb).catch(() => []),
     mkFeatures("mki", bb).catch(() => []),
   ]);
+  if (!stands.length && !decls.length) {
+    const baked = await readCutBaked(latlng).catch(() => null);
+    if (baked) return { state: baked, stale: true };
+  }
   const hitStand = stands.find(f => inFeature(f, latlng.lng, latlng.lat));
   // several declarations can stack on one stand over the years; the newest is the story
   const hitDecls = decls.filter(f => inFeature(f, latlng.lng, latlng.lat))
@@ -1404,6 +1461,15 @@ async function readHarvest(latlng) {
 
 function harvestHTML(h) {
   if (!h) return "";
+  // read off the published raster because Metsäkeskus could not be reached: say so, and do not
+  // pretend to details the raster does not carry
+  if (h.stale) {
+    const when = prob.meta && prob.meta.cut ? prob.meta.cut.built : null;
+    return '<div class="warn"><b>⚠️ ' + (h.state === "cut" ? "Kuvio on hakattu." : "Hakkuuaikomus.") +
+      '</b> Tieto on kartan mukana julkaistusta hakkuutasosta' + (when ? " (" + when + ")" : "") +
+      ', ei Metsäkeskuksen rajapinnasta — yhteyttä ei juuri nyt saatu, joten tuoreimmat hakkuut ' +
+      'voivat puuttua.</div>';
+  }
   if (h.state === "cut") {
     const bits = [DEVCLASS_NAMES[h.devclass] || ("kehitysluokka " + h.devclass)];
     if (h.height > 0) bits.push("keskipituus " + h.height.toFixed(1).replace(".", ",") + " m");
@@ -2333,6 +2399,7 @@ chkHideCut.addEventListener("change", () => {
   state.hideCut = chkHideCut.checked;
   save();
   refreshSpots();
+  repaintProb();     // the model layer carries the correction in its own band
 });
 
 document.getElementById("basemapSeg").addEventListener("click", e => {

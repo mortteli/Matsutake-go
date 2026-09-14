@@ -1,0 +1,6 @@
+# ml/fetch_harvests.py streams multi-gigabyte Metsäkeskus GeoPackages through here and keeps
+# one disk-backed array per published part while it rasterizes. Nothing in it is an output.
+ml/data/harvests/
+
+__pycache__/
+*.pyc
