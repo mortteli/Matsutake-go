@@ -66,13 +66,23 @@ REGIONS = [
     "Päijät-Häme", "Satakunta", "Uusimaa", "Varsinais-Suomi",
 ]
 
+# The bulk GeoPackages spell their columns in lower case, unlike the WFS.
+#
+# The predicates are plain Python on purpose. This fiona build accepts `where=` and `bbox=` and
+# then silently ignores both — it yields the whole layer and reports the whole layer's length,
+# so a filter that is quietly doing nothing looks exactly like one that works. Filtering here
+# cannot fail that way, and it is why each layer is read in one pass below rather than once per
+# part: without a working bbox, a second pass would be a second full scan.
 SETS = {
-    # key: (url folder, file prefix, geopackage layer, OGR attribute filter)
+    # key: (url folder, file prefix, geopackage layer, predicate on the property dict)
     "stand": ("Metsavarakuviot", "MV", "stand",
-              "developmentclass IN ('" + "','".join(CUT_DEVCLASS) + "')"),
+              lambda p: p.get("developmentclass") in CUT_DEVCLASS),
     "mki":   ("Metsankayttoilmoitukset", "MKI", "forestusedeclaration",
-              f"cuttingpurpose = {REGEN} AND declarationarrivaldate >= '{MVMI_EFFECTIVE}'"),
+              lambda p: p.get("cuttingpurpose") == REGEN
+                        and (p.get("declarationarrivaldate") or "") >= MVMI_EFFECTIVE),
 }
+
+FLUSH_SHAPES = 40000       # burn and drop, so a region's geometries never all sit in memory
 
 
 def log(*a):
@@ -128,17 +138,56 @@ def download(folder, prefix, region, work):
     return os.path.join(work, names[0])
 
 
-def burn_region(gpkg, layer, where, parts, value, scratch):
-    """Stream one region's matching polygons into every part they touch."""
+def geom_bbox(g):
+    """Bounding box of a GeoJSON-ish geometry, from its rings alone.
+
+    The exterior ring contains every interior one, so walking all rings is wasteful but always
+    right, and this runs once per feature — cheaper than building a shapely object per polygon.
+    """
+    xs0 = ys0 = float("inf")
+    xs1 = ys1 = float("-inf")
+    rings = g["coordinates"] if g["type"] == "Polygon" else [r for poly in g["coordinates"] for r in poly]
+    for ring in rings:
+        for x, y in ring:
+            if x < xs0: xs0 = x
+            if x > xs1: xs1 = x
+            if y < ys0: ys0 = y
+            if y > ys1: ys1 = y
+    return (xs0, ys0, xs1, ys1)
+
+
+def burn_region(gpkg, layer, keep, parts, value, scratch):
+    """One pass over the layer, fanning each kept polygon into every part it touches.
+
+    One pass rather than one per part because this fiona ignores `bbox` (see SETS): a per-part
+    read would rescan the whole region for every tile of the map it happens to straddle.
+    """
     import fiona
-    total = 0
-    for part in parts:
-        with fiona.open(gpkg, layer=layer, where=where, bbox=part.bounds) as src:
-            shapes = [f.geometry for f in src if f.geometry is not None]
-        if shapes:
-            part.burn(shapes, value, scratch)
-            total += len(shapes)
-    return total
+    buckets = [[] for _ in parts]
+    kept = 0
+
+    def flush():
+        for part, shapes in zip(parts, buckets):
+            if shapes:
+                part.burn(shapes, value, scratch)
+                shapes.clear()
+
+    with fiona.open(gpkg, layer=layer) as src:
+        for feat in src:
+            if not keep(feat["properties"]):
+                continue
+            g = feat.geometry
+            if g is None:
+                continue
+            bb = geom_bbox(g)
+            for i, part in enumerate(parts):
+                if part.intersects(bb):
+                    buckets[i].append(g)
+            kept += 1
+            if kept % FLUSH_SHAPES == 0:
+                flush()
+    flush()
+    return kept
 
 
 def main():
@@ -168,7 +217,7 @@ def main():
     for key in ("stand", "mki"):
         if key not in a.sets:
             continue
-        folder, prefix, layer, where = SETS[key]
+        folder, prefix, layer, keep = SETS[key]
         value = CUT_FACT if key == "stand" else CUT_DECLARED
         for region in a.regions:
             t0 = time.time()
@@ -176,10 +225,10 @@ def main():
             try:
                 rb = bounds_of(gpkg, layer)
                 touched = [p for p in parts if p.intersects(rb)]
-                n = burn_region(gpkg, layer, where, touched, value, scratch)
+                n = burn_region(gpkg, layer, keep, touched, value, scratch)
             finally:
                 os.remove(gpkg)
-            log(f"  {prefix:4s} {region:18s} {n:8d} polygons  {time.time()-t0:5.0f}s")
+            log(f"  {prefix:4s} {region:18s} {n:8d} kept  {time.time()-t0:5.0f}s")
 
     out_dir = os.path.join(ROOT, "data", a.species)
     files = []
