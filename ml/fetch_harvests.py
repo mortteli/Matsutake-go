@@ -74,10 +74,11 @@ REGIONS = [
 # cannot fail that way, and it is why each layer is read in one pass below rather than once per
 # part: without a working bbox, a second pass would be a second full scan.
 SETS = {
-    # key: (url folder, file prefix, geopackage layer, predicate on the property dict)
-    "stand": ("Metsavarakuviot", "MV", "stand",
+    # key: (url folder, file prefix, layer, fields to read, predicate on the property dict)
+    "stand": ("Metsavarakuviot", "MV", "stand", ["developmentclass"],
               lambda p: p.get("developmentclass") in CUT_DEVCLASS),
     "mki":   ("Metsankayttoilmoitukset", "MKI", "forestusedeclaration",
+              ["cuttingpurpose", "declarationarrivaldate"],
               lambda p: p.get("cuttingpurpose") == REGEN
                         and (p.get("declarationarrivaldate") or "") >= MVMI_EFFECTIVE),
 }
@@ -156,15 +157,24 @@ def geom_bbox(g):
     return (xs0, ys0, xs1, ys1)
 
 
-def burn_region(gpkg, layer, keep, parts, value, scratch):
+def burn_region(gpkg, layer, fields, keep, parts, value, scratch):
     """One pass over the layer, fanning each kept polygon into every part it touches.
 
     One pass rather than one per part because this fiona ignores `bbox` (see SETS): a per-part
     read would rescan the whole region for every tile of the map it happens to straddle.
+
+    Only `fields` are read. That is a real speed-up, but the reason it is not optional is that
+    Metsakeskus ships timestamps fiona refuses to parse -- somewhere in Etela-Pohjanmaa a stand
+    carries a 60th second, and building the full property dict raises before the predicate is
+    ever consulted. Reading the two columns the predicate needs steps around the rest entirely.
+
+    The skip below is the belt to that pair of braces: one unparseable record in region 3 of 19
+    must not throw away the hour already spent, and anything skipped is counted and reported
+    rather than passed over in silence.
     """
     import fiona
     buckets = [[] for _ in parts]
-    kept = 0
+    kept = skipped = 0
 
     def flush():
         for part, shapes in zip(parts, buckets):
@@ -172,8 +182,18 @@ def burn_region(gpkg, layer, keep, parts, value, scratch):
                 part.burn(shapes, value, scratch)
                 shapes.clear()
 
-    with fiona.open(gpkg, layer=layer) as src:
-        for feat in src:
+    with fiona.open(gpkg, layer=layer, include_fields=fields) as src:
+        it = iter(src)
+        while True:
+            try:
+                feat = next(it)
+            except StopIteration:
+                break
+            except Exception:
+                skipped += 1
+                if skipped > 10000:        # a systematic fault, not a stray record
+                    raise
+                continue
             if not keep(feat["properties"]):
                 continue
             g = feat.geometry
@@ -187,7 +207,7 @@ def burn_region(gpkg, layer, keep, parts, value, scratch):
             if kept % FLUSH_SHAPES == 0:
                 flush()
     flush()
-    return kept
+    return kept, skipped
 
 
 def main():
@@ -217,7 +237,7 @@ def main():
     for key in ("stand", "mki"):
         if key not in a.sets:
             continue
-        folder, prefix, layer, keep = SETS[key]
+        folder, prefix, layer, fields, keep = SETS[key]
         value = CUT_FACT if key == "stand" else CUT_DECLARED
         for region in a.regions:
             t0 = time.time()
@@ -225,10 +245,11 @@ def main():
             try:
                 rb = bounds_of(gpkg, layer)
                 touched = [p for p in parts if p.intersects(rb)]
-                n = burn_region(gpkg, layer, keep, touched, value, scratch)
+                n, skipped = burn_region(gpkg, layer, fields, keep, touched, value, scratch)
             finally:
                 os.remove(gpkg)
-            log(f"  {prefix:4s} {region:18s} {n:8d} kept  {time.time()-t0:5.0f}s")
+            log(f"  {prefix:4s} {region:18s} {n:8d} kept  {time.time()-t0:5.0f}s" +
+                (f"  ({skipped} unreadable records skipped)" if skipped else ""))
 
     out_dir = os.path.join(ROOT, "data", a.species)
     files = []
