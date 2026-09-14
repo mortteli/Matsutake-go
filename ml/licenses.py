@@ -98,9 +98,12 @@ def main():
          "| Elevation model 10 m | Maanmittauslaitos (MML) | CC BY 4.0 | elevation, slope, aspect, TPI, relief |",
          "| Maaperä 1:200 000 (superficial deposits) and Glacigenic landforms | Geologian tutkimuskeskus (GTK) | CC BY 4.0 | soil class, esker / glaciofluvial formation — rasterized copies in `ml/data/rasters/gtk_*_16m.tif` |",
          "| Gridded daily/monthly climate 10 km (1961–) | Ilmatieteen laitos (FMI) | CC BY 4.0 | thermal sum and precipitation normals in `ml/data/climate/` |",
-         "| Copernicus DEM GLO-90 via Open-Meteo | ESA / Open-Meteo | CC BY 4.0 | slope readout in the app |", "",
+         "| Copernicus DEM GLO-90 via Open-Meteo | ESA / Open-Meteo | CC BY 4.0 | slope readout in the app |",
+         "| Metsävarakuviot (forest stands) | Suomen metsäkeskus | CC BY 4.0 | development class and stand age — clear-cuts and seedling stands are removed from the app's masks, read live from the WFS |",
+         "| Metsänkäyttöilmoitukset (forest use declarations) | Suomen metsäkeskus | CC BY 4.0 | declared regeneration fellings — reported on tap only, never used to remove anything |", "",
          "Attribution text used in the app and in derived files: "
-         "*© Luonnonvarakeskus (Luke) MVMI, © Maanmittauslaitos, © Geologian tutkimuskeskus, © Ilmatieteen laitos — CC BY 4.0.*", "",
+         "*© Luonnonvarakeskus (Luke) MVMI, © Maanmittauslaitos, © Geologian tutkimuskeskus, "
+         "© Ilmatieteen laitos, © Suomen metsäkeskus — CC BY 4.0.*", "",
          "## Occurrence records (training presences), `ml/data/matsutake/observations.csv`", "",
          f"{len(obs)} records of *Tricholoma matsutake* in Finland, fetched from GBIF and the Finnish "
          "Biodiversity Information Facility (FinBIF, laji.fi) on " + time.strftime("%Y-%m-%d") + ". "

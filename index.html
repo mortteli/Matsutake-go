@@ -208,6 +208,12 @@
   .result-head .big { font-size: 30px; }
   .result-head .verdict { font-size: 16.5px; font-weight: 700; }
   .result-head .sub { font-size: 12.5px; color: var(--muted); }
+  .warn {
+    margin: 10px 0 2px; padding: 10px 12px; border-radius: 10px;
+    background: rgba(255,157,46,.13); border-left: 3px solid #ff9d2e;
+    font-size: 13px; line-height: 1.5; color: var(--muted);
+  }
+  .warn b { color: var(--text); }
   .checks { margin: 8px 0 4px; }
   .checks .c { display: flex; align-items: baseline; gap: 9px; padding: 6.5px 0; font-size: 14px; border-bottom: 1px solid #2c4636; }
   .checks .c:last-child { border-bottom: 0; }
@@ -311,11 +317,21 @@
     <input type="range" id="rngOpacity" min="20" max="100" step="5" value="75">
     <span class="val" id="valOpacity">75 %</span>
   </div>
+  <div class="row">
+    <label>Piilota hakatut kuviot<br><small>Metsäkeskuksen kuviotiedon aukeat ja taimikot
+      pois — Luken aineisto näyttää ne yhä hakkuuta edeltävänä metsänä</small></label>
+    <label class="switch"><input type="checkbox" id="chkHideCut"><i></i></label>
+  </div>
 
   <h3>🧠 Todennäköisyyskartta</h3>
   <div id="probPanel"></div>
 
   <h3>Aputasot</h3>
+  <div class="row">
+    <label>🪵 Hakkuut<br><small>harmaa = Metsäkeskuksen kuviotieto sanoo aukeaksi tai taimikoksi,
+      oranssi katkoviiva = voimassa ollut uudistushakkuun aikomus</small></label>
+    <label class="switch"><input type="checkbox" id="chkCutLayer"><i></i></label>
+  </div>
   <div id="helperLayers"></div>
 </div>
 
@@ -332,6 +348,18 @@
      ei havaintoja sienistä — maastossa ratkaisee lopulta maapohja, sää ja tuuri.
      Korkeustiedot: Open-Meteo (Copernicus DEM). Taustakartat: © OpenStreetMap,
      OpenTopoMap, Esri.</p>
+  <p><b>Hakkuut.</b> Luken aineisto kuvaa metsän sellaisena kuin se oli inventoinnin aikaan, eli
+     aikaisintaan vuonna 2021. Sen jälkeen hakattu kuvio näkyisi kartassa yhä vanhana metsänä —
+     ja koska uudistushakkuu kohdistuu juuri vanhaan puustoon, virhe osuisi pahimmin sinne
+     missä kartta on varmimmillaan. Siksi kartasta poistetaan
+     <a href="https://www.metsakeskus.fi/fi/avoin-metsa-ja-luontotieto" target="_blank" rel="noopener">Suomen
+     metsäkeskuksen</a> kuviotiedon (CC BY 4.0) aukeat ja taimikot: ne perustuvat ensisijaisesti
+     hakkuukoneen omaan mittaukseen, joten ne kertovat mitä maastossa <i>on</i>. Kuviotieto
+     kattaa vain yksityismetsät, joten valtion ja yhtiöiden mailla korjaus ei toimi.
+     <b>Metsänkäyttöilmoitusta</b> ei käytetä poistamiseen: se on lain mukaan hakkuu<i>aikomus</i>
+     — voimassa kolme vuotta, eikä ilmoitettua hakkuuta ole pakko tehdä. Pirkanmaalla mitattuna
+     runsas kolmannes vuoden 2021 jälkeen ilmoitetuista uudistushakkuista on yhä pystyssä olevaa
+     varttunutta metsää. Aikomus näkyy siis vain napautustiedoissa ja 🪵-aputasolla.</p>
   <p><b>Haku</b> (🔎 yläpalkissa) löytää paikannimet ja osoitteet
      <a href="https://nominatim.openstreetmap.org/" target="_blank" rel="noopener">Nominatimista</a>
      (© OpenStreetMap-tekijät). Kenttään voi myös liittää koordinaatit joko asteina
@@ -360,6 +388,11 @@
 /* ================= constants ================= */
 const WMS = "https://kartta.luke.fi/geoserver/MVMI/wms";
 const CYCLE = "1923"; // MS-NFI 2019–2023 (published 2023)
+// The oldest date from which the 1923 cycle's imagery could already show a change. Everything
+// the map draws — rule masks and the model raster alike — describes the forest as it stood
+// then, so a stand harvested after this is a guaranteed false positive until Luke publishes
+// the next cycle. This is the one date the Metsäkeskus correction below is measured against.
+const MVMI_EFFECTIVE = "2021-01-01";
 const LAYER = {
   site:   "MVMI:kasvupaikka_"           + CYCLE, // 1 lehto … 5 kuiva kangas, 6 karukko
   main:   "MVMI:paatyyppi_"             + CYCLE, // 1 kivennäismaa, 2 korpi, 3 räme, 4 avosuo
@@ -420,6 +453,8 @@ const MIN_CORE_M      = 80;     // core diameter, not radius
 const NEARBY_HALF_KM  = 5;      // ranking blend: a forest's hectares count half at 5 km
 const NEARBY_SEP_M    = 2500;   // so the three picks are three forests, not three lobes of one
 const NEARBY_N        = 3;
+const NEARBY_CUT_CHECKS = 40;   // ceiling on candidates verified against Metsäkeskus, so a region
+                                // where everything has been cut cannot turn into a request storm
 const NEARBY_PAR      = 3;      // concurrent mask loads; Luke's GeoServer caps a user at 6
 const FIX_MAX_AGE_MS  = 5 * 60 * 1000;
 const DIR8 = ["pohjoiseen","koilliseen","itään","kaakkoon","etelään","lounaaseen","länteen","luoteeseen"];
@@ -487,12 +522,144 @@ function mapPool(items, limit, fn) {
     .resolve(fn(items[i], i)).then(v => { out[i] = v; return worker(); }))(next++);
   return Promise.all(Array.from({ length: limit }, worker)).then(() => out);
 }
+/* ================= Metsäkeskus: the forest that is no longer there =================
+   Luke's MVMI is a snapshot. A stand clear-cut after MVMI_EFFECTIVE still reads as whatever it
+   was before the machines came, and because regeneration cutting targets *old* stands, the error
+   lands hardest exactly where this map is most confident. Two Metsäkeskus datasets fix it, and
+   they are not interchangeable:
+
+     stand (metsävarakuviot) — what the forest IS. Metsäkeskus updates it primarily from the
+       harvesting machine's own telemetry (date, cutting method, a boundary traced from the
+       machine's GPS), otherwise from aerial or satellite imagery. A development class of
+       A0/S0/T1/T2 means open ground or a seedling stand: no mushroom this map knows about
+       grows there. This is fact, so it is *subtracted* from the mask.
+       Its limit is ownership: Metsäkeskus holds stand data for privately owned forest only.
+
+     forestusedeclaration (metsänkäyttöilmoitukset) — what someone INTENDS. Filed at least 10
+       days before cutting and valid for three years, and per Metsäkeskus's own product
+       description "luonteeltaan hakkuuaikomus. Ilmoitettua toimenpidettä ei ole velvoite
+       tehdä." Measured against the stand data around Tampere, 57 % of regeneration
+       declarations filed since 2021 sit on ground that is now open or seedling — but 36 % are
+       still standing mature forest. So a declaration is *never* subtracted, only reported on
+       tap. Its strength is coverage: declaring is a legal duty, so it reaches forest the stand
+       data does not.
+
+   Both come from one CORS-open WFS, so this costs no pipeline run and never goes stale.
+   Metsäkeskus serves EPSG:3067 and Finnish GK zones but *not* 3857, so the WMS path the Luke
+   masks use is unavailable here: fetch GeoJSON and fill the polygons ourselves. That is the
+   better half of the trade anyway — vertices are projected exactly, with nothing resampled. */
+const MK_WFS = "https://avoin.metsakeskus.fi/rajapinnat/v1/ows";
+const MK_SINCE = MVMI_EFFECTIVE + "T00:00:00Z";
+// metsätietostandardi kehitysluokka: aukea, siemenpuumetsikkö, taimikot under and over 1.3 m.
+// Y1 (ylispuustoinen taimikko) is deliberately absent — it keeps an overstory that may still be
+// old pine, and unlike these four it is not by itself proof that the stand was reset.
+const MK_CUT_DEVCLASS = ["A0", "S0", "T1", "T2"];
+const MK_REGEN = 3;            // CUTTINGPURPOSE: uudistushakkuu. 1 (kasvatushakkuu) lands on a
+                               // young stand only 6 % of the time — thinning leaves a forest.
+const MK_CELL_M = 10000;       // fetch by 10 km cell, not by tile: a z13 tile is ~4.9 km, so one
+                               // request serves many tiles and panning stays free
+const MK_MAX = 4000;           // per cell; ~300 declarations / ~600 young stands is typical
+const MK_PAR = 4;
+const MK_TIMEOUT_MS = 9000;
+
+const mkCache = new Map();     // "kind:gx:gy" -> Promise<Feature[]>
+const MK_KIND = {
+  stand: { type: "v1:stand", filter: " AND DEVELOPMENTCLASS IN ('" + MK_CUT_DEVCLASS.join("','") + "')" },
+  mki:   { type: "v1:forestusedeclaration",
+           filter: " AND DECLARATIONARRIVALDATE AFTER " + MK_SINCE + " AND CUTTINGPURPOSE=" + MK_REGEN },
+};
+
+function mkGet(typeName, cql) {
+  const url = MK_WFS + "?service=WFS&version=2.0.0&request=GetFeature" +
+    "&typeNames=" + encodeURIComponent(typeName) +
+    "&srsName=EPSG:4326&outputFormat=application/json&count=" + MK_MAX +
+    "&CQL_FILTER=" + encodeURIComponent(cql);
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), MK_TIMEOUT_MS);
+  return fetch(url, { signal: ctl.signal })
+    .then(r => r.ok ? r.json() : Promise.reject(new Error("metsakeskus " + r.status)))
+    .then(j => j.features || [])
+    .finally(() => clearTimeout(timer));
+}
+// One 10 km cell of one kind, fetched once. A failure is not cached: Metsäkeskus being down
+// must leave the map exactly as it was before this feature existed, and must let the next
+// tile try again.
+function mkCell(kind, gx, gy) {
+  const key = kind + ":" + gx + ":" + gy;
+  const hit = mkCache.get(key);
+  if (hit) return hit;
+  const x0 = gx * MK_CELL_M, y0 = gy * MK_CELL_M;
+  const p = mkGet(MK_KIND[kind].type,
+      "BBOX(GEOMETRY," + x0 + "," + y0 + "," + (x0 + MK_CELL_M) + "," + (y0 + MK_CELL_M) +
+      ",'EPSG:3067')" + MK_KIND[kind].filter)
+    .catch(() => { mkCache.delete(key); return []; });
+  mkCache.set(key, p);
+  return p;
+}
+// `bb` is {xmin,ymin,xmax,ymax} in EPSG:3067. Polygons outside the caller's exact extent come
+// back too; they simply draw off-canvas.
+function mkFeatures(kind, bb) {
+  const jobs = [];
+  for (let gx = Math.floor(bb.xmin / MK_CELL_M); gx <= Math.floor(bb.xmax / MK_CELL_M); gx++)
+    for (let gy = Math.floor(bb.ymin / MK_CELL_M); gy <= Math.floor(bb.ymax / MK_CELL_M); gy++)
+      jobs.push([gx, gy]);
+  return mapPool(jobs, MK_PAR, j => mkCell(kind, j[0], j[1]))
+    .then(lists => [].concat.apply([], lists));
+}
+
+/* ---- geometry helpers: WGS84 <-> spherical Mercator, and point-in-polygon ---- */
+const lonTo3857 = lon => lon * R3857 / 180;
+const latTo3857 = lat => Math.log(Math.tan((90 + lat) * Math.PI / 360)) * R_EARTH;
+const y3857ToLat = y => (2 * Math.atan(Math.exp(y / R_EARTH)) - Math.PI / 2) * 180 / Math.PI;
+const ringsOf = g => !g ? [] :
+  g.type === "Polygon" ? g.coordinates :
+  g.type === "MultiPolygon" ? [].concat.apply([], g.coordinates) : [];
+// EPSG:3857 [minx,miny,maxx,maxy] -> the EPSG:3067 box that covers it. TM35FIN is rotated
+// against Mercator, so all four corners are projected and the extremes taken.
+function bboxToTM35(bbox) {
+  const lons = [bbox[0], bbox[2]].map(x => x * 180 / R3857);
+  const lats = [bbox[1], bbox[3]].map(y3857ToLat);
+  let xmin = Infinity, ymin = Infinity, xmax = -Infinity, ymax = -Infinity;
+  lats.forEach(lat => lons.forEach(lon => {
+    const p = toTM35(lat, lon);
+    xmin = Math.min(xmin, p.x); xmax = Math.max(xmax, p.x);
+    ymin = Math.min(ymin, p.y); ymax = Math.max(ymax, p.y);
+  }));
+  return { xmin, ymin, xmax, ymax };
+}
+// A feature's EPSG:3857 bounding box, computed once and kept on the feature itself. The same
+// polygons are re-tested against every tile of their 10 km cell, so this is worth caching.
+function featureBox(f) {
+  if (f._bb) return f._bb;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  ringsOf(f.geometry).forEach(ring => ring.forEach(pt => {
+    const x = lonTo3857(pt[0]), y = latTo3857(pt[1]);
+    if (x < x0) x0 = x;
+    if (x > x1) x1 = x;
+    if (y < y0) y0 = y;
+    if (y > y1) y1 = y;
+  }));
+  return (f._bb = [x0, y0, x1, y1]);
+}
+// Ray casting over every ring. GeoJSON holes are wound the other way but the parity rule does
+// not care: a point inside a hole crosses one extra boundary and falls out again.
+function inFeature(f, lon, lat) {
+  let inside = false;
+  ringsOf(f.geometry).forEach(ring => {
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+      if ((yi > lat) !== (yj > lat) && lon < (xj - xi) * (lat - yi) / (yj - yi) + xi) inside = !inside;
+    }
+  });
+  return inside;
+}
+
 /* One binary mask per condition member, OR'd inside a condition and AND'd across them — the
    whole map in one function, so the tile layer and the nearby scan cannot drift apart. Returns
    an *uncoloured* canvas: the answer is in its alpha channel. Luke serves 1-bit paletted PNGs
    and resamples nearest-neighbour, so as long as nothing is scaled on the way in, every pixel
    of the result is alpha 0 or 255. */
-function compositeMask(groups, bbox, w, h, limit) {
+function compositeMask(groups, bbox, w, h, limit, cut) {
   const jobs = [];
   groups.forEach((g, gi) => g.forEach(m => jobs.push({ gi, url: wmsURL(m.layer, m.sld, bbox, w, h) })));
   return mapPool(jobs, limit, j => loadImg(j.url)).then(imgs => {
@@ -510,6 +677,30 @@ function compositeMask(groups, bbox, w, h, limit) {
     octx.drawImage(unions[0], 0, 0);
     octx.globalCompositeOperation = "destination-in";
     for (let i = 1; i < unions.length; i++) octx.drawImage(unions[i], 0, 0);
+    // AND NOT the stands Metsäkeskus says have been cut since the inventory. Vertices are
+    // projected one by one, so nothing is resampled and the 16 m grid stays honest; "evenodd"
+    // keeps polygon holes as holes.
+    if (cut && cut.length) {
+      const sx = w / (bbox[2] - bbox[0]), sy = h / (bbox[3] - bbox[1]);
+      octx.globalCompositeOperation = "destination-out";
+      octx.fillStyle = "#000";
+      octx.beginPath();
+      // A fetch covers a 10 km cell but a tile is a fraction of it, so most of what came back
+      // cannot touch this tile. Reject those on a cached bounding box first — otherwise every
+      // tile walks all ~800 polygons of its cell, vertex by vertex.
+      cut.forEach(f => {
+        const fb = featureBox(f);
+        if (fb[2] < bbox[0] || fb[0] > bbox[2] || fb[3] < bbox[1] || fb[1] > bbox[3]) return;
+        ringsOf(f.geometry).forEach(ring => {
+          ring.forEach((pt, i) => {
+            const px = (lonTo3857(pt[0]) - bbox[0]) * sx, py = (bbox[3] - latTo3857(pt[1])) * sy;
+            if (i) octx.lineTo(px, py); else octx.moveTo(px, py);
+          });
+          octx.closePath();
+        });
+      });
+      octx.fill("evenodd");
+    }
     return off;
   });
 }
@@ -884,7 +1075,9 @@ const SPECIES = [
 
 /* ================= state ================= */
 const STORE_KEY = "matsutakego.v2";
-const state = { species: SPECIES[0].key, cfg: {}, opacity: 0.75, prob: { on: false, pct: 2 } };
+// `hideCut` is global rather than per-species on purpose: all five need standing forest, and
+// ukonsieni's own text already says a bare clear-cut is out.
+const state = { species: SPECIES[0].key, cfg: {}, opacity: 0.75, hideCut: true, prob: { on: false, pct: 2 } };
 SPECIES.forEach(s => { state.cfg[s.key] = Object.assign({}, s.defaults); });
 
 function sp()  { return SPECIES.find(s => s.key === state.species) || SPECIES[0]; }
@@ -897,6 +1090,7 @@ function load() {
     const j = JSON.parse(raw);
     if (j.species && SPECIES.some(s => s.key === j.species)) state.species = j.species;
     if (typeof j.opacity === "number") state.opacity = j.opacity;
+    if (typeof j.hideCut === "boolean") state.hideCut = j.hideCut;
     if (j.prob) { state.prob.on = !!j.prob.on; if (typeof j.prob.pct === "number") state.prob.pct = j.prob.pct; }
     SPECIES.forEach(s => {
       if (j.cfg && j.cfg[s.key]) Object.keys(s.defaults).forEach(k => {
@@ -914,8 +1108,6 @@ load();
    For every map tile, fetch one server-styled binary mask per condition
    (a condition with several members is unioned first) and keep only the
    pixels present in ALL conditions. */
-const y3857ToLat = y => (2 * Math.atan(Math.exp(y / R_EARTH)) - Math.PI / 2) * 180 / Math.PI;
-
 const SpotLayer = L.GridLayer.extend({
   createTile(coords, done) {
     const tile = document.createElement("canvas");
@@ -933,7 +1125,12 @@ const SpotLayer = L.GridLayer.extend({
       return tile;
     }
 
-    compositeMask(species.conditions(c), bbox, size.x, size.y, 0).then(off => {
+    // Metsäkeskus being unreachable must leave the tile exactly as it was before this feature
+    // existed — an outage may not blank the map.
+    const cut = state.hideCut
+      ? mkFeatures("stand", bboxToTM35(bbox)).catch(() => [])
+      : Promise.resolve([]);
+    cut.then(feats => compositeMask(species.conditions(c), bbox, size.x, size.y, 0, feats)).then(off => {
       const octx = off.getContext("2d");
       octx.globalCompositeOperation = "source-in";      // recolor result
       octx.fillStyle = SPOT_COLOR;
@@ -956,11 +1153,11 @@ L.control.scale({ imperial: false, position: "bottomright" }).addTo(map);
 
 const basemaps = {
   osm: L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19, attribution: "© OpenStreetMap | Metsä: © Luke MVMI 2023 CC BY 4.0" }),
+    maxZoom: 19, attribution: "© OpenStreetMap | Metsä: © Luke MVMI 2023, © Suomen metsäkeskus — CC BY 4.0" }),
   topo: L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
-    maxZoom: 17, attribution: "© OpenTopoMap (CC-BY-SA) | © Luke MVMI 2023 CC BY 4.0" }),
+    maxZoom: 17, attribution: "© OpenTopoMap (CC-BY-SA) | © Luke MVMI 2023, © Suomen metsäkeskus — CC BY 4.0" }),
   sat: L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
-    maxZoom: 18, attribution: "© Esri | © Luke MVMI 2023 CC BY 4.0" }),
+    maxZoom: 18, attribution: "© Esri | © Luke MVMI 2023, © Suomen metsäkeskus — CC BY 4.0" }),
 };
 let currentBasemap = basemaps.osm.addTo(map);
 
@@ -1171,6 +1368,58 @@ async function readProb(latlng) {
   return null;
 }
 
+/* What Metsäkeskus knows about the stand under a point, in the two flavours the map has to keep
+   apart: `cut` is the stand register saying the trees are gone, `declared` is somebody's filed
+   intention to take them. Null when neither applies — or when Metsäkeskus cannot be reached,
+   which reads the same as "nothing to report" and never blocks the rest of the panel. */
+const DEVCLASS_NAMES = { A0: "aukea", S0: "siemenpuumetsikkö", T1: "taimikko (alle 1,3 m)", T2: "taimikko (yli 1,3 m)" };
+// Metsäkeskus stamps these as Finnish local time with an explicit offset ("2026-07-31T00:00:00
+// +03:00"), and the day is the whole meaning — a stand was measured *that day*. Going through
+// Date would re-express it in the viewer's zone and hand anyone west of Finland the day before,
+// so the date part is read straight off the string.
+const fiDate = s => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s || "");
+  return m ? +m[3] + "." + +m[2] + "." + m[1] : null;
+};
+
+async function readHarvest(latlng) {
+  const p = toTM35(latlng.lat, latlng.lng);
+  const bb = { xmin: p.x - 1, ymin: p.y - 1, xmax: p.x + 1, ymax: p.y + 1 };
+  const [stands, decls] = await Promise.all([
+    mkFeatures("stand", bb).catch(() => []),
+    mkFeatures("mki", bb).catch(() => []),
+  ]);
+  const hitStand = stands.find(f => inFeature(f, latlng.lng, latlng.lat));
+  // several declarations can stack on one stand over the years; the newest is the story
+  const hitDecls = decls.filter(f => inFeature(f, latlng.lng, latlng.lat))
+    .sort((a, b) => (b.properties.DECLARATIONARRIVALDATE || "").localeCompare(a.properties.DECLARATIONARRIVALDATE || ""));
+  if (hitStand) {
+    const s = hitStand.properties;
+    return { state: "cut", devclass: s.DEVELOPMENTCLASS, age: s.MEANAGE, height: s.MEANHEIGHT,
+             asOf: s.TREESTANDDATE, declared: hitDecls[0] && hitDecls[0].properties };
+  }
+  if (hitDecls.length) return { state: "declared", declared: hitDecls[0].properties };
+  return null;
+}
+
+function harvestHTML(h) {
+  if (!h) return "";
+  if (h.state === "cut") {
+    const bits = [DEVCLASS_NAMES[h.devclass] || ("kehitysluokka " + h.devclass)];
+    if (h.height > 0) bits.push("keskipituus " + h.height.toFixed(1).replace(".", ",") + " m");
+    if (h.age > 0) bits.push("ikä " + h.age + " v");
+    const asOf = fiDate(h.asOf);
+    return '<div class="warn"><b>⚠️ Kuvio on hakattu.</b> Metsäkeskuksen kuviotieto: ' +
+      bits.join(", ") + (asOf ? " (tieto " + asOf + ")" : "") + ". Kartan pohja-aineisto on Luken " +
+      "VMI 20" + CYCLE.slice(2) + ", joka näyttää täällä yhä hakkuuta edeltävän metsän.</div>";
+  }
+  const d = h.declared || {}, when = fiDate(d.DECLARATIONARRIVALDATE);
+  return '<div class="warn"><b>⚠️ Hakkuuaikomus' + (when ? " " + when : "") + '</b>' +
+    (d.AREA ? " (uudistushakkuu, " + String(d.AREA).replace(".", ",") + " ha)" : " (uudistushakkuu)") +
+    '. Metsänkäyttöilmoitus on aikomus — ilmoitettua hakkuuta ei ole pakko tehdä, eikä ' +
+    'toteutusta ole vahvistettu kuviotiedossa. Metsä voi olla pystyssä tai poissa.</div>';
+}
+
 /* ================= GPS ================= */
 let gpsMarker = null, gpsCircle = null, gpsWatch = null, follow = false, firstFix = true;
 // The last known position, kept in memory only: a home address in localStorage would buy
@@ -1331,18 +1580,28 @@ async function inspect(latlng) {
   openSheet("sheetResult");
 
   const metrics = species.metrics(c);
-  const [site, main, slope, results, pv] = await Promise.all([
+  const [site, main, slope, results, pv, harvest] = await Promise.all([
     readClass(LAYER.site, SITE_CANDIDATES, latlng),
     readClass(LAYER.main, MAIN_CANDIDATES, latlng),
     readSlope(latlng),
     Promise.all(metrics.map(m => readMetric(m, latlng))),
     state.prob.on ? readProb(latlng).catch(() => null) : Promise.resolve(null),
+    readHarvest(latlng).catch(() => null),
   ]);
 
   if (site == null && results.every(r => r.alts.every(a => a.val == null))) {
-    body.innerHTML = '<div class="result-head"><span class="big">🌊</span>' +
-      '<div><div class="verdict">Ei metsätietoa tässä kohdassa</div>' +
-      '<div class="sub">vesistö, pelto, rakennettu alue — tai yhteysvirhe</div></div></div>';
+    // Metsäkeskus may still have something to say — a fresh clear-cut is exactly the kind of
+    // place Luke's layers can come back empty for, and "ei metsätietoa" alone would leave the
+    // most useful fact on the floor.
+    body.innerHTML = '<div class="result-head"><span class="big">' +
+      (harvest && harvest.state === "cut" ? "🪵" : "🌊") + '</span>' +
+      '<div><div class="verdict">' +
+      (harvest && harvest.state === "cut" ? "Hakattu — metsä ei ole enää tässä"
+                                          : "Ei metsätietoa tässä kohdassa") + '</div>' +
+      '<div class="sub">' + (harvest && harvest.state === "cut"
+        ? "Luken aineistossa ei ole tälle ruudulle metsätietoa"
+        : "vesistö, pelto, rakennettu alue — tai yhteysvirhe") + '</div></div></div>' +
+      harvestHTML(harvest);
     return;
   }
 
@@ -1361,7 +1620,10 @@ async function inspect(latlng) {
   const outOfRange = species.maxLat != null && latlng.lat > species.maxLat;
 
   let icon, verdict;
-  if (siteOk && standOk && !outOfRange) {
+  if (harvest && harvest.state === "cut") {
+    // Whatever the MVMI layers say about this cell, the trees they describe are gone.
+    icon = "🪵"; verdict = "Hakattu — metsä ei ole enää tässä";
+  } else if (siteOk && standOk && !outOfRange) {
     icon = species.emoji;
     verdict = primeSite ? species.verdicts.hit : species.verdicts.hitAlt;
   } else if (siteOk) { icon = "🌲"; verdict = species.verdicts.stand; }
@@ -1371,6 +1633,7 @@ async function inspect(latlng) {
     '<div><div class="verdict">' + verdict + '</div>' +
     '<div class="sub">' + latlng.lat.toFixed(5) + "° N, " + latlng.lng.toFixed(5) + "° E · " +
     species.region(latlng.lat) + '</div></div></div>' +
+    harvestHTML(harvest) +
     '<div class="checks">';
 
   html += checkRow(siteOk ? "ok" : "no", "Kasvupaikka",
@@ -1717,12 +1980,30 @@ async function findNearbySpots(fix) {
   // is not always the one to drive to — so hectares count half at NEARBY_HALF_KM.
   spots.sort((a, b) => (b.areaHa / (1 + b.distM / 1000 / NEARBY_HALF_KM)) -
                        (a.areaHa / (1 + a.distM / 1000 / NEARBY_HALF_KM)));
+  // Then drop the ones Metsäkeskus says have been cut. The scan mask itself is left alone: a
+  // 50 km box holds on the order of 15 000 young stands, far too many to fetch on a phone. So
+  // the check lands where it actually decides a trip — on the deepest cell of each surviving
+  // candidate, the point the list hands out and `pick_sites.py` calls bx/by. That is a weaker
+  // correction than the tile layer gets: a patch's hectares can still be padded by ground that
+  // has since been cut, and two forests can still be bridged through a clearcut between them.
+  // What it does guarantee is that the place you are sent to still has trees on it.
   const picked = [];
+  let looked = 0;
   for (const s of spots) {
-    if (picked.every(p => Math.hypot(s.tm.x - p.tm.x, s.tm.y - p.tm.y) > NEARBY_SEP_M)) picked.push(s);
-    if (picked.length === NEARBY_N) break;
+    if (picked.length === NEARBY_N || looked >= NEARBY_CUT_CHECKS) break;
+    if (!picked.every(p => Math.hypot(s.tm.x - p.tm.x, s.tm.y - p.tm.y) > NEARBY_SEP_M)) continue;
+    if (state.hideCut) { looked++; if (await spotIsCut(s)) continue; }
+    picked.push(s);
   }
   return picked;
+}
+
+// One 10 km cell usually covers every candidate in the list, so this is a cached lookup after
+// the first call, not a request per spot.
+async function spotIsCut(s) {
+  const feats = await mkFeatures("stand",
+    { xmin: s.tm.x - 1, ymin: s.tm.y - 1, xmax: s.tm.x + 1, ymax: s.tm.y + 1 }).catch(() => []);
+  return feats.some(f => inFeature(f, s.lon, s.lat));
 }
 
 /* ---------- rendering ---------- */
@@ -1995,6 +2276,63 @@ rngOpacity.addEventListener("input", () => {
   spots.setOpacity(state.opacity);
   prob.layers.forEach(l => l.setOpacity(state.opacity));
   save();
+});
+
+/* ---- "Hakkuut" overlay: the correction, drawn, so it can be argued with ---- */
+const CUT_MINZOOM = 11;        // below this one screen is a whole region and the polygons are dots
+let cutLayer = null, cutBusy = false;
+
+function cutStyle(f) {
+  return f.properties.DEVELOPMENTCLASS
+    ? { color: "#c8d3cc", weight: 1, fillColor: "#c8d3cc", fillOpacity: .34 }          // fact
+    : { color: "#ff9d2e", weight: 1, dashArray: "4 3", fillColor: "#ff9d2e", fillOpacity: .16 }; // intent
+}
+function cutPopup(f, layer) {
+  const p = f.properties;
+  layer.bindPopup(p.DEVELOPMENTCLASS
+    ? "<b>Hakattu</b><br>" + (DEVCLASS_NAMES[p.DEVELOPMENTCLASS] || p.DEVELOPMENTCLASS) +
+      (p.MEANAGE > 0 ? ", ikä " + p.MEANAGE + " v" : "") +
+      (fiDate(p.TREESTANDDATE) ? "<br><small>tieto " + fiDate(p.TREESTANDDATE) + "</small>" : "")
+    : "<b>Hakkuuaikomus</b><br>uudistushakkuu" + (p.AREA ? ", " + String(p.AREA).replace(".", ",") + " ha" : "") +
+      (fiDate(p.DECLARATIONARRIVALDATE) ? "<br><small>ilmoitettu " + fiDate(p.DECLARATIONARRIVALDATE) + "</small>" : ""));
+}
+async function cutRefresh() {
+  if (!cutLayer || !map.hasLayer(cutLayer) || cutBusy) return;
+  cutLayer.clearLayers();
+  if (map.getZoom() < CUT_MINZOOM) return;
+  cutBusy = true;
+  try {
+    const b = map.getBounds();
+    let xmin = Infinity, ymin = Infinity, xmax = -Infinity, ymax = -Infinity;
+    [[b.getSouth(), b.getWest()], [b.getSouth(), b.getEast()],
+     [b.getNorth(), b.getWest()], [b.getNorth(), b.getEast()]].forEach(ll => {
+      const p = toTM35(ll[0], ll[1]);
+      xmin = Math.min(xmin, p.x); xmax = Math.max(xmax, p.x);
+      ymin = Math.min(ymin, p.y); ymax = Math.max(ymax, p.y);
+    });
+    const bb = { xmin: xmin, ymin: ymin, xmax: xmax, ymax: ymax };
+    // declarations first so the stand polygons draw over them where both apply
+    const lists = await Promise.all([mkFeatures("mki", bb), mkFeatures("stand", bb)]);
+    if (map.hasLayer(cutLayer))
+      cutLayer.addData({ type: "FeatureCollection", features: lists[0].concat(lists[1]) });
+  } catch (e) { /* Metsäkeskus unreachable: the overlay just stays empty */ }
+  finally { cutBusy = false; }
+}
+document.getElementById("chkCutLayer").addEventListener("change", e => {
+  if (e.target.checked) {
+    cutLayer = cutLayer || L.geoJSON(null, { style: cutStyle, onEachFeature: cutPopup });
+    cutLayer.addTo(map);
+    cutRefresh();
+  } else if (cutLayer) map.removeLayer(cutLayer);
+});
+map.on("moveend", cutRefresh);
+
+const chkHideCut = document.getElementById("chkHideCut");
+chkHideCut.checked = state.hideCut;
+chkHideCut.addEventListener("change", () => {
+  state.hideCut = chkHideCut.checked;
+  save();
+  refreshSpots();
 });
 
 document.getElementById("basemapSeg").addEventListener("click", e => {

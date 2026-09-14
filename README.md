@@ -20,6 +20,32 @@ Kaikki tasot ovat Luken monilähteisen VMI:n 16 m rasteriaineistoa
 (inventointi 2019–2023). Jokaisen lajin rajat ovat säädettävissä livenä
 🗺️-napin takaa; asetukset ja valittu laji muistetaan selaimessa.
 
+### Hakatut kuviot
+
+Luken aineisto on tilannekuva. Vuoden 2021 jälkeen hakattu kuvio lukee siinä yhä
+sinä metsänä joka siinä oli ennen koneita — ja koska uudistushakkuu kohdistuu
+nimenomaan vanhaan puustoon, virhe osuu pahimmin sinne missä kartta on
+varmimmillaan. Korjaus haetaan Suomen metsäkeskuksen avoimesta rajapinnasta, ja
+sen kaksi aineistoa pidetään tarkasti erillään:
+
+| Aineisto | Mitä se kertoo | Miten sitä käytetään |
+|---|---|---|
+| **Metsävarakuviot** (`stand`) | mitä maastossa **on**. Metsäkeskus päivittää kuviot ensisijaisesti hakkuukoneen omasta mittauksesta (ajankohta, hakkuutapa, koneen GPS-jäljestä muodostettu rajaus) | kehitysluokat A0/S0/T1/T2 **poistetaan** kartalta |
+| **Metsänkäyttöilmoitukset** (`forestusedeclaration`) | mitä joku **aikoo**. Tehdään ≥ 10 vrk ennen hakkuuta, voimassa 3 vuotta, eikä ilmoitettua hakkuuta ole velvoite tehdä | **ei poista mitään** — näkyy vain napautustiedoissa ja 🪵-aputasolla |
+
+Ero ei ole muodollisuus. Pirkanmaalla mitattuna vuoden 2021 jälkeen ilmoitetuista
+uudistushakkuista 57 % on kuviotiedon mukaan nyt aukeaa tai taimikkoa — mutta
+36 % on yhä pystyssä olevaa varttunutta metsää. Ilmoituksen perusteella
+poistaminen pyyhkisi siis reilun kolmanneksen kohteista turhaan. Kasvatushakkuun
+ilmoituksista vain 6 % osuu nuoreen kuvioon, joten harvennukset jätetään kokonaan
+huomiotta: harvennettu metsä on yhä metsä.
+
+Kuviotieto kattaa vain yksityismetsät, joten valtion ja yhtiöiden mailla korjaus
+ei toimi. Malli itse on ennallaan — vika ei ole mallissa vaan sen lähtöaineiston
+iässä, joten korjaus tehdään vasta pisteytyksen jälkeen, samaan tapaan kuin
+`ml/pick_sites.py` soveltaa poissulkumaskinsa. Korjauksen voi kytkeä pois
+🗺️-valikosta.
+
 ### Miksi juuri nämä ehdot
 
 - **Matsutake** kasvaa vanhoissa männiköissä kuivilla ja karuilla kankailla.
