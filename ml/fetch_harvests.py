@@ -268,7 +268,7 @@ def main():
         "built": time.strftime("%Y-%m-%d"),
     }
     with open(meta_path, "w") as fh:
-        json.dump(meta, fh, separators=(",", ":"))
+        json.dump(meta, fh, indent=1)      # same shape as ml/export_app.py, so the diff stays small
     log("updated", os.path.relpath(meta_path, ROOT))
 
     if not a.keep_work:
