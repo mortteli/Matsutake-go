@@ -561,18 +561,66 @@ const MK_CELL_M = 10000;       // fetch by 10 km cell, not by tile: a z13 tile i
 const MK_MAX = 4000;           // per cell; ~300 declarations / ~600 young stands is typical
 const MK_PAR = 4;
 const MK_TIMEOUT_MS = 9000;
-
-const mkCache = new Map();     // "kind:gx:gy" -> Promise<Feature[]>
+// A 10 km cell of stands is 811 features and 2.0 MB if the server is allowed to send all 40 of
+// its columns, of which this app reads four. `propertyName` cuts that to 1.47 MB, and the same
+// trick takes declarations from 0.90 to about 0.55 MB. Anything added to a popup or to
+// harvestHTML() has to be added here too, or it will arrive undefined.
 const MK_KIND = {
-  stand: { type: "v1:stand", filter: " AND DEVELOPMENTCLASS IN ('" + MK_CUT_DEVCLASS.join("','") + "')" },
+  stand: { type: "v1:stand",
+           props: "GEOMETRY,DEVELOPMENTCLASS,MEANAGE,MEANHEIGHT,TREESTANDDATE",
+           filter: " AND DEVELOPMENTCLASS IN ('" + MK_CUT_DEVCLASS.join("','") + "')" },
   mki:   { type: "v1:forestusedeclaration",
+           props: "GEOMETRY,DECLARATIONARRIVALDATE,AREA,CUTTINGPURPOSE",
            filter: " AND DECLARATIONARRIVALDATE AFTER " + MK_SINCE + " AND CUTTINGPURPOSE=" + MK_REGEN },
 };
 
-function mkGet(typeName, cql) {
+/* Cells are cached, but not forever. Each holds a couple of megabytes of parsed GeoJSON, and
+   featureBox() pins a bounding box onto every feature, so nothing in a cached cell can be
+   collected. Panning across the country used to retain every cell ever visited. The cap is a
+   working set of roughly 30 x 30 km per kind; `mkDone` mirrors the resolved value so tiles can
+   read what has already arrived without awaiting a promise (see SpotLayer.createTile). */
+const MK_CACHE_CELLS = 12;
+const MK_RETRY_MS = 30000;     // cool-off after a failed cell, so an outage cannot become a loop
+const mkCache = new Map();     // "kind:gx:gy" -> Promise<Feature[]>
+const mkDone = new Map();      // same key -> Feature[], resolved only
+const mkFailed = new Map();    // same key -> when it last failed
+
+// A failure is not cached as a result, but it is remembered for a while. Without this, every
+// tile that wants a dead cell re-requests it, and the redraw those requests trigger asks again.
+function mkFresh(key) {
+  const t = mkFailed.get(key);
+  if (t == null) return true;
+  if (Date.now() - t < MK_RETRY_MS) return false;
+  mkFailed.delete(key);
+  return true;
+}
+
+/* Tiles are drawn before their harvest cells arrive, so the layer has to be repainted when one
+   lands. Four cells arriving together must cost one repaint, not four. */
+let cutRedrawTimer = null;
+function scheduleCutRedraw() {
+  if (cutRedrawTimer) return;
+  cutRedrawTimer = setTimeout(() => {
+    cutRedrawTimer = null;
+    if (typeof spots !== "undefined" && map.hasLayer(spots)) spots.redraw();
+  }, 400);
+}
+
+function mkTouch(key) {        // Map preserves insertion order: re-insert to mark as recently used
+  if (mkCache.has(key)) { const v = mkCache.get(key); mkCache.delete(key); mkCache.set(key, v); }
+  while (mkCache.size > MK_CACHE_CELLS) {
+    const oldest = mkCache.keys().next().value;
+    mkCache.delete(oldest);
+    mkDone.delete(oldest);
+  }
+}
+
+function mkGet(kind, cql, count) {
+  const k = MK_KIND[kind];
   const url = MK_WFS + "?service=WFS&version=2.0.0&request=GetFeature" +
-    "&typeNames=" + encodeURIComponent(typeName) +
-    "&srsName=EPSG:4326&outputFormat=application/json&count=" + MK_MAX +
+    "&typeNames=" + encodeURIComponent(k.type) +
+    "&propertyName=" + encodeURIComponent(k.props) +
+    "&srsName=EPSG:4326&outputFormat=application/json&count=" + (count || MK_MAX) +
     "&CQL_FILTER=" + encodeURIComponent(cql);
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), MK_TIMEOUT_MS);
@@ -581,30 +629,67 @@ function mkGet(typeName, cql) {
     .then(j => j.features || [])
     .finally(() => clearTimeout(timer));
 }
-// One 10 km cell of one kind, fetched once. A failure is not cached: Metsäkeskus being down
-// must leave the map exactly as it was before this feature existed, and must let the next
-// tile try again.
+const mkBBox = (x0, y0, x1, y1) =>
+  "BBOX(GEOMETRY," + x0 + "," + y0 + "," + x1 + "," + y1 + ",'EPSG:3067')";
+
+// One 10 km cell of one kind, fetched once. A failure is never cached as a *result* — Metsäkeskus
+// being down must leave the map exactly as it was before this feature existed, and the cell must
+// be fetchable again — but it is remembered for MK_RETRY_MS before the next attempt, so an outage
+// costs one request per cell per half minute rather than one per tile per redraw.
 function mkCell(kind, gx, gy) {
   const key = kind + ":" + gx + ":" + gy;
   const hit = mkCache.get(key);
-  if (hit) return hit;
+  if (hit) { mkTouch(key); return hit; }
+  if (!mkFresh(key)) return Promise.resolve([]);
   const x0 = gx * MK_CELL_M, y0 = gy * MK_CELL_M;
-  const p = mkGet(MK_KIND[kind].type,
-      "BBOX(GEOMETRY," + x0 + "," + y0 + "," + (x0 + MK_CELL_M) + "," + (y0 + MK_CELL_M) +
-      ",'EPSG:3067')" + MK_KIND[kind].filter)
-    .catch(() => { mkCache.delete(key); return []; });
+  const p = mkGet(kind, mkBBox(x0, y0, x0 + MK_CELL_M, y0 + MK_CELL_M) + MK_KIND[kind].filter)
+    .then(feats => {
+      if (mkCache.has(key)) mkDone.set(key, feats);
+      if (kind === "stand") scheduleCutRedraw();   // tiles drawn without it are now out of date
+      return feats;
+    })
+    .catch(() => {
+      mkCache.delete(key); mkDone.delete(key); mkFailed.set(key, Date.now());
+      return [];
+    });
   mkCache.set(key, p);
+  mkTouch(key);
   return p;
 }
-// `bb` is {xmin,ymin,xmax,ymax} in EPSG:3067. Polygons outside the caller's exact extent come
-// back too; they simply draw off-canvas.
-function mkFeatures(kind, bb) {
-  const jobs = [];
+// `bb` is {xmin,ymin,xmax,ymax} in EPSG:3067.
+function mkCellsOf(bb) {
+  const out = [];
   for (let gx = Math.floor(bb.xmin / MK_CELL_M); gx <= Math.floor(bb.xmax / MK_CELL_M); gx++)
     for (let gy = Math.floor(bb.ymin / MK_CELL_M); gy <= Math.floor(bb.ymax / MK_CELL_M); gy++)
-      jobs.push([gx, gy]);
-  return mapPool(jobs, MK_PAR, j => mkCell(kind, j[0], j[1]))
+      out.push([gx, gy]);
+  return out;
+}
+// Polygons outside the caller's exact extent come back too; they simply draw off-canvas.
+function mkFeatures(kind, bb) {
+  return mapPool(mkCellsOf(bb), MK_PAR, j => mkCell(kind, j[0], j[1]))
     .then(lists => [].concat.apply([], lists));
+}
+// What is already in hand for `bb`, without awaiting anything. Missing cells are requested in
+// the background and reported as `pending`, so the caller can draw now and come back later.
+function mkFeaturesNow(kind, bb) {
+  const features = [];
+  let pending = false;
+  for (const [gx, gy] of mkCellsOf(bb)) {
+    const key = kind + ":" + gx + ":" + gy;
+    if (mkDone.has(key)) { mkTouch(key); features.push.apply(features, mkDone.get(key)); }
+    else if (mkFresh(key)) { pending = true; mkCell(kind, gx, gy); }
+  }
+  return { features: features, pending: pending };
+}
+// A question about one point, answered with one point's worth of data. Going through mkFeatures
+// would round a 2 m box up to the enclosing 10 km cell and download megabytes to answer it — but
+// if that cell happens to be loaded already, use it and skip the request entirely.
+function mkAt(kind, x, y) {
+  const gx = Math.floor(x / MK_CELL_M), gy = Math.floor(y / MK_CELL_M);
+  const key = kind + ":" + gx + ":" + gy;
+  if (mkDone.has(key)) { mkTouch(key); return Promise.resolve(mkDone.get(key)); }
+  return mkGet(kind, mkBBox(x - 1, y - 1, x + 1, y + 1) + MK_KIND[kind].filter, 10)
+    .catch(() => []);
 }
 
 /* ---- geometry helpers: WGS84 <-> spherical Mercator, and point-in-polygon ---- */
@@ -1125,12 +1210,14 @@ const SpotLayer = L.GridLayer.extend({
       return tile;
     }
 
-    // Metsäkeskus being unreachable must leave the tile exactly as it was before this feature
-    // existed — an outage may not blank the map.
-    const cut = state.hideCut
-      ? mkFeatures("stand", bboxToTM35(bbox)).catch(() => [])
-      : Promise.resolve([]);
-    cut.then(feats => compositeMask(species.conditions(c), bbox, size.x, size.y, 0, feats)).then(off => {
+    // Draw with whatever harvest data is already in hand and hand the tile back now. Waiting for
+    // the fetch first meant every tile sat on a ~1.5 MB download before showing anything, which
+    // is what made the map feel frozen rather than merely slow — the Luke masks were ready long
+    // before. Missing cells are requested in the background and the layer is redrawn once,
+    // debounced, when they land. Metsäkeskus being unreachable simply leaves the tile as it was
+    // before this feature existed; an outage may not blank the map.
+    const cut = state.hideCut ? mkFeaturesNow("stand", bboxToTM35(bbox)) : { features: [], pending: false };
+    Promise.resolve(compositeMask(species.conditions(c), bbox, size.x, size.y, 0, cut.features)).then(off => {
       const octx = off.getContext("2d");
       octx.globalCompositeOperation = "source-in";      // recolor result
       octx.fillStyle = SPOT_COLOR;
@@ -1437,10 +1524,9 @@ async function readCutBaked(latlng) {
 
 async function readHarvest(latlng) {
   const p = toTM35(latlng.lat, latlng.lng);
-  const bb = { xmin: p.x - 1, ymin: p.y - 1, xmax: p.x + 1, ymax: p.y + 1 };
   const [stands, decls] = await Promise.all([
-    mkFeatures("stand", bb).catch(() => []),
-    mkFeatures("mki", bb).catch(() => []),
+    mkAt("stand", p.x, p.y),
+    mkAt("mki", p.x, p.y),
   ]);
   if (!stands.length && !decls.length) {
     const baked = await readCutBaked(latlng).catch(() => null);
@@ -2064,11 +2150,11 @@ async function findNearbySpots(fix) {
   return picked;
 }
 
-// One 10 km cell usually covers every candidate in the list, so this is a cached lookup after
-// the first call, not a request per spot.
+// A few kilobytes per candidate, or nothing at all where the tile layer has already loaded that
+// cell. Candidates are spread over a 50 km box, so the enclosing cells are usually *not* loaded —
+// asking for them whole would have meant megabytes per spot.
 async function spotIsCut(s) {
-  const feats = await mkFeatures("stand",
-    { xmin: s.tm.x - 1, ymin: s.tm.y - 1, xmax: s.tm.x + 1, ymax: s.tm.y + 1 }).catch(() => []);
+  const feats = await mkAt("stand", s.tm.x, s.tm.y);
   return feats.some(f => inFeature(f, s.lon, s.lat));
 }
 
@@ -2353,41 +2439,63 @@ function cutStyle(f) {
     ? { color: "#c8d3cc", weight: 1, fillColor: "#c8d3cc", fillOpacity: .34 }          // fact
     : { color: "#ff9d2e", weight: 1, dashArray: "4 3", fillColor: "#ff9d2e", fillOpacity: .16 }; // intent
 }
-function cutPopup(f, layer) {
+function cutPopupHTML(f) {
   const p = f.properties;
-  layer.bindPopup(p.DEVELOPMENTCLASS
+  return p.DEVELOPMENTCLASS
     ? "<b>Hakattu</b><br>" + (DEVCLASS_NAMES[p.DEVELOPMENTCLASS] || p.DEVELOPMENTCLASS) +
       (p.MEANAGE > 0 ? ", ikä " + p.MEANAGE + " v" : "") +
       (fiDate(p.TREESTANDDATE) ? "<br><small>tieto " + fiDate(p.TREESTANDDATE) + "</small>" : "")
     : "<b>Hakkuuaikomus</b><br>uudistushakkuu" + (p.AREA ? ", " + String(p.AREA).replace(".", ",") + " ha" : "") +
-      (fiDate(p.DECLARATIONARRIVALDATE) ? "<br><small>ilmoitettu " + fiDate(p.DECLARATIONARRIVALDATE) + "</small>" : ""));
+      (fiDate(p.DECLARATIONARRIVALDATE) ? "<br><small>ilmoitettu " + fiDate(p.DECLARATIONARRIVALDATE) + "</small>" : "");
 }
+// EPSG:3067 box covering a LatLngBounds. TM35FIN is rotated against the map's projection, so
+// all four corners are projected and the extremes taken.
+function boundsToTM35(b) {
+  let xmin = Infinity, ymin = Infinity, xmax = -Infinity, ymax = -Infinity;
+  [[b.getSouth(), b.getWest()], [b.getSouth(), b.getEast()],
+   [b.getNorth(), b.getWest()], [b.getNorth(), b.getEast()]].forEach(ll => {
+    const p = toTM35(ll[0], ll[1]);
+    xmin = Math.min(xmin, p.x); xmax = Math.max(xmax, p.x);
+    ymin = Math.min(ymin, p.y); ymax = Math.max(ymax, p.y);
+  });
+  return { xmin: xmin, ymin: ymin, xmax: xmax, ymax: ymax };
+}
+
+let cutCells = null;           // which cells the drawn overlay is built from
 async function cutRefresh() {
   if (!cutLayer || !map.hasLayer(cutLayer) || cutBusy) return;
-  cutLayer.clearLayers();
-  if (map.getZoom() < CUT_MINZOOM) return;
+  if (map.getZoom() < CUT_MINZOOM) { cutLayer.clearLayers(); cutCells = null; return; }
+  const bb = boundsToTM35(map.getBounds());
+  // Panning inside the same 10 km cells changes nothing about which polygons apply, and
+  // rebuilding them was the single most expensive thing this layer did: clearLayers() plus
+  // addData() on every moveend meant tearing down and recreating ~1 200 polygons per pan.
+  const cells = mkCellsOf(bb).map(c => c.join(",")).join(";");
+  if (cells === cutCells) return;
   cutBusy = true;
   try {
-    const b = map.getBounds();
-    let xmin = Infinity, ymin = Infinity, xmax = -Infinity, ymax = -Infinity;
-    [[b.getSouth(), b.getWest()], [b.getSouth(), b.getEast()],
-     [b.getNorth(), b.getWest()], [b.getNorth(), b.getEast()]].forEach(ll => {
-      const p = toTM35(ll[0], ll[1]);
-      xmin = Math.min(xmin, p.x); xmax = Math.max(xmax, p.x);
-      ymin = Math.min(ymin, p.y); ymax = Math.max(ymax, p.y);
-    });
-    const bb = { xmin: xmin, ymin: ymin, xmax: xmax, ymax: ymax };
     // declarations first so the stand polygons draw over them where both apply
     const lists = await Promise.all([mkFeatures("mki", bb), mkFeatures("stand", bb)]);
-    if (map.hasLayer(cutLayer))
+    if (map.hasLayer(cutLayer)) {
+      cutLayer.clearLayers();
       cutLayer.addData({ type: "FeatureCollection", features: lists[0].concat(lists[1]) });
-  } catch (e) { /* Metsäkeskus unreachable: the overlay just stays empty */ }
+      cutCells = cells;        // only on success, so a failed fetch is retried on the next move
+    }
+  } catch (e) { /* Metsäkeskus unreachable: the overlay just stays as it was */ }
   finally { cutBusy = false; }
 }
 document.getElementById("chkCutLayer").addEventListener("change", e => {
   if (e.target.checked) {
-    cutLayer = cutLayer || L.geoJSON(null, { style: cutStyle, onEachFeature: cutPopup });
+    // A canvas renderer rather than the default SVG one: this layer routinely holds over a
+    // thousand polygons with tens of thousands of vertices between them, and one <path> element
+    // each is what made the map unusable on a phone. One shared popup rather than one bound per
+    // feature, for the same reason — bindPopup builds a Popup instance immediately.
+    cutLayer = cutLayer || L.geoJSON(null, { style: cutStyle, renderer: L.canvas({ padding: 0.3 }) })
+      .on("click", ev => {
+        if (!ev.layer || !ev.layer.feature) return;
+        L.popup().setLatLng(ev.latlng).setContent(cutPopupHTML(ev.layer.feature)).openOn(map);
+      });
     cutLayer.addTo(map);
+    cutCells = null;
     cutRefresh();
   } else if (cutLayer) map.removeLayer(cutLayer);
 });
