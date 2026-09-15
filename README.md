@@ -131,9 +131,11 @@ oletusikä on 60 v — se puolittaa värjätyn pinta-alan osuvuuden kärsimätt�
   yhdellä napautuksella. Kartan otsikko, selite ja tietosivu vaihtuvat mukana.
 - 🔎 **Haku**: paikannimet ja osoitteet (Nominatim / OpenStreetMap) sekä
   koordinaatit joko asteina tai ETRS-TM35FIN-metreinä.
-- 📍 **Lähellä sinua**: kun sijainti on sallittu, tyhjä hakukenttä näyttää kolme
-  lähintä käymisen arvoista kuviota — ks. alla. Heti kun alat kirjoittaa, lista
-  väistyy hakutulosten tieltä.
+- 📍 **Lähellä sinua**: tyhjä hakukenttä näyttää kolme lähintä käymisen arvoista
+  kuviota — ks. alla. Sijaintilupaa ei tarvita: ilman sitä lista etsii kartan
+  keskipisteen ympäriltä, eli siitä mitä ruudulla juuri nyt katsoo, ja seuraa
+  karttaa kun sitä siirtää. Sijainnin voi ottaa käyttöön listan alta. Heti kun alat
+  kirjoittaa, lista väistyy hakutulosten tieltä.
 - 📍 **GPS-piste** joka seuraa laitteen sijaintia (seuranta katkeaa kun karttaa
   raahaa, palaa päälle napista)
 - 🗺️ **Sienitaso**: 3–5 WMS-rasterimaskia yhdistetään selaimessa
@@ -179,7 +181,8 @@ kuvan ja lukee pikselin läpinäkyvyydestä, täyttyykö ehto.
 
 ### Mikä on "kuvio" ja milloin se on käymisen arvoinen
 
-**Lähellä sinua** -lista tekee rasterista paikkoja. Se hakee samat maskit kerran
+**Lähellä sinua** -lista tekee rasterista paikkoja. Kiintopiste on GPS-sijainti
+jos sellainen on, muuten kartan keskipiste. Lista hakee samat maskit kerran
 25 km säteeltä (yksi kuva ehtoa kohden, 32 m ruutu — sama tulos kuin 16 m:llä,
 neljäsosa datasta), yhdistää ne kuten karttataso, ja etsii yhtenäiset kuviot.
 **Kuvio on yksi yhtenäinen sienimetsä:** 8-naapuruudessa kiinni oleva alue,
