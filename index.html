@@ -608,7 +608,7 @@ const MK_MAX = 4000;           // per cell; ~300 declarations / ~600 young stand
    The same constant gates the drawn "Hakkuut" overlay, which has always had this floor. */
 const MK_MINZOOM = 11;
 const MK_PAR = 4;
-const mkGate = gate(MK_PAR);   // shared by cell fetches and point queries alike
+const mkGate = gate(MK_PAR);   // shared by cell fetches and point queries, which rank ahead
 const MK_TIMEOUT_MS = 9000;
 // A 10 km cell of stands is 811 features and 2.0 MB if the server is allowed to send all 40 of
 // its columns, of which this app reads four. `propertyName` cuts that to 1.47 MB, and the same
@@ -664,7 +664,7 @@ function mkTouch(key) {        // Map preserves insertion order: re-insert to ma
   }
 }
 
-function mkGet(kind, cql, count) {
+function mkGet(kind, cql, count, opt) {
   const k = MK_KIND[kind];
   const url = MK_WFS + "?service=WFS&version=2.0.0&request=GetFeature" +
     "&typeNames=" + encodeURIComponent(k.type) +
@@ -679,7 +679,7 @@ function mkGet(kind, cql, count) {
       .then(r => r.ok ? r.json() : Promise.reject(new Error("metsakeskus " + r.status)))
       .then(j => j.features || [])
       .finally(() => clearTimeout(timer));
-  });
+  }, opt);
 }
 const mkBBox = (x0, y0, x1, y1) =>
   "BBOX(GEOMETRY," + x0 + "," + y0 + "," + x1 + "," + y1 + ",'EPSG:3067')";
@@ -740,7 +740,9 @@ function mkAt(kind, x, y) {
   const gx = Math.floor(x / MK_CELL_M), gy = Math.floor(y / MK_CELL_M);
   const key = kind + ":" + gx + ":" + gy;
   if (mkDone.has(key)) { mkTouch(key); return Promise.resolve(mkDone.get(key)); }
-  return mkGet(kind, mkBBox(x - 1, y - 1, x + 1, y + 1) + MK_KIND[kind].filter, 10)
+  // `first`, the same way Luke's queue ranks a tap or a scan: a point query is a question somebody
+  // is waiting on, and one 10 km cell of speculative tile work ahead of it is seconds of nothing.
+  return mkGet(kind, mkBBox(x - 1, y - 1, x + 1, y + 1) + MK_KIND[kind].filter, 10, { first: true })
     .catch(() => []);
 }
 
@@ -2127,9 +2129,10 @@ function initSearch() {
    ml/pick_sites.py and parseCoords already use. */
 // `seq` stands in for an AbortController: an Image load cannot be cancelled, so a scan that is
 // no longer the current one is dropped when it lands rather than stopped in flight.
-const nearby = { key: null, spots: null, seq: 0, geocoding: false, anchor: null };
+const nearby = { key: null, spots: null, seq: 0, geocoding: false, anchor: null, paint: null, scanning: null };
 
-function clearNearby() { nearby.key = null; nearby.spots = null; nearby.anchor = null; }
+// a scan in flight is abandoned rather than awaited: whatever it was computing is now stale
+function clearNearby() { nearby.key = null; nearby.spots = null; nearby.anchor = null; nearby.scanning = null; }
 function nearbyWaiting() {
   return !!search.panel && search.panel.classList.contains("open") && !search.input.value.trim();
 }
@@ -2166,7 +2169,7 @@ function scanCellLatLng(geom, ix, iy) {
 
 // the composite, as one byte per cell. Luke's masks are 1-bit, so >= 128 is exact, not a guess.
 async function scanMask(geom, species, c) {
-  // `first`: somebody pressed a button and is waiting, so the scan goes ahead of tile work
+  // `first`: the panel is open and somebody is waiting on it, so the scan goes ahead of tile work
   const off = await compositeMask(species.conditions(c), geom.bbox, geom.N, geom.N, null, { first: true });
   const px = off.getContext("2d").getImageData(0, 0, geom.N, geom.N).data;
   const mask = new Uint8Array(geom.N * geom.N);
@@ -2401,6 +2404,7 @@ async function renderNearby() {
   const locate = gps || at.reason === "unsupported" ? [] :
     [nearbyNotice("📍 Näytä omalta sijainnilta", () => { search.input.focus(); startGps(); })];
   const paint = nodes => paintNearby(nearbySection(title, nodes.concat(locate), sub));
+  nearby.paint = paint;   // the name queue repaints through the newest one, never a captured one
 
   if (at.wide)
     return paint([nearbyNotice("Zoomaa lähemmäs — lista etsii " + (NEARBY_RADIUS_M / 1000) +
@@ -2412,26 +2416,41 @@ async function renderNearby() {
   if (nearby.key === key && nearby.spots) {
     // distance and bearing are recomputed from the current anchor, so a cached list never shows
     // stale kilometres to someone who has walked, or panned, since
-    return paint(nearby.spots.map(s => nearbyRow(s, at)));
+    paint(nearby.spots.map(s => nearbyRow(s, at)));
+    return geocodeNearby(nearby.spots);   // rows still without a name are owed one
   }
   paint([nearbyNotice("Etsitään lähimpiä metsiä…")]);
+
+  /* A scan is identified by the place it is scanning, never by the repaint counter. A GPS watch
+     repaints the open panel about once a second, and every repaint bumped `seq`: the scan in
+     flight was cancelled when it landed and a fresh one started behind it, so the list sat on
+     "Etsitään…" for as long as the panel stayed open — five full-size WMS reads a second
+     behind it, against a queue main sizes for six. Ticks that land on the same square now ride
+     the scan already running, and the paint above is what they are here for anyway. */
+  if (nearby.scanning === key) return;
+  nearby.scanning = key;
 
   let spots;
   try {
     spots = await findNearbySpots(at);
   } catch (e) {
-    if (seq === nearby.seq && nearbyWaiting())
-      paint([nearbyNotice("Metsätietoa ei juuri nyt saatu — kokeile hetken päästä.")]);
+    if (nearby.scanning !== key) return;               // a different place is being scanned now
+    nearby.scanning = null;
+    if (nearbyWaiting())
+      nearby.paint([nearbyNotice("Metsätietoa ei juuri nyt saatu — kokeile hetken päästä.")]);
     return;
   }
-  if (seq !== nearby.seq) return;
+  if (nearby.scanning !== key) return;
+  nearby.scanning = null;
   nearby.key = key; nearby.spots = spots;
   if (!nearbyWaiting()) return;
+  // from here on the repaint is `nearby.paint`, not this render's: a scan outlives the repaint
+  // that started it, and the heading and distances belong to whichever anchor is current now
   if (!spots.length)
-    return paint([nearbyNotice("Ei yli " + MIN_SPOT_HA + " ha:n yhtenäisiä alueita " +
+    return nearby.paint([nearbyNotice("Ei yli " + MIN_SPOT_HA + " ha:n yhtenäisiä alueita " +
       (NEARBY_RADIUS_M / 1000) + " km säteellä — löysää suodattimia asetuksista.")]);
-  paint(spots.map(s => nearbyRow(s, at)));
-  geocodeNearby(spots, seq, at, paint);
+  nearby.paint(spots.map(s => nearbyRow(s, nearby.anchor)));
+  geocodeNearby(spots);
 }
 
 /* A view-anchored list follows the map, but a scan is five full-size reads off Luke's GeoServer,
@@ -2449,20 +2468,34 @@ function nearbyFollowMap() {
 }
 
 /* Names, filled in after the rows are already on screen — the list must never wait on the
-   network. `paint` is renderNearby's own repaint, closed over the heading and the location row,
-   so a row that gains a name cannot silently lose the rest of the section around it.
+   network. It repaints through `nearby.paint`, renderNearby's own repaint closed over the heading
+   and the location row, so a row that gains a name cannot silently lose the section around it and
+   a name landing late is still drawn from the newest anchor.
+
+   What makes this queue current is the spot array it was handed, not `nearby.seq`: seq counts
+   repaints, and with GPS on the watch repaints the open panel every second or so. Aborting on seq
+   meant a phone with a live fix fetched one name and then kept bearings for the other two — the
+   cached-list path never restarts the queue. The array only changes when a new scan replaces it,
+   which is exactly when these names stop being the ones on screen.
+
    Nominatim allows one request a second, so these go out one at a time; zoom 14 asks
    for the village rather than the municipality, and where that still comes back the same for two
    spots the row keeps its distance-and-bearing title instead of repeating a name. */
-async function geocodeNearby(spots, seq, at, paint) {
-  if (nearby.geocoding) return;                       // one queue at a time, however often we repaint
+async function geocodeNearby(spots) {
+  if (!spots.some(s => s.name === null)) return;      // the common case: a repaint with every name in
+  // A queue from a superseded scan notices and stops within one courtesy pause. Waiting it out
+  // beats returning: these rows would otherwise keep their bearings until the next scan.
+  while (nearby.geocoding) {
+    if (spots !== nearby.spots) return;
+    await new Promise(res => setTimeout(res, 200));
+  }
   const todo = spots.filter(s => s.name === null);    // `null` = not asked yet, "" = asked, no usable name
   if (!todo.length) return;
   nearby.geocoding = true;
   try {
     const seen = new Set(spots.map(s => s.name).filter(Boolean));
     for (const s of todo) {
-      if (seq !== nearby.seq) return;
+      if (spots !== nearby.spots) return;
       try {
         const r = await fetch("https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=14" +
           "&accept-language=fi&lat=" + s.lat.toFixed(5) + "&lon=" + s.lon.toFixed(5),
@@ -2476,7 +2509,8 @@ async function geocodeNearby(spots, seq, at, paint) {
         s.name = seen.has(title) ? "" : title;
         if (title) seen.add(title);
       } catch (e) { s.name = ""; }
-      if (seq === nearby.seq && nearbyWaiting()) paint(spots.map(x => nearbyRow(x, at)));
+      if (spots === nearby.spots && nearbyWaiting())
+        nearby.paint(spots.map(x => nearbyRow(x, nearby.anchor)));
       await new Promise(res => setTimeout(res, 1100));   // Nominatim: at most one request a second
     }
   } finally { nearby.geocoding = false; }
