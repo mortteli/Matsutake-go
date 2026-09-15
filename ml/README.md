@@ -16,6 +16,17 @@ python ml/predict.py --species matsutake   # full-Finland inference -> probabili
 python ml/export_app.py --species matsutake --split 3   # -> data/matsutake/*.tif + prob_meta.json
 ```
 
+Terrain for the app's tap readout — independent of any species, run once:
+
+```
+python ml/build_dem16.py                  # MML 10 m -> ml/data/rasters/dem_16m.tif (once, slow)
+python ml/export_terrain.py --downsample 4  # -> data/terrain/*.tif + terrain_meta.json
+```
+
+Without `data/terrain/` the app falls back to Open-Meteo's elevation API for the slope in the
+result sheet: one live request per tap, answered from a ~90 m DEM where the model used 10 m.
+With it, a tap costs no external call at all and the slope shown is the slope the model scored.
+
 Choosing what the map is made of
 
 ```

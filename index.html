@@ -319,7 +319,8 @@
   </div>
   <div class="row">
     <label>Piilota hakatut kuviot<br><small>Metsäkeskuksen kuviotiedon aukeat ja taimikot
-      pois — Luken aineisto näyttää ne yhä hakkuuta edeltävänä metsänä</small></label>
+      pois — Luken aineisto näyttää ne yhä hakkuuta edeltävänä metsänä. Korjaus on käytössä
+      lähietäisyydellä (zoom 11+), jolla kuviot ylipäätään erottuvat.</small></label>
     <label class="switch"><input type="checkbox" id="chkHideCut"><i></i></label>
   </div>
 
@@ -455,7 +456,6 @@ const NEARBY_SEP_M    = 2500;   // so the three picks are three forests, not thr
 const NEARBY_N        = 3;
 const NEARBY_CUT_CHECKS = 40;   // ceiling on candidates verified against Metsäkeskus, so a region
                                 // where everything has been cut cannot turn into a request storm
-const NEARBY_PAR      = 3;      // concurrent mask loads; Luke's GeoServer caps a user at 6
 const FIX_MAX_AGE_MS  = 5 * 60 * 1000;
 const DIR8 = ["pohjoiseen","koilliseen","itään","kaakkoon","etelään","lounaaseen","länteen","luoteeseen"];
 
@@ -498,6 +498,52 @@ function wmsURL(layerName, sld, bbox, w, h) {
     "&format=image/png&transparent=true" +
     "&SLD_BODY=" + encodeURIComponent(sld);
 }
+function newCanvas(w, h) {
+  const cv = document.createElement("canvas");
+  cv.width = w; cv.height = h;
+  return cv;
+}
+
+/* ================= request budgets =================
+   One queue per external service, shared by every call site, so how many connections the app
+   opens to a server is a property of the app and not of whichever feature happens to be running.
+   Per-call pooling is not enough: the tile layer, the tap probes and the "lähellä sinua" scan can
+   all be in flight at once, and three independently pooled paths add up to three times the budget
+   they each think they are keeping.
+
+   `run(fn, opt)` calls `fn` only once a slot is free — the request is not merely awaited late, it
+   is *made* late, which is the whole point. Two options shape the queue:
+
+     first  jump the line. A tap and a scan are somebody waiting with a finger on the screen;
+            tiles are speculative work the map decided to do. Without this a tap would queue
+            behind a whole pan's worth of tiles.
+     alive  a predicate re-checked at the head of the queue. A tile that has been panned off the
+            screen before its turn comes costs nothing: `run` drops it with DROPPED instead of
+            spending a slot on an image nobody will see. */
+const DROPPED = new Error("dropped");
+function gate(limit) {
+  const waiting = [];
+  let active = 0;
+  const pump = () => {
+    while (active < limit && waiting.length) {
+      const job = waiting.shift();
+      if (job.alive && !job.alive()) { job.rej(DROPPED); continue; }
+      active++;
+      Promise.resolve().then(job.fn).then(job.res, job.rej)
+        .then(() => { active--; pump(); });
+    }
+  };
+  return (fn, opt) => new Promise((res, rej) => {
+    const job = { fn, res, rej, alive: opt && opt.alive };
+    if (opt && opt.first) waiting.unshift(job); else waiting.push(job);
+    pump();
+  });
+}
+// Luke's GeoServer answers with `x-concurrent-limit-user: 6`; stay one under it so a basemap or
+// helper overlay sharing the connection pool cannot push the app over the line.
+const LUKE_PAR = 5;
+const lukeGate = gate(LUKE_PAR);
+
 function loadImg(url) {
   return new Promise((res, rej) => {
     const img = new Image();
@@ -507,21 +553,8 @@ function loadImg(url) {
     img.src = url;
   });
 }
-function newCanvas(w, h) {
-  const cv = document.createElement("canvas");
-  cv.width = w; cv.height = h;
-  return cv;
-}
-// Promise.all with a ceiling on how many run at once. Luke's GeoServer answers with
-// `x-concurrent-limit-user: 6`, and the tile layer is usually already spending those.
-function mapPool(items, limit, fn) {
-  if (!(limit > 0) || limit >= items.length) return Promise.all(items.map(fn));
-  const out = new Array(items.length);
-  let next = 0;
-  const worker = () => next >= items.length ? Promise.resolve() : (i => Promise
-    .resolve(fn(items[i], i)).then(v => { out[i] = v; return worker(); }))(next++);
-  return Promise.all(Array.from({ length: limit }, worker)).then(() => out);
-}
+// every Luke WMS image the app asks for, from every call site, goes through here
+const loadMask = (url, opt) => lukeGate(() => loadImg(url), opt);
 /* ================= Metsäkeskus: the forest that is no longer there =================
    Luke's MVMI is a snapshot. A stand clear-cut after MVMI_EFFECTIVE still reads as whatever it
    was before the machines came, and because regeneration cutting targets *old* stands, the error
@@ -559,7 +592,15 @@ const MK_REGEN = 3;            // CUTTINGPURPOSE: uudistushakkuu. 1 (kasvatushak
 const MK_CELL_M = 10000;       // fetch by 10 km cell, not by tile: a z13 tile is ~4.9 km, so one
                                // request serves many tiles and panning stays free
 const MK_MAX = 4000;           // per cell; ~300 declarations / ~600 young stands is typical
+/* Below this zoom the app does not ask Metsäkeskus anything at all. One screen is then a whole
+   region: a 10 km cell is a few pixels across, a clear-cut stand is well under one, and the
+   correction cannot change a pixel it is smaller than. It is also the difference between a
+   handful of requests and a flood — a zoom-5 tile spans some 600 km, so enumerating its 10 km
+   cells asks for thousands of cells for one tile, and the map builds dozens of tiles at a time.
+   The same constant gates the drawn "Hakkuut" overlay, which has always had this floor. */
+const MK_MINZOOM = 11;
 const MK_PAR = 4;
+const mkGate = gate(MK_PAR);   // shared by cell fetches and point queries alike
 const MK_TIMEOUT_MS = 9000;
 // A 10 km cell of stands is 811 features and 2.0 MB if the server is allowed to send all 40 of
 // its columns, of which this app reads four. `propertyName` cuts that to 1.47 MB, and the same
@@ -622,12 +663,15 @@ function mkGet(kind, cql, count) {
     "&propertyName=" + encodeURIComponent(k.props) +
     "&srsName=EPSG:4326&outputFormat=application/json&count=" + (count || MK_MAX) +
     "&CQL_FILTER=" + encodeURIComponent(cql);
-  const ctl = new AbortController();
-  const timer = setTimeout(() => ctl.abort(), MK_TIMEOUT_MS);
-  return fetch(url, { signal: ctl.signal })
-    .then(r => r.ok ? r.json() : Promise.reject(new Error("metsakeskus " + r.status)))
-    .then(j => j.features || [])
-    .finally(() => clearTimeout(timer));
+  // the timeout starts when the request does, not when it is queued
+  return mkGate(() => {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), MK_TIMEOUT_MS);
+    return fetch(url, { signal: ctl.signal })
+      .then(r => r.ok ? r.json() : Promise.reject(new Error("metsakeskus " + r.status)))
+      .then(j => j.features || [])
+      .finally(() => clearTimeout(timer));
+  });
 }
 const mkBBox = (x0, y0, x1, y1) =>
   "BBOX(GEOMETRY," + x0 + "," + y0 + "," + x1 + "," + y1 + ",'EPSG:3067')";
@@ -666,7 +710,7 @@ function mkCellsOf(bb) {
 }
 // Polygons outside the caller's exact extent come back too; they simply draw off-canvas.
 function mkFeatures(kind, bb) {
-  return mapPool(mkCellsOf(bb), MK_PAR, j => mkCell(kind, j[0], j[1]))
+  return Promise.all(mkCellsOf(bb).map(j => mkCell(kind, j[0], j[1])))
     .then(lists => [].concat.apply([], lists));
 }
 // What is already in hand for `bb`, without awaiting anything. Missing cells are requested in
@@ -740,14 +784,16 @@ function inFeature(f, lon, lat) {
 }
 
 /* One binary mask per condition member, OR'd inside a condition and AND'd across them — the
-   whole map in one function, so the tile layer and the nearby scan cannot drift apart. Returns
+   whole map in one function, so the tile layer and the nearby scan cannot drift apart. Every
+   member goes out through `loadMask`, so a caller cannot choose its own concurrency: `opt` only
+   says how this batch is ranked in the shared Luke queue ({ first, alive }, see `gate`). Returns
    an *uncoloured* canvas: the answer is in its alpha channel. Luke serves 1-bit paletted PNGs
    and resamples nearest-neighbour, so as long as nothing is scaled on the way in, every pixel
    of the result is alpha 0 or 255. */
-function compositeMask(groups, bbox, w, h, limit, cut) {
+function compositeMask(groups, bbox, w, h, cut, opt) {
   const jobs = [];
   groups.forEach((g, gi) => g.forEach(m => jobs.push({ gi, url: wmsURL(m.layer, m.sld, bbox, w, h) })));
-  return mapPool(jobs, limit, j => loadImg(j.url)).then(imgs => {
+  return Promise.all(jobs.map(j => loadMask(j.url, opt))).then(imgs => {
     const byGroup = groups.map(() => []);
     jobs.forEach((j, i) => byGroup[j.gi].push(imgs[i]));
     // OR inside a group
@@ -1194,6 +1240,12 @@ load();
    (a condition with several members is unioned first) and keep only the
    pixels present in ALL conditions. */
 const SpotLayer = L.GridLayer.extend({
+  initialize(options) {
+    L.GridLayer.prototype.initialize.call(this, options);
+    // An Image load cannot be cancelled, but a queued one has not started yet: mark the tile so
+    // the Luke queue can drop whatever of it is still waiting when Leaflet throws it away.
+    this.on("tileunload", e => { e.tile._dead = true; });
+  },
   createTile(coords, done) {
     const tile = document.createElement("canvas");
     const size = this.getTileSize();
@@ -1216,8 +1268,10 @@ const SpotLayer = L.GridLayer.extend({
     // before. Missing cells are requested in the background and the layer is redrawn once,
     // debounced, when they land. Metsäkeskus being unreachable simply leaves the tile as it was
     // before this feature existed; an outage may not blank the map.
-    const cut = state.hideCut ? mkFeaturesNow("stand", bboxToTM35(bbox)) : { features: [], pending: false };
-    Promise.resolve(compositeMask(species.conditions(c), bbox, size.x, size.y, 0, cut.features)).then(off => {
+    const cut = state.hideCut && coords.z >= MK_MINZOOM
+      ? mkFeaturesNow("stand", bboxToTM35(bbox)) : { features: [], pending: false };
+    compositeMask(species.conditions(c), bbox, size.x, size.y, cut.features,
+                  { alive: () => !tile._dead }).then(off => {
       const octx = off.getContext("2d");
       octx.globalCompositeOperation = "source-in";      // recolor result
       octx.fillStyle = SPOT_COLOR;
@@ -1228,7 +1282,7 @@ const SpotLayer = L.GridLayer.extend({
         for (let dy = -1; dy <= 1; dy++)
           ctx.drawImage(off, dx, dy);
       done(null, tile);
-    }).catch(err => done(err, tile));
+    }).catch(err => done(err === DROPPED ? null : err, tile));
     return tile;
   }
 });
@@ -1248,7 +1302,10 @@ const basemaps = {
 };
 let currentBasemap = basemaps.osm.addTo(map);
 
-const spots = new SpotLayer({ opacity: state.opacity, maxZoom: 19 }).addTo(map);
+// keepBuffer 1 rather than Leaflet's 2: an ordinary tile costs one cached image, one of these
+// costs up to seven WMS requests, so a two-tile ring of off-screen work is proportionally far
+// more expensive here than it is for a basemap.
+const spots = new SpotLayer({ opacity: state.opacity, maxZoom: 19, keepBuffer: 1 }).addTo(map);
 spots.on("loading", () => document.getElementById("spinner").classList.add("on"));
 spots.on("load",    () => document.getElementById("spinner").classList.remove("on"));
 
@@ -1475,20 +1532,37 @@ function fromTM35(x, y) {
     + (5 - 2 * C1 + 28 * T1 - 3 * C1 * C1 + 8 * ep2 + 24 * T1 * T1) * D ** 5 / 120) / cos;
   return [phi * 180 / Math.PI, lam * 180 / Math.PI];
 }
+/* ---- reading a baked EPSG:3067 COG at a point ----
+   The score, the cut layer and the terrain layer are three products on the same grid in the same
+   format, split into parts the same way, so they are read by the same two functions rather than
+   by three copies of this loop. `pad` widens the read to the (2·pad+1)² block around the point —
+   one range request either way, since a COG tile holds far more than nine pixels — and is clamped
+   to the part, so a point on a seam still returns a full block rather than throwing. */
+async function readBlockAt(rasters, x, y, pad) {
+  const p = pad || 0, n = 2 * p + 1;
+  for (const gr of rasters) {
+    if (!gr || x < gr.xmin || x > gr.xmax || y < gr.ymin || y > gr.ymax) continue;
+    const col = Math.floor((x - gr.xmin) / gr.pixelWidth), row = Math.floor((gr.ymax - y) / gr.pixelHeight);
+    const left = Math.min(Math.max(col - p, 0), Math.max(0, gr.width - n));
+    const top  = Math.min(Math.max(row - p, 0), Math.max(0, gr.height - n));
+    try {
+      const v = await gr.getValues({ left, top, right: left + n, bottom: top + n, width: n, height: n });
+      return v[0];                                  // band 0, as [row][col]
+    } catch (e) { return null; }
+  }
+  return null;
+}
+async function readValueAt(rasters, x, y) {
+  const b = await readBlockAt(rasters, x, y, 0);
+  return b ? b[0][0] : null;
+}
+
 // model score at a point (null if the layer is not loaded or the point is outside the rasters)
 async function readProb(latlng) {
   if (!prob.rasters.length || !prob.meta) return null;
   const { x, y } = toTM35(latlng.lat, latlng.lng);
-  for (const gr of prob.rasters) {
-    if (x < gr.xmin || x > gr.xmax || y < gr.ymin || y > gr.ymax) continue;
-    const col = Math.floor((x - gr.xmin) / gr.pixelWidth), row = Math.floor((gr.ymax - y) / gr.pixelHeight);
-    try {
-      const v = await gr.getValues({ left: col, top: row, right: col + 1, bottom: row + 1, width: 1, height: 1 });
-      const val = v[0][0][0];
-      return (val == null || val === prob.meta.nodata) ? null : val;
-    } catch (e) { return null; }
-  }
-  return null;
+  const val = await readValueAt(prob.rasters, x, y);
+  return (val == null || val === prob.meta.nodata) ? null : val;
 }
 
 /* What Metsäkeskus knows about the stand under a point, in the two flavours the map has to keep
@@ -1510,16 +1584,8 @@ const fiDate = s => {
 async function readCutBaked(latlng) {
   if (!prob.cut.length) return null;
   const { x, y } = toTM35(latlng.lat, latlng.lng);
-  for (const gr of prob.cut) {
-    if (x < gr.xmin || x > gr.xmax || y < gr.ymin || y > gr.ymax) continue;
-    const col = Math.floor((x - gr.xmin) / gr.pixelWidth), row = Math.floor((gr.ymax - y) / gr.pixelHeight);
-    try {
-      const v = await gr.getValues({ left: col, top: row, right: col + 1, bottom: row + 1, width: 1, height: 1 });
-      const val = v[0][0][0];
-      return val === 2 ? "cut" : val === 1 ? "declared" : null;
-    } catch (e) { return null; }
-  }
-  return null;
+  const val = await readValueAt(prob.cut, x, y);
+  return val === 2 ? "cut" : val === 1 ? "declared" : null;
 }
 
 async function readHarvest(latlng) {
@@ -1647,17 +1713,27 @@ map.on("dragstart", () => { if (follow) stopGps(); });
 /* ================= tap to inspect =================
    The WMS reprojection blends a gray-ramp value readout, so instead we
    probe with the same crisp values/intervals masks the map layer uses:
-   a probe is "true" when the styled pixel under the point is opaque. */
-async function probe(layerName, sld, latlng) {
+   a probe is "true" when the styled pixel under the point is opaque.
+
+   A tap asks a dozen or more of these at once, so two rules keep it civil. Every probe goes out
+   through the same Luke queue as the map tiles — but ahead of them, because a tap is somebody
+   waiting. And every probe is remembered for the duration of the tap that asked: the same
+   question about the same point is put to the server exactly once, however many readouts want
+   the answer. The memo is dropped when the next tap starts, so it never answers for a stale
+   point, and a failed probe stays failed for that one tap rather than being retried per caller. */
+let probeMemo = new Map();
+function probe(layerName, sld, latlng) {
   const p = L.CRS.EPSG3857.project(latlng);
   const half = 24;
   const bbox = [p.x - half, p.y - half, p.x + half, p.y + half];
-  const img = await loadImg(wmsURL(layerName, sld, bbox, 3, 3));
-  const c = document.createElement("canvas");
-  c.width = 3; c.height = 3;
-  const ctx = c.getContext("2d");
-  ctx.drawImage(img, 0, 0);
-  return ctx.getImageData(1, 1, 1, 1).data[3] >= 200;
+  const url = wmsURL(layerName, sld, bbox, 3, 3);
+  let hit = probeMemo.get(url);
+  if (!hit) probeMemo.set(url, hit = loadMask(url, { first: true }).then(img => {
+    const ctx = newCanvas(3, 3).getContext("2d");
+    ctx.drawImage(img, 0, 0);
+    return ctx.getImageData(1, 1, 1, 1).data[3] >= 200;
+  }));
+  return hit;
 }
 const probeValues = (layer, values, ll) =>
   probe(layer, maskValues(layer, values), ll).catch(() => null);
@@ -1682,39 +1758,117 @@ async function readBracket(layerName, steps, latlng) {
   if (lo == null) return hits[0] === false ? { below: steps[0] } : null;
   return { lo, hi };
 }
+/* The value interval a bracket pins down, and the interval a metric accepts, in one shape:
+   `value ∈ (gt, le]`. Both masks are built on the same half-open intervals (maskMin is
+   (limit, 255], maskRange is (lo, limit]), so the comparison below is exact, not an
+   approximation — and the raster is unsigned bytes, which is what makes -1 a true lower bound. */
+const bracketInterval = b => b == null ? null :
+  b.below != null ? { gt: -1, le: b.below } : { gt: b.lo, le: b.hi == null ? Infinity : b.hi };
+const metricBand = m => m.dir === "range" ? { gt: m.lo, le: m.limit }
+                                          : { gt: m.limit, le: Infinity };
+/* Does the bracket already settle "does this point clear the metric"?
+   true / false when the bracket's interval falls wholly inside or wholly outside the band, null
+   when there is no data to judge (another request would only ask the same unanswerable question),
+   and undefined when it is genuinely open — which happens only where the user's limit sits
+   strictly between two of the fixed steps. Every other case is an answer the bracket already
+   paid for, and the pass/fail probe that used to be fired alongside it is pure duplication. */
+function bracketVerdict(band, b) {
+  const iv = bracketInterval(b);
+  if (!iv) return null;
+  if (iv.gt >= band.gt && iv.le <= band.le) return true;
+  if (iv.le <= band.gt || iv.gt >= band.le) return false;
+  return undefined;
+}
 // one metric: does any of its alternative layers clear the threshold?
 async function readMetric(m, latlng) {
+  const band = metricBand(m);
   const alts = await Promise.all(m.any.map(async a => {
-    const [pass, val] = await Promise.all([
-      m.dir === "range" ? probeRange(a.layer, m.lo, m.limit, latlng)
-                        : probeMin(a.layer, m.limit, latlng),
-      readBracket(a.layer, m.steps, latlng),
-    ]);
+    const val = await readBracket(a.layer, m.steps, latlng);
+    const known = bracketVerdict(band, val);
+    const pass = known !== undefined ? known
+      : await (m.dir === "range" ? probeRange(a.layer, m.lo, m.limit, latlng)
+                                 : probeMin(a.layer, m.limit, latlng));
     return { label: a.label || m.label, pass, val };
   }));
   return { m, alts, ok: alts.some(a => a.pass === true) };
 }
 
-async function readSlope(latlng) {
-  // sample 4 points ±100 m N/S/E/W via Open-Meteo (Copernicus DEM ~30 m)
+/* ================= slope and aspect =================
+   Baked when the site publishes it, live only when it does not.
+
+   The baked layer is the MML 10 m elevation model that ml/build_dem16.py already warps onto the
+   16 m analysis grid for training, exported by ml/export_terrain.py and read with range requests
+   exactly like the probability raster. It answers a tap with no external call at all, it makes
+   the slope in the sheet the same slope the model scored, and it is the last piece the result
+   sheet needed to work with every live API blocked.
+
+   Open-Meteo remains the fallback for a deployment that has not run the export. It is one
+   request per tap, well inside its free tier — but it serves Copernicus GLO-90, so it describes
+   ~90 m of ground where the model used 10 m, and the two can honestly disagree. */
+const terrain = { meta: null, load: null, parts: [] };
+const TERRAIN_META = "data/terrain/terrain_meta.json";
+const SLOPE_TIMEOUT_MS = 6000;
+
+// null (once, cached) when no terrain layer is published — the fallback is then permanent and
+// costs no repeated 404
+function terrainReady() {
+  if (!terrain.load) terrain.load = fetch(TERRAIN_META)
+    .then(r => r.ok ? r.json() : Promise.reject(new Error("no terrain layer")))
+    .then(m => ensureGeoraster().then(() => {
+      terrain.meta = m;
+      terrain.parts = m.files.map(() => null);
+      return m;
+    }))
+    .catch(() => null);
+  return terrain.load;
+}
+// parts are parsed on demand: a tap needs the one part it lands in, not all nine headers
+function terrainPart(meta, i) {
+  if (!terrain.parts[i])
+    terrain.parts[i] = parseGeoraster(new URL(meta.files[i].url, location.href).href).catch(() => null);
+  return terrain.parts[i];
+}
+/* Downslope gradient -> what the sheet shows. `gx` is the eastward and `gy` the *southward*
+   derivative in metres per metre, which is the orientation ml/features.py's np.gradient uses when
+   it builds the model's own slope and aspect features — one convention, two call sites. */
+function slopeOf(gx, gy) {
+  const bearing = (Math.atan2(-gx, gy) * 180 / Math.PI + 360) % 360;   // downslope, 0 = north
+  return { deg: Math.atan(Math.hypot(gx, gy)) * 180 / Math.PI, dir: DIR8[Math.round(bearing / 45) % 8] };
+}
+async function readSlopeBaked(meta, latlng) {
+  const { x, y } = toTM35(latlng.lat, latlng.lng);
+  const i = meta.files.findIndex(f => x >= f.bounds[0] && x <= f.bounds[2] &&
+                                      y >= f.bounds[1] && y <= f.bounds[3]);
+  if (i < 0) return null;                                   // sea, or outside the published area
+  const gr = await terrainPart(meta, i);
+  if (!gr) return null;
+  const z = await readBlockAt([gr], x, y, 1);
+  if (!z) return null;
+  const scale = meta.scale || 0.1, cell = gr.pixelWidth;    // stored decimetres -> metres
+  const at = (r, c) => (z[r][c] == null || z[r][c] === meta.nodata) ? NaN : z[r][c] * scale;
+  const gx = (at(1, 2) - at(1, 0)) / (2 * cell), gy = (at(2, 1) - at(0, 1)) / (2 * cell);
+  return isFinite(gx) && isFinite(gy) ? slopeOf(gx, gy) : null;
+}
+async function readSlopeRemote(latlng) {
+  // sample 4 points ±100 m N/S/E/W via Open-Meteo (Copernicus DEM ~90 m)
   const dLat = 100 / 111320;
   const dLon = 100 / (111320 * Math.cos(latlng.lat * Math.PI / 180));
   const lats = [latlng.lat + dLat, latlng.lat - dLat, latlng.lat, latlng.lat].map(v => v.toFixed(6)).join(",");
   const lons = [latlng.lng, latlng.lng, latlng.lng + dLon, latlng.lng - dLon].map(v => v.toFixed(6)).join(",");
   const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), 6000);
+  const t = setTimeout(() => ctrl.abort(), SLOPE_TIMEOUT_MS);
   try {
     const r = await fetch("https://api.open-meteo.com/v1/elevation?latitude=" + lats + "&longitude=" + lons,
       { signal: ctrl.signal });
     const j = await r.json();
     const [zN, zS, zE, zW] = j.elevation;
-    const dzdy = (zN - zS) / 200, dzdx = (zE - zW) / 200;
-    const deg = Math.atan(Math.hypot(dzdx, dzdy)) * 180 / Math.PI;
-    let bearing = Math.atan2(-dzdx, -dzdy) * 180 / Math.PI; // downslope direction
-    bearing = (bearing + 360) % 360;
-    return { deg, dir: DIR8[Math.round(bearing / 45) % 8] };
+    return slopeOf((zE - zW) / 200, (zS - zN) / 200);
   } catch { return null; }
   finally { clearTimeout(t); }
+}
+async function readSlope(latlng) {
+  const meta = await terrainReady();
+  return meta ? readSlopeBaked(meta, latlng) : readSlopeRemote(latlng);
 }
 
 function checkRow(state_, label, value) {
@@ -1725,6 +1879,7 @@ function checkRow(state_, label, value) {
 
 async function inspect(latlng) {
   const species = sp(), c = cfg();
+  probeMemo = new Map();          // a new point: nothing the last tap learned applies here
   const body = document.getElementById("resultBody");
   body.innerHTML = '<div class="result-head"><span class="big">🔎</span>' +
     '<div><div class="verdict">Tutkitaan paikkaa…</div>' +
@@ -1986,7 +2141,8 @@ function scanCellLatLng(geom, ix, iy) {
 
 // the composite, as one byte per cell. Luke's masks are 1-bit, so >= 128 is exact, not a guess.
 async function scanMask(geom, species, c) {
-  const off = await compositeMask(species.conditions(c), geom.bbox, geom.N, geom.N, NEARBY_PAR);
+  // `first`: somebody pressed a button and is waiting, so the scan goes ahead of tile work
+  const off = await compositeMask(species.conditions(c), geom.bbox, geom.N, geom.N, null, { first: true });
   const px = off.getContext("2d").getImageData(0, 0, geom.N, geom.N).data;
   const mask = new Uint8Array(geom.N * geom.N);
   // the WMS box is square but the radius is a radius: clip to the circle, the way
@@ -2431,7 +2587,6 @@ rngOpacity.addEventListener("input", () => {
 });
 
 /* ---- "Hakkuut" overlay: the correction, drawn, so it can be argued with ---- */
-const CUT_MINZOOM = 11;        // below this one screen is a whole region and the polygons are dots
 let cutLayer = null, cutBusy = false;
 
 function cutStyle(f) {
@@ -2464,7 +2619,7 @@ function boundsToTM35(b) {
 let cutCells = null;           // which cells the drawn overlay is built from
 async function cutRefresh() {
   if (!cutLayer || !map.hasLayer(cutLayer) || cutBusy) return;
-  if (map.getZoom() < CUT_MINZOOM) { cutLayer.clearLayers(); cutCells = null; return; }
+  if (map.getZoom() < MK_MINZOOM) { cutLayer.clearLayers(); cutCells = null; return; }
   const bb = boundsToTM35(map.getBounds());
   // Panning inside the same 10 km cells changes nothing about which polygons apply, and
   // rebuilding them was the single most expensive thing this layer did: clearLayers() plus
