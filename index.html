@@ -632,9 +632,10 @@ function mkGet(kind, cql, count) {
 const mkBBox = (x0, y0, x1, y1) =>
   "BBOX(GEOMETRY," + x0 + "," + y0 + "," + x1 + "," + y1 + ",'EPSG:3067')";
 
-// One 10 km cell of one kind, fetched once. A failure is not cached: Metsäkeskus being down
-// must leave the map exactly as it was before this feature existed, and must let the next
-// tile try again.
+// One 10 km cell of one kind, fetched once. A failure is never cached as a *result* — Metsäkeskus
+// being down must leave the map exactly as it was before this feature existed, and the cell must
+// be fetchable again — but it is remembered for MK_RETRY_MS before the next attempt, so an outage
+// costs one request per cell per half minute rather than one per tile per redraw.
 function mkCell(kind, gx, gy) {
   const key = kind + ":" + gx + ":" + gy;
   const hit = mkCache.get(key);
