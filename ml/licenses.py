@@ -95,10 +95,10 @@ def main():
          "## Environmental data (all CC BY 4.0)", "",
          "| Dataset | Producer | Licence | Used for |", "|---|---|---|---|",
          "| Monilähteinen VMI (MS-NFI) forest maps 2009–2023, 16 m | Luonnonvarakeskus (Luke) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) | site class, main type, age, volumes by species, basal area, canopy cover, height — app filters and model features |",
-         "| Elevation model 10 m | Maanmittauslaitos (MML) | CC BY 4.0 | elevation, slope, aspect, TPI, relief |",
+         "| Elevation model 10 m | Maanmittauslaitos (MML) | CC BY 4.0 | elevation, slope, aspect, TPI, relief — model features, and the app's own slope readout via `ml/export_terrain.py` |",
          "| Maaperä 1:200 000 (superficial deposits) and Glacigenic landforms | Geologian tutkimuskeskus (GTK) | CC BY 4.0 | soil class, esker / glaciofluvial formation — rasterized copies in `ml/data/rasters/gtk_*_16m.tif` |",
          "| Gridded daily/monthly climate 10 km (1961–) | Ilmatieteen laitos (FMI) | CC BY 4.0 | thermal sum and precipitation normals in `ml/data/climate/` |",
-         "| Copernicus DEM GLO-90 via Open-Meteo | ESA / Open-Meteo | CC BY 4.0 | slope readout in the app |",
+         "| Copernicus DEM GLO-90 via Open-Meteo | ESA / Open-Meteo | CC BY 4.0 | fallback slope readout, used only where `data/terrain/` has not been published |",
          "| Metsävarakuviot (forest stands) | Suomen metsäkeskus | CC BY 4.0 | development class and stand age — clear-cuts and seedling stands are removed from the app's masks, read live from the WFS |",
          "| Metsänkäyttöilmoitukset (forest use declarations) | Suomen metsäkeskus | CC BY 4.0 | declared regeneration fellings — reported on tap only, never used to remove anything |", "",
          "Attribution text used in the app and in derived files: "

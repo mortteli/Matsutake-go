@@ -13,11 +13,17 @@ OUT = os.path.join(HERE, "data", "matsutake", "observations.csv")
 GBIF_TAXON = 5241820          # Tricholoma matsutake (S.Ito & S.Imai) Singer
 LAJI_TAXON = "MX.72541"
 FIELDS = ["source", "id", "date", "year", "month", "day", "lat", "lon", "unc_m", "basis", "dataset", "dataset_key", "license", "locality"]
+# Courtesy pause between pages. Matsutake is a few hundred records — one or two pages from each
+# API — so this costs nothing today; it is here so that pointing the script at a taxon with tens
+# of thousands of records cannot turn into a burst against a free public API. Every call below is
+# one page of a paging loop, so one sleep in one place covers both sources.
+PAGE_PAUSE_S = 0.5
 
 
 def get_json(url, tries=5):
     for i in range(tries):
         try:
+            time.sleep(PAGE_PAUSE_S)
             with urllib.request.urlopen(url, timeout=120) as r:
                 return json.load(r)
         except Exception as e:

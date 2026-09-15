@@ -5,6 +5,25 @@ files) and **live** (fetched from the browser on every visit). Findings are from
 code, not from live measurement against the third-party services — figures like Luke's
 concurrency cap are the app's own code comments, taken at face value.
 
+> **Status (implemented).** Everything recommended below is in the code, except the one part that
+> needs a pipeline run on a machine with the DEM. Measured in Chromium against a stubbed Luke, on
+> a load / four pans / one tap at zoom 12:
+>
+> | | before | after |
+> |---|---|---|
+> | peak simultaneous requests to Luke | **153** | **5** |
+> | Luke requests for the whole session | 435 | 269 |
+> | Luke requests per tap (matsutake defaults) | 30 | 29 |
+> | Metsäkeskus requests on opening the app (zoom 5) | **101 964** | **0** |
+>
+> The last row is a storm this review did not catch: `SpotLayer.createTile` asked Metsäkeskus for
+> every 10 km cell its tile covered, and at zoom 5 a tile covers some 600 km, so simply opening the
+> app fired ~100 000 WFS requests — enough that Chromium ran out of sockets. The drawn "Hakkuut"
+> overlay already had a zoom floor for exactly this reason; the mask path now shares it
+> (`MK_MINZOOM`). §4 (baked slope) is implemented in the app and in `ml/export_terrain.py`; until a
+> deployment runs that export and publishes `data/terrain/`, the app still falls back to Open-Meteo
+> per tap, which is the documented behaviour rather than an outstanding to-do.
+
 The Metsäkeskus half of this was already reviewed and fixed in
 [docs/PERF_HANDOVER_hakkuut.md](PERF_HANDOVER_hakkuut.md) (PRs #7/#8): propertyName trimming, an
 LRU cell cache, a non-blocking tile path, a canvas renderer, and direct point queries for taps are
@@ -103,33 +122,58 @@ quantity if traffic ever grows.
 
 ## Recommended changes, in order
 
-1. **Give Luke WMS one real, shared concurrency budget.** Per-call pooling isn't enough — today
+1. **Give Luke WMS one real, shared concurrency budget.** ✅ `gate()` + `lukeGate` (`LUKE_PAR = 5`). Per-call pooling isn't enough — today
    the tile layer (0), the tap probes (0), and the nearby scan (3) each manage their own budget
    independently, so three independent unpooled/under-pooled paths can all be in flight at once
    against the same 6-connection cap. Replace the three call sites with one module-level queue
    (a `mapPool`-style limiter that all `loadImg` calls for `kartta.luke.fi` share, sized to the
    documented 6, leaving a little headroom) so the app can never open more connections to Luke than
    Luke itself says it allows, no matter how many tiles Leaflet decides to build at once.
-2. **Fix `inspect()`'s fan-out**, once it shares the pool from #1 — 8 + 4 + (metrics × alt layers ×
+2. ✅ **Fix `inspect()`'s fan-out**, once it shares the pool from #1 — 8 + 4 + (metrics × alt layers ×
    (1 + steps)) requests per tap, routed through the same limiter, so a tap can no longer touch off
    30 simultaneous requests.
-3. **Stop asking Luke the same question twice per metric.** `readMetric` fires a dedicated
+3. ✅ **Stop asking Luke the same question twice per metric.** `readMetric` fires a dedicated
    pass/fail probe (`probeMin`/`probeRange` at `limit`) *and* a full bracket scan
    (`readBracket`, one probe per step) against the same layer and point. Derive the pass/fail
    boolean from the bracket result instead (only issue a separate request when the user's `limit`
    falls strictly between two fixed step values, which the bracket alone can't resolve) — cuts tap
    traffic by up to ~30%.
-4. **Bake slope/aspect and drop the Open-Meteo tap dependency.** Export a COG from
+4. ✅ (code) **Bake slope/aspect and drop the Open-Meteo tap dependency.** Export a COG from
    `ml/data/rasters/dem_16m.tif` next to `prob_*.tif`/`cut_*.tif`, read it the same way. This
    removes a live external call from every tap, fixes the 10 m/90 m mismatch, and extends
    "works offline once cached" to the last part of the result sheet that doesn't have it yet.
-5. **(Cheap, pairs with #1)** Consider a smaller `keepBuffer` on `SpotLayer` specifically — unlike
+5. ✅ **(Cheap, pairs with #1)** Consider a smaller `keepBuffer` on `SpotLayer` specifically — unlike
    a plain image tile, each of its tiles costs several WMS fetches, so pre-loading a ring of
    off-screen tiles is proportionally more expensive here than for an ordinary basemap.
-6. **(Low priority, hygiene only)** Add a small delay between pages in `fetch_observations.py`'s
+6. ✅ **(Low priority, hygiene only)** Add a small delay between pages in `fetch_observations.py`'s
    GBIF/FinBIF loops if it's ever reused for a taxon with a much larger record count than
    matsutake's.
 
 Items 1-3 are the ones worth doing first: they're the direct counterpart of the Metsäkeskus fixes
 that already shipped, applied to the API the app actually hits far more often, and #1 in particular
 is a correctness fix as much as a performance one.
+
+## How it was done
+
+One `gate(limit)` primitive replaced `mapPool`, and every service now has exactly one module-level
+queue: `lukeGate` for every WMS image (`loadMask`) and `mkGate` inside `mkGet` for every
+Metsäkeskus fetch, point queries included. `compositeMask` no longer takes a concurrency argument
+at all — a caller can only say how its batch is *ranked*: `first` puts a tap or a "lähellä sinua"
+scan ahead of speculative tile work, and `alive` lets the queue drop a tile Leaflet has already
+thrown away instead of spending a slot on an image nobody will see. That last part, plus
+`keepBuffer: 1`, is where the 435 → 269 drop in total requests comes from.
+
+The tap's duplicate probe is gone by construction rather than by special-casing: `readBracket`'s
+result already pins the value to an interval, `bracketVerdict` compares that interval with the
+band the metric accepts, and only a limit sitting strictly between two fixed steps still needs its
+own request. Exhaustively checked against the probe it replaces for every value 0–255 across
+twelve metric shapes: identical answers, ~94 % of cases settled without the extra request. With
+the shipped defaults every limit is on a step, so the extra request is never issued; the saving is
+small in absolute terms (30 → 29 requests per tap) because the bracket probes, not the pass
+probes, are the bulk of a tap.
+
+`readSlope` now prefers a baked layer and keeps Open-Meteo only as the fallback. The baked layer is
+elevation, not ready-made slope: it compresses far better, and the app derives slope with the same
+central differences `ml/features.py` uses, so there is one definition of slope in the project
+instead of two. `readBlockAt` / `readValueAt` are now the single way the app reads a baked
+EPSG:3067 COG at a point, shared by the score, the cut layer and the terrain layer.

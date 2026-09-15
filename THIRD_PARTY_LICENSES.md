@@ -17,5 +17,6 @@ its own permissive licence (BSD/MIT/Apache-2.0), installed from PyPI via
 
 Map tiles are fetched at run time from OpenStreetMap (ODbL data, © OpenStreetMap
 contributors), OpenTopoMap (CC BY-SA 3.0) and Esri World Imagery (Esri terms);
-forest masks from Luke's WMS (CC BY 4.0); elevation readouts from Open-Meteo
-(CC BY 4.0, Copernicus DEM).
+forest masks from Luke's WMS (CC BY 4.0). Slope is read from the baked MML
+elevation layer (CC BY 4.0, © Maanmittauslaitos) where it is published, and
+otherwise from Open-Meteo (CC BY 4.0, Copernicus DEM).

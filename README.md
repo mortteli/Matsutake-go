@@ -254,7 +254,9 @@ Aineisto siihen haetaan OpenStreetMapista (`ml/fetch_osm.py`).
 
 - Metsävaratiedot: Luonnonvarakeskus (Luke), monilähteisen valtakunnan metsien
   inventoinnin (MVMI) karttatasot 2023, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
-- Korkeustiedot: [Open-Meteo](https://open-meteo.com/) (Copernicus GLO-90 DEM)
+- Korkeustiedot: Maanmittauslaitoksen 10 m korkeusmalli (CC BY 4.0) valmiiksi
+  leivottuna; jos sitä ei ole julkaistu, rinne haetaan
+  [Open-Meteosta](https://open-meteo.com/) (Copernicus GLO-90 DEM)
 - Suodattimien virittämiseen käytetty havaintoaineisto: [GBIF](https://www.gbif.org/)
   / Suomen Lajitietokeskus (ei osa sovellusta — käytetty vain oletusrajojen tarkistukseen)
 - Taustakartat: © OpenStreetMap-tekijät, © OpenTopoMap (CC-BY-SA), © Esri
