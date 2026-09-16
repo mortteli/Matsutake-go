@@ -1,6 +1,6 @@
 # Network requests, per use case
 
-What actually leaves the browser for eight common interactions. Everything here is read from
+What actually leaves the browser for nine common interactions. Everything here is read from
 `index.html` — request counts, queue limits, debounces and zoom floors are the constants in that
 file, named so they can be checked against it.
 
@@ -435,3 +435,93 @@ sequenceDiagram
 
 **Costs:** ≈ 29–32 tiny Luke probes, 0–2 tiny WFS queries, 1 static metadata fetch (once per
 session) plus a range read — or exactly one Open-Meteo request where no terrain layer is published.
+
+---
+
+## 9. Press 📍 and walk with the map following
+
+The GPS itself costs the app nothing: `watchPosition` is a browser API, and whatever network
+geolocation the OS does behind it is not a request this app makes or can see. Everything below is
+what the *fixes* set off.
+
+Two things carry the cost. The **first** fix is a `setView` to at least zoom 13 — from the country
+view that is a whole screen of new tiles, and because 13 is past `MK_MINZOOM`, it is usually the
+moment the session makes its first Metsäkeskus request at all. **Every** fix after that repaints an
+open, empty search panel, and the watch fires about once a second.
+
+That repaint is the trap the scan keying exists to close. A scan is identified by the place it is
+scanning — `state.species | cfg | lat.toFixed(2) | lon.toFixed(2) | radius` — never by the repaint
+counter, so ticks that land on the same cell of that grid — 0,01° is about 1,1 km north-south
+and 0,5 km east-west at 63° N — ride the scan already in flight. Keyed on the
+counter instead, a phone with a live fix started a fresh 5-read scan every second and the list sat
+on "Etsitään…" for as long as the panel stayed open.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor U as User
+  participant G as Browser geolocation
+  participant App as Map and search panel
+  participant BM as Basemap
+  participant LQ as lukeGate 5
+  participant L as Luke WMS
+  participant MQ as mkGate 4
+  participant MK as Metsäkeskus WFS
+  participant N as Nominatim
+
+  U->>App: tap 📍, or the "Näytä omalta sijainnilta" row
+  App->>G: watchPosition, highAccuracy, maximumAge 3 s, timeout 20 s
+  Note over App,G: no app request — the OS may use its own network,<br/>which this app neither makes nor sees
+
+  G-->>App: first fix
+  App->>App: gpsUpdate — dot and accuracy circle, both client-side
+  App->>App: firstFix, setView to zoom 13 or deeper
+  par the jump loads a screen
+    App->>BM: basemap tiles at the new zoom
+  and
+    App->>LQ: 5 GetMap per new tile
+    LQ->>L: GetMap kasvupaikka, paatyyppi, ika, manty, kuusi
+  and first time past MK_MINZOOM 11
+    App->>MQ: mkFeaturesNow stand, the cells under the view
+    MQ->>MK: GetFeature v1 stand, per 10 km cell
+    Note over App,MK: usually the session's first Metsäkeskus request
+  end
+
+  loop every fix, about once a second while walking
+    G-->>App: position
+    App->>App: marker and circle moved, no network
+    alt following
+      App->>App: panTo — new tiles only where you actually cross one
+      App->>BM: tiles for newly exposed rows or columns
+      App->>LQ: 5 GetMap for each genuinely new tile
+      opt the Hakkuut overlay is on
+        App->>App: cutRefresh on moveend
+        Note over App,MK: same 10 km cell set as last time — nothing fetched
+      end
+    else not following, after a drag or a second 📍 tap
+      Note over App,BM: the watch keeps running on purpose — marker stays live,<br/>lastFix stays fresh, no re-acquire when the panel reopens
+    end
+
+    opt the search panel is open and empty
+      App->>App: renderNearby, anchored on the fix
+      alt same nearbyKey — still inside the same 0,01 degree square
+        Note over App,L: rides the scan already in flight, or repaints the<br/>cached list with distances recomputed from the new fix
+      else walked into a new square
+        App->>LQ: compositeMask, first = true
+        LQ->>L: 5 GetMap, 1563 x 1563 px each
+        App->>MQ: up to 40 mkAt stand point checks, until 3 picks
+        MQ->>MK: GetFeature v1 stand, count 10
+        App->>N: up to 3 GET /reverse, spaced 1100 ms
+      end
+    end
+  end
+
+  U->>App: drag the map
+  App->>App: dragstart stops following, watch untouched
+  Note over U,N: a denied or failed fix calls stopGps and re-renders the<br/>open list against the map centre — it never hangs waiting
+```
+
+**Costs:** the first fix is the expensive one — a full screen of tiles at zoom 13 plus the first
+WFS cells. After that, walking costs 5 Luke requests per tile you actually cross into, and the
+once-a-second repaint costs **nothing** unless you leave the 0,01° square the current scan was
+keyed to.
