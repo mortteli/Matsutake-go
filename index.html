@@ -1447,6 +1447,148 @@ function widenToProjection(layer, gr) {
   layer.xMinOfLayer = w; layer.xMaxOfLayer = e;                 // which samples drawTile paints
   layer.yMinOfLayer = s; layer.yMaxOfLayer = n;
 }
+/* ---- sampling a tile on the raster's own grid ----
+   georaster-layer-for-leaflet reads one rectangle of raster per tile — the rectangle between the
+   tile's north-west and south-east corners — and then stretches it linearly across the tile. That
+   is only right when the raster's grid runs the same way as the map's. Ours does not: a Web
+   Mercator tile is a rotated quadrilateral in ETRS-TM35FIN, turned by the grid convergence, which
+   reaches nearly 4° at the western edge of the country. No rectangle is its footprint. The
+   library draws one anyway, unturned, so the error grows from the middle of the tile outwards,
+   and because every tile re-centres its own error the picture jumps by twice that much across a
+   tile seam. Measured at Jämijärvi before this: 61 of 64 blocks of the model layer sat 12 screen
+   pixels or more from the ground they describe — 55 m at z14, 220 m at z12 — in a sawtooth that
+   reset at every seam. Shapes broke along the seams and broke differently at the next zoom
+   level. docs/MODEL_LAYER_SEAMS.md has the measurements.
+
+   So the samples are taken here instead. Every sample centre is carried to TM35 with the same
+   toTM35 the tap probe uses, which names the raster pixel actually under it; nothing depends on
+   the tile it happens to fall in, so neighbouring tiles agree by construction. Drawn twice with
+   the seams moved (256 px tiles against 512 px ones), the model layer now comes out the same
+   picture — 0 % of pixels differ at z12 against 32 % before. The library's own drawTile then
+   paints the grid we hand back, which is what it believes it is painting anyway. */
+
+// Overview images of one part, indexed by how many full-resolution pixels one of their pixels
+// covers: 1, 2, 4, … The parts are written by ml/export_app.py through GDAL's COG driver, so the
+// overviews halve each time; an image that is not a clean power of two is left out.
+function rasterLevels(gr) {
+  if (!gr._levels) gr._levels = (async () => {
+    const tif = gr._geotiff, levels = [];
+    const n = tif && tif.getImageCount ? await tif.getImageCount() : 0;
+    for (let i = 0; i < n; i++) {
+      const img = await tif.getImage(i);
+      const f = gr.width / img.getWidth(), k = Math.round(Math.log2(f));
+      if (k >= 0 && Math.abs(f / 2 ** k - 1) < 0.02 && !levels[k]) levels[k] = img;
+    }
+    return levels;
+  })().catch(() => []);
+  return gr._levels;
+}
+
+/* One window of one part, read at overview level `k` and handed back band by band. The window is
+   given in the level's own pixels, so the pixel a sample lands on is `full >> k` — the same pixel
+   whichever tile is asking. */
+async function readAtLevel(gr, k, win) {
+  if (gr.values) return gr.values.map(band => ({ at: (row, col) => band[row][col] }));
+  const img = (await rasterLevels(gr))[k];
+  if (!img) throw new Error("no overview level " + k);
+  const bands = await img.readRasters({ window: [win.left, win.top, win.right, win.bottom],
+                                        fillValue: gr.noDataValue });
+  const w = win.right - win.left, h = win.bottom - win.top;
+  return bands.map(band => ({
+    at: (row, col) => {
+      const x = (col >> k) - win.left, y = (row >> k) - win.top;
+      return (x < 0 || x >= w || y < 0 || y >= h) ? gr.noDataValue : band[y * w + x];
+    },
+  }));
+}
+
+async function sampleOnRasterGrid(layer, o) {
+  const m = layer.getMap(), grs = layer.georasters, gr = grs[0];
+  const across = o.numberOfSamplesAcross, down = o.numberOfSamplesDown;
+  const nw = o.innerTileTopLeftPoint;
+  const lngAt = x => m.unproject(L.point(x, nw.y), o.zoom).lng;
+  const latAt = y => m.unproject(L.point(nw.x, y), o.zoom).lat;
+  // Web Mercator is separable: a sample's longitude follows from its column alone and its
+  // latitude from its row alone, so this costs across + down unprojections, not across × down.
+  const lon = new Float64Array(across), lat = new Float64Array(down);
+  for (let c = 0; c < across; c++) lon[c] = lngAt(nw.x + (c + 0.5) * o.widthOfSampleInScreenPixels);
+  for (let r = 0; r < down; r++) lat[r] = latAt(nw.y + (r + 0.5) * o.heightOfSampleInScreenPixels);
+
+  // the raster pixel under every sample, and the window that holds them all
+  const col = new Int32Array(across * down), row = new Int32Array(across * down);
+  let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity;
+  for (let r = 0; r < down; r++) {
+    const tm = tm35Row(lat[r]);                          // the series' latitude half, once a row
+    for (let c = 0; c < across; c++) {
+      const p = tm(lon[c]), i = r * across + c;
+      const x = Math.floor((p.x - gr.xmin) / gr.pixelWidth);
+      const y = Math.floor((gr.ymax - p.y) / gr.pixelHeight);
+      const inside = x >= 0 && x < gr.width && y >= 0 && y < gr.height;
+      col[i] = inside ? x : -1; row[i] = inside ? y : -1;
+      if (!inside) continue;
+      if (x < left) left = x;
+      if (x > right) right = x;
+      if (y < top) top = y;
+      if (y > bottom) bottom = y;
+    }
+  }
+
+  /* Which overview to read: the coarsest one still finer than a sample. The spacing is measured
+     off the map scale and the layer's own resolution, never off this tile's sample count — a tile
+     clipping the corner of a part is handed a sample or two for the whole of it, and taking that
+     at face value would talk the part into reading at kilometre pixels. The answer is then kept
+     for the zoom, because two tiles side by side reading different levels would show two
+     different generalisations of the same forest, and that seam would be as plain as the one
+     this replaces. */
+  const levels = await rasterLevels(gr);
+  if (!gr._levelFor) gr._levelFor = {};
+  if (gr._levelFor[o.zoom] == null) {
+    const px = layer.getTileSize().x / Math.max(1, layer.options.resolution || 32);   // screen px a sample covers
+    const at00 = tm35Row(latAt(nw.y))(lngAt(nw.x));
+    const stepX = px * Math.abs(tm35Row(latAt(nw.y))(lngAt(nw.x + 1)).x - at00.x) / gr.pixelWidth;
+    const stepY = px * Math.abs(tm35Row(latAt(nw.y + 1))(lngAt(nw.x)).y - at00.y) / gr.pixelHeight;
+    let k = Math.max(0, Math.floor(Math.log2(Math.max(stepX, stepY, 1))));
+    while (k > 0 && !levels[k]) k--;
+    gr._levelFor[o.zoom] = k;
+  }
+  const k = gr._levelFor[o.zoom];
+  const img = levels[k];
+  const win = right < left ? { left: 0, top: 0, right: 0, bottom: 0 } : {
+    left: left >> k, top: top >> k,
+    right: Math.min((right >> k) + 1, img ? img.getWidth() : Infinity),
+    bottom: Math.min((bottom >> k) + 1, img ? img.getHeight() : Infinity),
+  };
+
+  // the parts are read side by side: the score and the cut layer are two files, and waiting for
+  // one before asking for the other doubles how long a tile takes to appear
+  const bands = (await Promise.all(grs.map(g => readAtLevel(g, k, win)))).flat();
+  return bands.map(band => {
+    const out = [];
+    for (let r = 0; r < down; r++) {
+      const line = new Array(across);
+      for (let c = 0; c < across; c++) {
+        const i = r * across + c;
+        line[c] = col[i] < 0 ? gr.noDataValue : band.at(row[i], col[i]);
+      }
+      out.push(line);
+    }
+    return out;
+  });
+}
+
+// Hand the layer its samples instead of letting it guess them. Anything unexpected — a part with
+// no overviews to read, a projection this does not cover — falls back to the library's own
+// sampling, which draws a slightly displaced map rather than none at all.
+function sampleExactly(layer) {
+  const fallback = layer.getRasters;
+  layer.getRasters = function (o) {
+    return sampleOnRasterGrid(this, o).catch(err => {
+      if (!this._samplingWarned) { this._samplingWarned = true; console.warn("tile sampling:", err); }
+      return fallback.call(this, o);
+    });
+  };
+}
+
 async function showProb() {
   const species = sp();
   try {
@@ -1474,6 +1616,7 @@ async function showProb() {
             (prob.cut.length ? " · hakkuut © Suomen metsäkeskus" : ""),
         });
         widenToProjection(layer, gr);
+        sampleExactly(layer);
         return layer;
       });
     }
@@ -1546,20 +1689,27 @@ function renderProb() {
       ". Kartta kattaa metsämaan parhaan " + fmtPct(probMaxPct()) + "; muualla malli ei piirrä mitään.");
   }).catch(() => {});
 }
-// WGS84 -> ETRS-TM35FIN (EPSG:3067), Snyder's transverse Mercator series, GRS80
-function toTM35(lat, lon) {
+/* WGS84 -> ETRS-TM35FIN (EPSG:3067), Snyder's transverse Mercator series, GRS80. Split at the
+   point where the series stops depending on the latitude: a tile is sampled row by row and a row
+   is one latitude, so its trigonometry is worth doing once for the whole row rather than once per
+   sample. toTM35 is the same thing for a single point. */
+function tm35Row(lat) {
   const a = 6378137, f = 1 / 298.257222101, k0 = 0.9996, lon0 = 27 * Math.PI / 180;
   const e2 = f * (2 - f), ep2 = e2 / (1 - e2);
-  const phi = lat * Math.PI / 180, lam = lon * Math.PI / 180;
+  const phi = lat * Math.PI / 180;
   const sin = Math.sin(phi), cos = Math.cos(phi), tan = Math.tan(phi);
-  const N = a / Math.sqrt(1 - e2 * sin * sin), T = tan * tan, C = ep2 * cos * cos, A = (lam - lon0) * cos;
+  const N = a / Math.sqrt(1 - e2 * sin * sin), T = tan * tan, C = ep2 * cos * cos;
   const e4 = e2 * e2, e6 = e4 * e2;
   const M = a * ((1 - e2 / 4 - 3 * e4 / 64 - 5 * e6 / 256) * phi - (3 * e2 / 8 + 3 * e4 / 32 + 45 * e6 / 1024) * Math.sin(2 * phi)
     + (15 * e4 / 256 + 45 * e6 / 1024) * Math.sin(4 * phi) - (35 * e6 / 3072) * Math.sin(6 * phi));
-  const x = 500000 + k0 * N * (A + (1 - T + C) * A ** 3 / 6 + (5 - 18 * T + T * T + 72 * C - 58 * ep2) * A ** 5 / 120);
-  const y = k0 * (M + N * tan * (A * A / 2 + (5 - T + 9 * C + 4 * C * C) * A ** 4 / 24 + (61 - 58 * T + T * T + 600 * C - 330 * ep2) * A ** 6 / 720));
-  return { x, y };
+  return lon => {
+    const A = (lon * Math.PI / 180 - lon0) * cos;
+    const x = 500000 + k0 * N * (A + (1 - T + C) * A ** 3 / 6 + (5 - 18 * T + T * T + 72 * C - 58 * ep2) * A ** 5 / 120);
+    const y = k0 * (M + N * tan * (A * A / 2 + (5 - T + 9 * C + 4 * C * C) * A ** 4 / 24 + (61 - 58 * T + T * T + 600 * C - 330 * ep2) * A ** 6 / 720));
+    return { x, y };
+  };
 }
+function toTM35(lat, lon) { return tm35Row(lat)(lon); }
 // ETRS-TM35FIN (EPSG:3067) -> WGS84, the inverse of the series above (Snyder 8-21..8-25)
 function fromTM35(x, y) {
   const a = 6378137, f = 1 / 298.257222101, k0 = 0.9996, lon0 = 27 * Math.PI / 180;
