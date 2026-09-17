@@ -1414,6 +1414,39 @@ function probColorFn() {
     return "rgba(" + r + "," + g + "," + b + ",0.85)";
   };
 }
+/* Every part of the baked model raster is a rectangle in ETRS-TM35FIN, and a TM35 rectangle is a
+   trapezoid in lat/lon: at the western edge of the country grid north tilts nearly 4° off true
+   north, so the part's corners do not line up along meridians. georaster-layer-for-leaflet builds
+   the layer's lat/lon box from the SW and NE corners alone, which is the box *inscribed* in that
+   trapezoid — it throws away the eastern wedge of every western part and the northern wedge of
+   every eastern one, both from the tile grid (options.bounds) and from the drawing itself
+   (xMinOfLayer … yMaxOfLayer, which drawTile uses to skip samples). On the map that is a
+   dead-straight line with nothing drawn beyond it: around Jämijärvi the whole 24 km wide corridor
+   between 22,71° and 23,16° east stayed blank, about 4 % of the country's forest land.
+   Measure the box along the part's edges instead of across its corners and hand it back. The
+   sample-to-pixel mapping does not go through these numbers — it inverse-projects each sample and
+   divides by the raster's own origin and pixel size — so widening them only lifts the clip, and
+   a neighbouring part still draws nothing where it has no data. */
+function widenToProjection(layer, gr) {
+  const proj = layer.getProjector && layer.getProjector();
+  if (!proj) return;                       // lat/lon or Web Mercator raster: no trapezoid, no clip
+  let w = 180, e = -180, s = 90, n = -90;
+  const STEPS = 64;
+  for (let i = 0; i <= STEPS; i++) {
+    const x = gr.xmin + (gr.xmax - gr.xmin) * i / STEPS;
+    const y = gr.ymin + (gr.ymax - gr.ymin) * i / STEPS;
+    [[x, gr.ymin], [x, gr.ymax], [gr.xmin, y], [gr.xmax, y]].forEach(pt => {
+      const ll = proj.forward({ x: pt[0], y: pt[1] });
+      w = Math.min(w, ll.x); e = Math.max(e, ll.x);
+      s = Math.min(s, ll.y); n = Math.max(n, ll.y);
+    });
+  }
+  const b = L.latLngBounds([s, w], [n, e]);
+  layer._bounds = b;
+  layer.options.bounds = b;                                    // which tiles Leaflet creates
+  layer.xMinOfLayer = w; layer.xMaxOfLayer = e;                 // which samples drawTile paints
+  layer.yMinOfLayer = s; layer.yMaxOfLayer = n;
+}
 async function showProb() {
   const species = sp();
   try {
@@ -1433,12 +1466,16 @@ async function showProb() {
       if (prob.cut.some(c => !c)) prob.cut = [];
     }
     if (!prob.layers.length) {
-      prob.layers = prob.rasters.map((gr, i) => new GeoRasterLayer({
-        georasters: prob.cut[i] ? [gr, prob.cut[i]] : [gr],
-        opacity: state.opacity, resolution: 128, pixelValuesToColorFn: probColorFn(),
-        attribution: "Malli: Matsutake GO ml (GBIF · Luke · MML · GTK · FMI)" +
-          (prob.cut.length ? " · hakkuut © Suomen metsäkeskus" : ""),
-      }));
+      prob.layers = prob.rasters.map((gr, i) => {
+        const layer = new GeoRasterLayer({
+          georasters: prob.cut[i] ? [gr, prob.cut[i]] : [gr],
+          opacity: state.opacity, resolution: 128, pixelValuesToColorFn: probColorFn(),
+          attribution: "Malli: Matsutake GO ml (GBIF · Luke · MML · GTK · FMI)" +
+            (prob.cut.length ? " · hakkuut © Suomen metsäkeskus" : ""),
+        });
+        widenToProjection(layer, gr);
+        return layer;
+      });
     }
     prob.layers.forEach(l => { if (!map.hasLayer(l)) l.addTo(map); });
     updateProbLegend();
