@@ -28,8 +28,8 @@ why both are here even though only one of them removes anything.
 Grid: taken from data/<species>/prob_meta.json rather than from Luke, so the correction is by
 construction aligned to the layer it corrects.
 
-    python ml/fetch_harvests.py --species matsutake            # all regions
-    python ml/fetch_harvests.py --species matsutake --regions Pirkanmaa
+    python ml/ingest/fetch_harvests.py --species matsutake            # all regions
+    python ml/ingest/fetch_harvests.py --species matsutake --regions Pirkanmaa
 """
 import argparse, json, os, shutil, subprocess, sys, time, zipfile
 
@@ -39,7 +39,8 @@ from rasterio.features import rasterize
 from rasterio.transform import from_origin
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.abspath(os.path.join(HERE, ".."))
+ML = os.path.dirname(HERE)
+ROOT = os.path.dirname(ML)
 
 BASE = "https://avoin.metsakeskus.fi/aineistot"
 PIXEL_M = 16
@@ -215,7 +216,7 @@ def main():
     ap.add_argument("--species", default="matsutake")
     ap.add_argument("--regions", nargs="*", default=REGIONS)
     ap.add_argument("--sets", nargs="*", default=["stand", "mki"], choices=list(SETS))
-    ap.add_argument("--work", default=os.path.join(HERE, "data", "harvests"))
+    ap.add_argument("--work", default=os.path.join(ML, "data", "harvests"))
     ap.add_argument("--keep-work", action="store_true")
     a = ap.parse_args()
 
@@ -268,7 +269,7 @@ def main():
         "built": time.strftime("%Y-%m-%d"),
     }
     with open(meta_path, "w") as fh:
-        json.dump(meta, fh, indent=1)      # same shape as ml/export_app.py, so the diff stays small
+        json.dump(meta, fh, indent=1)      # same shape as ml/export/export_app.py, so the diff stays small
     log("updated", os.path.relpath(meta_path, ROOT))
 
     if not a.keep_work:
@@ -282,7 +283,7 @@ def bounds_of(gpkg, layer):
 
 
 def write_cog(part, path):
-    """Same COG recipe as ml/export_app.py, so the app reads both layers the same way."""
+    """Same COG recipe as ml/export/export_app.py, so the app reads both layers the same way."""
     from rasterio.shutil import copy as rio_copy
     tmp = path + ".tmp.tif"
     # nodata 255 matches the probability parts even though this layer never stores it:

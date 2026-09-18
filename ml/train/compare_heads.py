@@ -8,13 +8,15 @@ seeds and prints the paired differences, which is what the choice should rest on
 Metrics are the ones a "few sure shots" map is read at: how many finds sit in the best 1–2 % of
 forest land, and what share of the fungus-reporting sites in that area are matsutake.
 
-  python ml/compare_heads.py --species matsutake --seeds 5
+  python ml/train/compare_heads.py --species matsutake --seeds 5
 """
 import argparse, os, sys, time
 import numpy as np, pandas as pd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+ML = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
+sys.path.insert(0, os.path.join(ML, "core"))
 from train import load, assign_folds, run_cv, eval_mask, boyce, precision_vs_fungi, recall_at_area
 from features import FEATURES
 
@@ -39,7 +41,7 @@ def main():
     ap.add_argument("--seeds", type=int, default=5)
     ap.add_argument("--out", default=None, help="CSV of the per-seed rows")
     a = ap.parse_args()
-    d = load(os.path.join(HERE, "data", a.species, "dataset.csv"))
+    d = load(os.path.join(ML, "data", a.species, "dataset.csv"))
     cols = [c for c in FEATURES if c in d.columns]
 
     rows = []

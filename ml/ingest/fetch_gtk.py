@@ -7,13 +7,14 @@ Outputs (not committed, rebuilt on demand):
   ml/data/rasters/gtk_glac_16m.tif      uint8 class index (0 = none)
 Committed: ml/data/gtk_classes.json  (index -> code/name for both layers)
 
-Usage: python ml/fetch_gtk.py [download|rasterize|all]
+Usage: python ml/ingest/fetch_gtk.py [download|rasterize|all]
 """
 import gzip, json, os, sys, time, urllib.parse, urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-RAW = os.path.join(HERE, "data", "raw")
-RASTERS = os.path.join(HERE, "data", "rasters")
+ML = os.path.dirname(HERE)
+RAW = os.path.join(ML, "data", "raw")
+RASTERS = os.path.join(ML, "data", "rasters")
 BASE = "https://gtkdata.gtk.fi/arcgis/services/Rajapinnat/GTK_Maapera_WFS/MapServer/WFSServer?"
 LAYERS = {
     "soil": ("Rajapinnat_GTK_Maapera_WFS:maapera_200k_maalajit", "PINTAMAALAJI_KOODI", "PINTAMAALAJI"),
@@ -105,7 +106,7 @@ def rasterize(key):
     from rasterio.features import rasterize as rio_rasterize
     from rasterio.windows import transform as win_transform
     from pyproj import Transformer
-    sys.path.insert(0, HERE)
+    sys.path.insert(0, os.path.join(ML, "core"))
     from grid import Grid, env
 
     src = os.path.join(RAW, f"gtk_{key}.ndjson.gz")
@@ -126,7 +127,7 @@ def rasterize(key):
         geoms = [shapely.transform(g, lambda xy: np.column_stack(tr.transform(xy[:, 0], xy[:, 1]))) for g in geoms]
     uniq = sorted(set(c for c in codes if c is not None), key=lambda c: str(c))
     index = {c: i + 1 for i, c in enumerate(uniq)}            # 0 = no polygon
-    classes_path = os.path.join(HERE, "data", "gtk_classes.json")
+    classes_path = os.path.join(ML, "data", "gtk_classes.json")
     allc = json.load(open(classes_path)) if os.path.exists(classes_path) else {}
     allc[key] = {str(i): {"code": c, "name": names.get(c)} for c, i in index.items()}
     json.dump(allc, open(classes_path, "w"), ensure_ascii=False, indent=1)

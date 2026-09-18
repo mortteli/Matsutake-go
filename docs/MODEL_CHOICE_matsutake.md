@@ -30,7 +30,7 @@ splits of the same data, one model's Boyce index moves by ±0.07 and its recall@
 enough for any family to win by luck. The 0.982 Boyce that LightGBM scored in the first report
 was one such lucky split; its honest value is 0.92.
 
-`ml/compare_heads.py` repeats the whole comparison over five splits. Mean over those splits:
+`ml/train/compare_heads.py` repeats the whole comparison over five splits. Mean over those splits:
 
 | Model | recall@1 % | prec@1 % | recall@2 % | prec@2 % | recall@5 % | prec@5 % | Boyce |
 |---|---|---|---|---|---|---|---|
@@ -70,7 +70,7 @@ Two things decided it beyond the table:
   whole task once the map is set to its tightest — is exactly what it measures.
 
 Hyper-parameters are now selected with `--select sure`, on precision in the best 2 % rather than
-on overall PR-AUC. `--head mlp` and `--head mlp+lgbm` remain in `ml/train.py`, so the choice can
+on overall PR-AUC. `--head mlp` and `--head mlp+lgbm` remain in `ml/train/train.py`, so the choice can
 be revisited when the observation set grows.
 
 ## What the map is worth at each setting

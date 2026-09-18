@@ -48,7 +48,7 @@ Verified against the live endpoint:
 fields `harvestHTML()` prints.
 
 > Careful: this WFS silently ignores some parameters. `where` and `bbox` are ignored by the *fiona*
-> client in `ml/fetch_harvests.py` (see its `SETS` comment) — that is a different layer, but the
+> client in `ml/ingest/fetch_harvests.py` (see its `SETS` comment) — that is a different layer, but the
 > habit of verifying rather than trusting applies here too. `propertyName` was confirmed working by
 > inspecting the returned keys, and any change to it must be re-verified the same way.
 
@@ -199,6 +199,6 @@ Do not accept "feels faster". Measure:
   `1` means a regeneration felling was **declared** but is unconfirmed; 36 % of such declarations
   sit on forest that is still standing, which is why `1` is never treated as `2` and never removes
   anything. Do not "simplify" these into one value while optimising.
-- `ml/fetch_harvests.py` regenerates the raster. It takes ~45 min for the whole country and needs
+- `ml/ingest/fetch_harvests.py` regenerates the raster. It takes ~45 min for the whole country and needs
   ~20 GB of transient disk. Nothing in this perf work should require re-running it.
 - Background on the whole feature: `README.md` → "Hakatut kuviot".

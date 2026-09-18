@@ -20,7 +20,7 @@ concurrency cap are the app's own code comments, taken at face value.
 > every 10 km cell its tile covered, and at zoom 5 a tile covers some 600 km, so simply opening the
 > app fired ~100 000 WFS requests — enough that Chromium ran out of sockets. The drawn "Hakkuut"
 > overlay already had a zoom floor for exactly this reason; the mask path now shares it
-> (`MK_MINZOOM`). §4 (baked slope) is implemented in the app and in `ml/export_terrain.py`; until a
+> (`MK_MINZOOM`). §4 (baked slope) is implemented in the app and in `ml/export/export_terrain.py`; until a
 > deployment runs that export and publishes `data/terrain/`, the app still falls back to Open-Meteo
 > per tap, which is the documented behaviour rather than an outstanding to-do.
 
@@ -40,10 +40,10 @@ requests on the GeoTIFFs — no API call at request time.
 
 | Files | Built by | From | Used for |
 |---|---|---|---|
-| `data/matsutake/prob_matsutake_16m_*.tif` (9 parts) | `ml/predict.py` + `ml/export_app.py` | Luke MVMI, MML 10 m DEM, GTK soil/glacigenic, FMI climate normals, GBIF/FinBIF training points | **Matsutake only** — the 🧠 probability map |
-| `data/matsutake/cut_matsutake_16m_*.tif` (9 parts) | `ml/fetch_harvests.py` | Metsäkeskus bulk GeoPackages (stand + declarations) | Grey-out layer under the probability map, and the offline fallback for tap/overlay when the live WFS is unreachable |
+| `data/matsutake/prob_matsutake_16m_*.tif` (9 parts) | `ml/export/predict.py` + `ml/export/export_app.py` | Luke MVMI, MML 10 m DEM, GTK soil/glacigenic, FMI climate normals, GBIF/FinBIF training points | **Matsutake only** — the 🧠 probability map |
+| `data/matsutake/cut_matsutake_16m_*.tif` (9 parts) | `ml/ingest/fetch_harvests.py` | Metsäkeskus bulk GeoPackages (stand + declarations) | Grey-out layer under the probability map, and the offline fallback for tap/overlay when the live WFS is unreachable |
 | `data/matsutake/prob_meta.json` | same | — | Manifest: bounds, file list, cut metadata (`built` date) |
-| `ml/data/rasters/dem_16m.tif` (84 MB) | `ml/build_dem16.py` | MML 10 m DEM, warped once to the 16 m analysis grid | Model training/inference only — **not shipped as a client-readable product today** (see §4 below) |
+| `ml/data/rasters/dem_16m.tif` (84 MB) | `ml/ingest/build_dem16.py` | MML 10 m DEM, warped once to the 16 m analysis grid | Model training/inference only — **not shipped as a client-readable product today** (see §4 below) |
 | `ml/data/climate/*.tif`, `ml/data/gtk_classes.json`, `ml/data/matsutake/observations.csv` | `climate.py`, `fetch_gtk.py`, `fetch_observations.py` | FMI, GTK, GBIF/FinBIF | Model training inputs only |
 
 The other four species — herkkutatti, kanttarelli, suppilovahvero, ukonsieni — have **no baked
@@ -96,7 +96,7 @@ points (`readSlope`, `index.html:1698-1717`). No API key; free tier is meant for
 moderate volume. Two problems, not just one:
 
 1. **It's an avoidable dependency.** The model already warps the MML 10 m DEM onto the 16 m grid
-   for training/inference (`ml/build_dem16.py` → `ml/data/rasters/dem_16m.tif`, 84 MB, already on
+   for training/inference (`ml/ingest/build_dem16.py` → `ml/data/rasters/dem_16m.tif`, 84 MB, already on
    disk). A slope/aspect (or even a raw elevation) COG exported next to `prob_*.tif`/`cut_*.tif`,
    read the same way, would answer every tap with zero network calls and work with Metsäkeskus and
    Luke both blocked — which is the one thing not yet true for the result sheet today.
@@ -105,7 +105,7 @@ moderate volume. Two problems, not just one:
    DEM. The slope/aspect shown in the tap sheet can genuinely disagree with what actually produced
    the color under the pin.
 
-**GBIF / FinBIF (laji.fi)** — offline only, `ml/fetch_observations.py`, run by a developer, not a
+**GBIF / FinBIF (laji.fi)** — offline only, `ml/ingest/fetch_observations.py`, run by a developer, not a
 visitor. Small result set (a few hundred records for one taxon). No throttling between pages
 today; harmless at this volume, worth a courtesy `time.sleep()` between pages only if this script
 is ever pointed at a much larger taxon.
@@ -174,6 +174,6 @@ probes, are the bulk of a tap.
 
 `readSlope` now prefers a baked layer and keeps Open-Meteo only as the fallback. The baked layer is
 elevation, not ready-made slope: it compresses far better, and the app derives slope with the same
-central differences `ml/features.py` uses, so there is one definition of slope in the project
+central differences `ml/core/features.py` uses, so there is one definition of slope in the project
 instead of two. `readBlockAt` / `readValueAt` are now the single way the app reads a baked
 EPSG:3067 COG at a point, shared by the score, the cut layer and the terrain layer.

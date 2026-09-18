@@ -17,11 +17,12 @@ import rasterio
 from pyproj import Transformer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, HERE)
+ML = os.path.dirname(HERE)
+sys.path.insert(0, os.path.join(ML, "core"))
 from grid import Grid, cycle_for_year, env
 from features import Sources, FEATURES, RASTERS
 
-DATA = os.path.join(HERE, "data", "matsutake")
+DATA = os.path.join(ML, "data", "matsutake")
 GBIF_FUNGI_KINGDOM = 5
 
 
@@ -110,7 +111,7 @@ def _key(p):
 def run_all(pts, workers, chunk=100, chunk_timeout=900, item_timeout=180):
     """Feature vectors for all points, cycle by cycle, with a JSONL cache so a restart resumes,
     and chunk/item timeouts so a hung or crashed worker cannot stall the pool forever."""
-    cache_path = os.path.join(HERE, "data", "raw", "feature_cache.jsonl")
+    cache_path = os.path.join(ML, "data", "raw", "feature_cache.jsonl")
     os.makedirs(os.path.dirname(cache_path), exist_ok=True)
     cache = {}
     if os.path.exists(cache_path):

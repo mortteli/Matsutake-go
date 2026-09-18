@@ -9,7 +9,8 @@ Output: ml/data/matsutake/observations.csv (committed; contains only public data
 import csv, json, os, sys, time, urllib.parse, urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "data", "matsutake", "observations.csv")
+ML = os.path.dirname(HERE)
+OUT = os.path.join(ML, "data", "matsutake", "observations.csv")
 GBIF_TAXON = 5241820          # Tricholoma matsutake (S.Ito & S.Imai) Singer
 LAJI_TAXON = "MX.72541"
 FIELDS = ["source", "id", "date", "year", "month", "day", "lat", "lon", "unc_m", "basis", "dataset", "dataset_key", "license", "locality"]

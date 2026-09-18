@@ -103,7 +103,7 @@ broad use — forest management associations, wood procurement at the large fore
 planning software, municipalities. Nothing about depending on it is exotic.
 
 But note *how* the heavy consumers use it: the **bulk province GeoPackage downloads**, which is
-exactly what `ml/fetch_harvests.py` already does. The WFS is the interactive front door, sized for
+exactly what `ml/ingest/fetch_harvests.py` already does. The WFS is the interactive front door, sized for
 someone inspecting a few stands, not for continuous per-user streaming.
 
 At 1.47 MB per 10 km `stand` cell (`MK_KIND`, `index.html:617`), 1000 users crossing into new
@@ -159,7 +159,7 @@ in transfer when served as tiles, since a user only ever fetches what is on scre
 
 **2. Drop the live WFS** per §3.
 
-**3. Publish `data/terrain/`.** `ml/export_terrain.py` and the app-side reader (`readSlope`,
+**3. Publish `data/terrain/`.** `ml/export/export_terrain.py` and the app-side reader (`readSlope`,
 `readBlockAt`) both already exist. One pipeline run deletes the Open-Meteo dependency and closes the
 last gap in "works offline once cached". Cheapest item on this list by a wide margin.
 
@@ -181,12 +181,12 @@ From [DATA_LICENSES.md](../DATA_LICENSES.md):
 paywall is commercial use. DATA_LICENSES.md already states the remedy:
 
 > To publish the derived layers under plain CC BY 4.0, re-run the pipeline with the CC BY-NC
-> records removed (`ml/fetch_observations.py` — filter on the `license` column).
+> records removed (`ml/ingest/fetch_observations.py` — filter on the `license` column).
 
 ### What the "NC filter" actually means
 
 There is already a licence filter in the pipeline, and it is **not** the one needed here.
-`redistributable()` (`ml/fetch_observations.py:81`) asks *may this record live in a public
+`redistributable()` (`ml/ingest/fetch_observations.py:81`) asks *may this record live in a public
 repository*:
 
 ```python
