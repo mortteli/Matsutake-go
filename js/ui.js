@@ -1,6 +1,6 @@
 import { map, spots } from "./maplayer.js";
 import { clearNearby } from "./nearby.js";
-import { hideProb, prob, renderProb, showProb, updateProbLegend } from "./problayer.js";
+import { hideProb, prob, renderProb, showProb, syncRuleLayer, updateProbLegend } from "./problayer.js";
 import { search } from "./search.js";
 import { SPECIES } from "./species.js";
 import { cfg, save, sp, state } from "./state.js";
@@ -146,7 +146,7 @@ export function applySpecies() {
   renderHelpers();
   renderSpeciesList();
   renderProb();
-  if (state.prob.on && s.model) showProb(); else updateProbLegend();
+  if (state.prob.on && s.model) showProb(); else { updateProbLegend(); syncRuleLayer(); }
 }
 
 export const rngOpacity = document.getElementById("rngOpacity");
