@@ -1,5 +1,5 @@
 import { tm35Row } from "./geo.js";
-import { map } from "./maplayer.js";
+import { map, spots } from "./maplayer.js";
 import { save, sp, state } from "./state.js";
 import { toast } from "./ui.js";
 
@@ -265,6 +265,16 @@ export function sampleExactly(layer) {
   };
 }
 
+// The rule mask and the model draw the same claim two ways; showing both at once just invites
+// them to disagree on screen. So only one is ever on the map: the model, once it has something
+// to say for the current species, otherwise the rule mask.
+export function syncRuleLayer() {
+  const showingProb = state.prob.on && !!sp().model;
+  if (showingProb) { if (map.hasLayer(spots)) map.removeLayer(spots); }
+  else if (!map.hasLayer(spots)) spots.addTo(map);
+  document.getElementById("legendRule").hidden = showingProb;
+}
+
 export async function showProb() {
   const species = sp();
   try {
@@ -298,15 +308,18 @@ export async function showProb() {
     }
     prob.layers.forEach(l => { if (!map.hasLayer(l)) l.addTo(map); });
     updateProbLegend();
+    syncRuleLayer();
   } catch (e) {
     state.prob.on = false; save(); renderProb();
     toast("Todennäköisyyskarttaa ei voitu ladata");
+    syncRuleLayer();
   }
 }
 export function hideProb(drop) {
   prob.layers.forEach(l => map.removeLayer(l));
   if (drop) { prob.layers = []; prob.rasters = []; prob.cut = []; }
   document.getElementById("legendProb").hidden = true;
+  syncRuleLayer();
 }
 // Recolour in place — the rasters stay loaded, only the colour function changes.
 export function repaintProb() {
@@ -338,7 +351,7 @@ export function renderProb() {
     '<p class="note" id="probNote">Väri: keltainen = juuri rajan yli, pinkki = mallin parhaat ruudut. ' +
     'Pienempi osuus = vähemmän paikkoja mutta parempia: parhaassa 0,5 %:ssa kaksi kolmesta ' +
     'sieni-ilmoituksesta on matsutakea, parhaassa 5 %:ssa joka kolmas. ' +
-    'Sääntökartta jää näkyviin; säädä sen peittävyyttä yllä.</p>';
+    'Sääntökartta piilotetaan mallin ollessa päällä.</p>';
   const on = host.querySelector("#probOn"), rng = host.querySelector("#probPct"), val = host.querySelector("#probPctVal");
   on.checked = state.prob.on; rng.value = probStopIndex(state.prob.pct); val.textContent = fmtPct(state.prob.pct);
   on.addEventListener("change", () => {
