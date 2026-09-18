@@ -43,13 +43,13 @@ huomiotta: harvennettu metsä on yhä metsä.
 Kuviotieto kattaa vain yksityismetsät, joten valtion ja yhtiöiden mailla korjaus
 ei toimi. Malli itse on ennallaan — vika ei ole mallissa vaan sen lähtöaineiston
 iässä, joten korjaus tehdään vasta pisteytyksen jälkeen, samaan tapaan kuin
-`ml/pick_sites.py` soveltaa poissulkumaskinsa. Korjauksen voi kytkeä pois
+`ml/plan/pick_sites.py` soveltaa poissulkumaskinsa. Korjauksen voi kytkeä pois
 🗺️-valikosta.
 
 Korjaus tulee kahta reittiä. **Sääntötaso ja napautustiedot** hakevat sen
 suoraan Metsäkeskuksen rajapinnasta, jolloin se on aina tuore eikä vaadi
 julkaisua. **Todennäköisyyskartta** tarvitsee sen valmiiksi laskettuna, jotta
-värit ovat oikein jo ennen napautusta: `ml/fetch_harvests.py` lataa
+värit ovat oikein jo ennen napautusta: `ml/ingest/fetch_harvests.py` lataa
 maakunnittaiset GeoPackage-paketit ja rasteroi ne samaan ruudukkoon
 mallirasterin kanssa (`data/matsutake/cut_*.tif`, 9 osaa, 66 MB). Sovellus
 lukee ne mallirasterin rinnalla toisena kaistana. Napautettaessa elävä
@@ -205,7 +205,7 @@ Kuviot pannaan järjestykseen suhteella `pinta-ala / (1 + km/5)` — hehtaarit
 painavat puolet 5 km:n päässä — ja peräkkäisten valintojen välille vaaditaan
 2,5 km, jotta kolme ehdotusta ovat kolme eri metsää. Osoitettu piste on kuvion
 **syvin ruutu**, ei painopiste: se on varmasti kuvion sisällä ja se on myös se
-kohta, jossa kannattaa seistä. Sama valinta tehdään `ml/pick_sites.py`:ssä.
+kohta, jossa kannattaa seistä. Sama valinta tehdään `ml/plan/pick_sites.py`:ssä.
 
 Uuden sienen lisääminen on yksi merkintä `SPECIES`-taulukkoon `index.html`:ssä:
 laji kuvaa suodattimensa (`conditions`), hyväksymänsä maapohjat (`mainTypes`),
@@ -244,11 +244,11 @@ ja tarkkuusluvut: [docs/HABITAT_MODEL_PLAN.md](docs/HABITAT_MODEL_PLAN.md) ja
 [docs/MODEL_REPORT_matsutake.md](docs/MODEL_REPORT_matsutake.md); koodi ja
 data kansiossa [`ml/`](ml/README.md).
 
-**Retkisuunnittelu.** `ml/pick_sites.py` tekee kartasta lyhyen listan: se rajaa
+**Retkisuunnittelu.** `ml/plan/pick_sites.py` tekee kartasta lyhyen listan: se rajaa
 suojelu- ja puolustusvoimien alueet, rakennusten lähistön ja isojen teiden
 päästökäytävät pois, vaatii että paikalle pääsee autolla kävelymatkan päähän, ja
 järjestää loput kuviot sen mukaan miten hyvä niiden *huonoin* neljännes on.
-Aineisto siihen haetaan OpenStreetMapista (`ml/fetch_osm.py`).
+Aineisto siihen haetaan OpenStreetMapista (`ml/plan/fetch_osm.py`).
 
 ## Aineistot ja lisenssit
 

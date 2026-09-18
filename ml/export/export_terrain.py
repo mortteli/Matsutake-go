@@ -3,19 +3,19 @@
 The app's result sheet reads slope and aspect for the tapped point. Asking Open-Meteo for them
 costs one live request per tap and answers from Copernicus GLO-90 (~90 m), while the model under
 the same pin was trained and scored on the MML 10 m model warped to the 16 m analysis grid
-(ml/build_dem16.py). This exports that same warped elevation as COGs the browser reads with range
+(ml/ingest/build_dem16.py). This exports that same warped elevation as COGs the browser reads with range
 requests, exactly like prob_*.tif: no external call, and the slope in the sheet is the slope the
 model saw.
 
 Elevation is exported rather than ready-made slope/aspect on purpose. It is the smaller and by far
 the more compressible of the two — a surface, not noise — and the app derives slope from a 3x3
-block with the same central differences ml/features.py uses, so there is one definition of slope
+block with the same central differences ml/core/features.py uses, so there is one definition of slope
 in the project instead of two.
 
 Output: data/terrain/terrain_meta.json + data/terrain/dem_<pixel>m_<ij>.tif
         (int16 decimetres, nodata -32768 — the units of ml/data/rasters/dem_16m.tif, unchanged)
 
-    python ml/export_terrain.py [--downsample 4] [--split 3] [--max-mb 90]
+    python ml/export/export_terrain.py [--downsample 4] [--split 3] [--max-mb 90]
 
 Size is the only real decision here. The 16 m grid is 42 240 x 73 472 cells, which even as
 well-predicted int16 is far more than a git repository should carry; --downsample averages it
@@ -30,8 +30,9 @@ from rasterio.transform import Affine
 from rasterio.windows import Window, bounds as win_bounds
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.abspath(os.path.join(HERE, ".."))
-SRC = os.path.join(HERE, "data", "rasters", "dem_16m.tif")
+ML = os.path.dirname(HERE)
+ROOT = os.path.dirname(ML)
+SRC = os.path.join(ML, "data", "rasters", "dem_16m.tif")
 NODATA = -32768
 BLOCK = 4096          # source rows per read; a multiple of every sane --downsample
 
@@ -93,9 +94,9 @@ def main():
     ap.add_argument("--max-mb", type=float, default=90, help="GitHub refuses files over 100 MB")
     a = ap.parse_args()
     if not os.path.exists(a.src):
-        raise SystemExit(f"{a.src} not found — run ml/build_dem16.py first")
+        raise SystemExit(f"{a.src} not found — run ml/ingest/build_dem16.py first")
     if not os.path.exists(a.src + ".ok") and a.src == SRC:
-        raise SystemExit(f"{a.src} is an unfinished warp (no .ok) — let ml/build_dem16.py finish")
+        raise SystemExit(f"{a.src} is an unfinished warp (no .ok) — let ml/ingest/build_dem16.py finish")
 
     outdir = os.path.join(ROOT, "data", "terrain")
     os.makedirs(outdir, exist_ok=True)
@@ -123,7 +124,7 @@ def main():
     meta = dict(crs="EPSG:3067", pixel_m=pixel, value="elevation", units="dm", scale=0.1,
                 nodata=NODATA, built=time.strftime("%Y-%m-%d"), files=files,
                 source="MML 10 m elevation model, warped to the 16 m analysis grid by "
-                       "ml/build_dem16.py" + (f" and averaged to {pixel} m" if k > 1 else ""),
+                       "ml/ingest/build_dem16.py" + (f" and averaged to {pixel} m" if k > 1 else ""),
                 attribution="© Maanmittauslaitos — CC BY 4.0")
     json.dump(meta, open(os.path.join(outdir, "terrain_meta.json"), "w"), indent=1)
     total = sum(os.path.getsize(os.path.join(ROOT, f["url"])) for f in files)

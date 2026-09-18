@@ -4,23 +4,39 @@ Python pipeline that turns public observations into a 16 m probability-of-occurr
 raster for a mushroom species. The web app stays a static page; this folder is only run
 offline. See `docs/HABITAT_MODEL_PLAN.md` for the reasoning and the data audit.
 
+Layout — each stage only imports the one before it:
+
+```
+core/     grid.py, features.py     shared grid geometry + feature extraction, imported by every stage
+ingest/   fetch_*.py, climate.py,  external sources -> local files under data/ (raw or cached)
+          build_dem16.py, download_mvmi.sh
+dataset/  build_dataset.py         ingested data + observations -> data/<species>/dataset.csv
+train/    train.py, compare_heads.py   dataset.csv -> models/<species>/ + docs/MODEL_REPORT_*.md
+export/   predict.py,              trained model -> full-Finland raster -> the app's static data/
+          export_app.py, export_terrain.py
+plan/     pick_sites.py, fetch_osm.py   raster + OSM exclusions -> a short list of trip candidates
+```
+
+`data/` and `models/` stay flat at `ml/` — every stage reads/writes them by the same relative
+path regardless of which subfolder its own script lives in.
+
 ```
 pip install -r ml/requirements.txt
-python ml/fetch_observations.py           # GBIF (+ laji.fi if LAJI_TOKEN is set in the env)
-python ml/climate.py                      # FMI 10 km normals -> ml/data/climate/*.tif
-python ml/fetch_gtk.py all                # GTK soil + glacigenic polygons -> 16 m rasters (large, not committed)
-sh  ml/download_mvmi.sh                   # local copies of the ten MVMI 2023 rasters (~10 GB, not committed)
-python ml/build_dataset.py [--coarse]     # presences (cycle-matched) + background -> dataset.csv
-python ml/train.py --species matsutake --head lgbm --select sure   # spatial CV, tuning, report
-python ml/predict.py --species matsutake   # full-Finland inference -> probability raster
-python ml/export_app.py --species matsutake --split 3   # -> data/matsutake/*.tif + prob_meta.json
+python ml/ingest/fetch_observations.py           # GBIF (+ laji.fi if LAJI_TOKEN is set in the env)
+python ml/ingest/climate.py                      # FMI 10 km normals -> ml/data/climate/*.tif
+python ml/ingest/fetch_gtk.py all                # GTK soil + glacigenic polygons -> 16 m rasters (large, not committed)
+sh  ml/ingest/download_mvmi.sh                   # local copies of the ten MVMI 2023 rasters (~10 GB, not committed)
+python ml/dataset/build_dataset.py [--coarse]     # presences (cycle-matched) + background -> dataset.csv
+python ml/train/train.py --species matsutake --head lgbm --select sure   # spatial CV, tuning, report
+python ml/export/predict.py --species matsutake   # full-Finland inference -> probability raster
+python ml/export/export_app.py --species matsutake --split 3   # -> data/matsutake/*.tif + prob_meta.json
 ```
 
 Terrain for the app's tap readout — independent of any species, run once:
 
 ```
-python ml/build_dem16.py                  # MML 10 m -> ml/data/rasters/dem_16m.tif (once, slow)
-python ml/export_terrain.py --downsample 4  # -> data/terrain/*.tif + terrain_meta.json
+python ml/ingest/build_dem16.py                  # MML 10 m -> ml/data/rasters/dem_16m.tif (once, slow)
+python ml/export/export_terrain.py --downsample 4  # -> data/terrain/*.tif + terrain_meta.json
 ```
 
 Without `data/terrain/` the app falls back to Open-Meteo's elevation API for the slope in the
@@ -30,7 +46,7 @@ With it, a tap costs no external call at all and the slope shown is the slope th
 Choosing what the map is made of
 
 ```
-python ml/compare_heads.py --species matsutake --seeds 5   # model families over several fold splits
+python ml/train/compare_heads.py --species matsutake --seeds 5   # model families over several fold splits
 ```
 
 `--head` decides which family the exported map is: `lgbm` (the shipped one), `mlp`, or
@@ -42,8 +58,8 @@ so that is what it is tuned for. The reasoning and the numbers:
 Planning a trip
 
 ```
-python ml/fetch_osm.py --center 61.4978 23.7610 --radius-km 115 --out ml/data/osm/pirkanmaa.npz
-python ml/pick_sites.py --species matsutake --center 61.4978 23.7610 --radius-km 100 \
+python ml/plan/fetch_osm.py --center 61.4978 23.7610 --radius-km 115 --out ml/data/osm/pirkanmaa.npz
+python ml/plan/pick_sites.py --species matsutake --center 61.4978 23.7610 --radius-km 100 \
     --osm ml/data/osm/pirkanmaa.npz --top-pct 0.5 --n 3 --out trip.geojson
 ```
 

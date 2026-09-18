@@ -8,7 +8,8 @@ import numpy as np, rasterio
 from rasterio.env import Env
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "data", "climate")
+ML = os.path.dirname(HERE)
+OUT = os.path.join(ML, "data", "climate")
 BASE = "https://www.nic.funet.fi/index/geodata/ilmatiede"
 YEARS = range(1991, 2021)
 

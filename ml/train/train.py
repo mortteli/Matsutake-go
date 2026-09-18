@@ -19,7 +19,9 @@ from sklearn.preprocessing import SplineTransformer
 import torch, torch.nn as nn
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, HERE)
+ML = os.path.dirname(HERE)
+ROOT = os.path.dirname(ML)
+sys.path.insert(0, os.path.join(ML, "core"))
 from features import FEATURES, SOIL_GROUPS, GLAC_GROUPS
 
 BLOCK_M = 25000
@@ -339,7 +341,7 @@ def main():
     ap.add_argument("--select", default="prauc", choices=["prauc", "sure"],
                     help="what hyper-parameters are chosen for: overall PR-AUC, or precision in the best 2 %%")
     a = ap.parse_args()
-    path = a.dataset or os.path.join(HERE, "data", a.species, "dataset.csv")
+    path = a.dataset or os.path.join(ML, "data", a.species, "dataset.csv")
     d = load(path)
     if a.fine_only:
         d = d[eval_mask(d)].reset_index(drop=True)
@@ -449,7 +451,7 @@ def main():
         log("ablation with location", report["ablation"]["with_location"])
 
     # final: fold models trained on the full 5-fold splits (each sees 80 %), ensemble at inference
-    outdir = os.path.join(HERE, "models", a.species); os.makedirs(outdir, exist_ok=True)
+    outdir = os.path.join(ML, "models", a.species); os.makedirs(outdir, exist_ok=True)
     prep = Prep(cols).fit(d[cols].values)
     X = prep.transform(d[cols].values); w = class_weights(d)
     members = []
@@ -475,7 +477,7 @@ def main():
     json.dump(dict(species=a.species, features=cols, head=a.head, select=a.select,
                    prep=prep.to_json(), mlp=dict(best_cfg, n_in=len(cols)), lgbm=lgb_cfg,
                    n_members=len(members), bg_random_quantiles=bgq.tolist(),
-                   trained=time.strftime("%Y-%m-%d"), dataset=os.path.relpath(path, HERE)),
+                   trained=time.strftime("%Y-%m-%d"), dataset=os.path.relpath(path, ML)),
               open(os.path.join(outdir, "model.json"), "w"), indent=1)
     json.dump(report, open(os.path.join(outdir, "report.json"), "w"), indent=1)
     d[["group", "lat", "lon", "year", "cycle", "score_mlp"]].to_csv(os.path.join(outdir, "oof_scores.csv"), index=False)
@@ -531,8 +533,8 @@ def write_report(r, species):
     L += ["", "## Hyper-parameter trials", "", "| PR-AUC vs fungi | recall@5 % | config |", "|---|---|---|"]
     for t in r["mlp_trials"]:
         L.append(f"| {t['prauc_vs_fungi']} | {t['recall_at_5']} | `{json.dumps(t['cfg'])}` |")
-    os.makedirs(os.path.join(HERE, "..", "docs"), exist_ok=True)
-    open(os.path.join(HERE, "..", "docs", f"MODEL_REPORT_{species}.md"), "w").write("\n".join(L) + "\n")
+    os.makedirs(os.path.join(ROOT, "docs"), exist_ok=True)
+    open(os.path.join(ROOT, "docs", f"MODEL_REPORT_{species}.md"), "w").write("\n".join(L) + "\n")
 
 
 if __name__ == "__main__":

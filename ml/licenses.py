@@ -91,11 +91,11 @@ def main():
          "This repository is public. Everything under `data/` and `ml/data/` is either open data "
          "redistributed under its own licence, or derived from such data. Records whose licence does "
          "not allow redistribution (all rights reserved) or requires share-alike were dropped before "
-         "anything was stored or trained on (`ml/fetch_observations.py`, `redistributable()`).", "",
+         "anything was stored or trained on (`ml/ingest/fetch_observations.py`, `redistributable()`).", "",
          "## Environmental data (all CC BY 4.0)", "",
          "| Dataset | Producer | Licence | Used for |", "|---|---|---|---|",
          "| Monilähteinen VMI (MS-NFI) forest maps 2009–2023, 16 m | Luonnonvarakeskus (Luke) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) | site class, main type, age, volumes by species, basal area, canopy cover, height — app filters and model features |",
-         "| Elevation model 10 m | Maanmittauslaitos (MML) | CC BY 4.0 | elevation, slope, aspect, TPI, relief — model features, and the app's own slope readout via `ml/export_terrain.py` |",
+         "| Elevation model 10 m | Maanmittauslaitos (MML) | CC BY 4.0 | elevation, slope, aspect, TPI, relief — model features, and the app's own slope readout via `ml/export/export_terrain.py` |",
          "| Maaperä 1:200 000 (superficial deposits) and Glacigenic landforms | Geologian tutkimuskeskus (GTK) | CC BY 4.0 | soil class, esker / glaciofluvial formation — rasterized copies in `ml/data/rasters/gtk_*_16m.tif` |",
          "| Gridded daily/monthly climate 10 km (1961–) | Ilmatieteen laitos (FMI) | CC BY 4.0 | thermal sum and precipitation normals in `ml/data/climate/` |",
          "| Copernicus DEM GLO-90 via Open-Meteo | ESA / Open-Meteo | CC BY 4.0 | fallback slope readout, used only where `data/terrain/` has not been published |",
@@ -125,7 +125,7 @@ def main():
           "| `data/matsutake/prob_*.tif`, `prob_meta.json` | 16 m probability map for the app | CC BY-NC 4.0 — attribution as above; non-commercial because CC BY-NC observation records contributed to training |",
           "| `ml/data/climate/*.tif`, `ml/data/rasters/gtk_*_16m.tif`, `ml/data/gtk_classes.json` | rasterized / aggregated copies of FMI and GTK data | CC BY 4.0 (© FMI, © GTK) |", "",
           "To publish the derived layers under plain CC BY 4.0, re-run the pipeline with the CC BY-NC "
-          "records removed (`ml/fetch_observations.py` — filter on the `license` column).", "",
+          "records removed (`ml/ingest/fetch_observations.py` — filter on the `license` column).", "",
           "Software licences: see `LICENSE` (MIT) and `THIRD_PARTY_LICENSES.md`."]
     open(os.path.join(ROOT, "DATA_LICENSES.md"), "w").write("\n".join(L) + "\n")
     print("wrote DATA_LICENSES.md; observation licences:", dict(lic_counts))

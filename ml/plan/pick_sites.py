@@ -16,7 +16,7 @@ What survives is clustered into stands, and stands are ranked by how good their 
 is rather than by their best cell — a single freak pixel is not worth a 90 km drive, a whole
 hillside that scores well is.
 
-  python ml/pick_sites.py --species matsutake --center 61.4978 23.7610 --radius-km 100 \
+  python ml/plan/pick_sites.py --species matsutake --center 61.4978 23.7610 --radius-km 100 \
       --osm ml/data/osm/pirkanmaa.npz --top-pct 0.5 --n 3 --out trip.geojson
 
 A 100 km radius is 156 million cells, so every layer is reduced to a boolean as soon as it is
@@ -31,6 +31,7 @@ from scipy import ndimage
 from pyproj import Transformer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+ML = os.path.dirname(HERE)
 PIX = 16.0
 TO3067 = Transformer.from_crs(4326, 3067, always_xy=True)
 TO4326 = Transformer.from_crs(3067, 4326, always_xy=True)
@@ -102,7 +103,7 @@ THEMES = ["kasvupaikka", "paatyyppi", "ika", "manty", "kuusi", "koivu", "latvusp
 def describe(stands, lab, objs, ids, xs, ys):
     """What each stand is made of, straight from the source rasters — so the list can be read
     as forest ("old pine on dry heath, sandy, gentle north slope") and not only as a score."""
-    sys.path.insert(0, HERE)
+    sys.path.insert(0, os.path.join(ML, "core"))
     from features import RASTERS, SOIL_GROUPS, class_lookup
     mvmi = os.path.join(RASTERS, "mvmi2023")
     soil_lut = class_lookup("soil")
@@ -183,7 +184,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--species", default="matsutake")
     ap.add_argument("--src", default=None, help="probability raster (default ml/data/rasters/prob_<species>_16m.tif)")
-    ap.add_argument("--osm", default=os.path.join(HERE, "data", "osm", "pirkanmaa.npz"))
+    ap.add_argument("--osm", default=os.path.join(ML, "data", "osm", "pirkanmaa.npz"))
     ap.add_argument("--center", type=float, nargs=2, default=[61.4978, 23.7610], metavar=("LAT", "LON"))
     ap.add_argument("--radius-km", type=float, default=100.0)
     ap.add_argument("--top-pct", type=float, default=0.5,
@@ -201,7 +202,7 @@ def main():
                     help="also read what the forest is: site class, pine, age, soil, slope")
     a = ap.parse_args()
 
-    src_path = a.src or os.path.join(HERE, "data", "rasters", f"prob_{a.species}_16m.tif")
+    src_path = a.src or os.path.join(ML, "data", "rasters", f"prob_{a.species}_16m.tif")
     cx, cy = TO3067.transform(a.center[1], a.center[0])
     R = a.radius_km * 1000.0
 

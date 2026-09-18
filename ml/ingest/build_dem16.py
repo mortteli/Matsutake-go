@@ -12,10 +12,11 @@ from rasterio.vrt import WarpedVRT
 from rasterio.windows import Window
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, HERE)
+ML = os.path.dirname(HERE)
+sys.path.insert(0, os.path.join(ML, "core"))
 from grid import Grid, env, DEM_VRT
 
-OUT = os.path.join(HERE, "data", "rasters", "dem_16m.tif")
+OUT = os.path.join(ML, "data", "rasters", "dem_16m.tif")
 NODATA = -32768
 BLOCK = 4096
 

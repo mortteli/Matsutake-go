@@ -121,7 +121,7 @@ whatever level geotiff.js picked plus a resample down to the sample grid.
 ## Not fixed here, on purpose
 
 Zooming out still thins the map out: the overviews are built with `OVERVIEW_RESAMPLING=AVERAGE`
-(`ml/export_app.py`), so a lone excellent 16 m cell is averaged with its neighbours and can fall
+(`ml/export/export_app.py`), so a lone excellent 16 m cell is averaged with its neighbours and can fall
 under the threshold before it is drawn. That is a property of the baked files, not of the
 drawing — changing it means re-baking the parts with a maximum-preserving resampling and deciding
 whether "best 5 % of forest land" should mean the best cell or the average cell of a block.

@@ -4,7 +4,7 @@ Writes data/<species>/prob_meta.json plus one or more GeoTIFFs (tiled, deflate, 
 under data/<species>/. GitHub refuses files over 100 MB, so the raster is split into a grid
 of regional files when needed; the app loads only the files intersecting the view.
 
-python ml/export_app.py --species matsutake [--src ml/data/rasters/prob_matsutake_16m.tif] [--max-mb 90]
+python ml/export/export_app.py --species matsutake [--src ml/data/rasters/prob_matsutake_16m.tif] [--max-mb 90]
 """
 import argparse, json, math, os, sys, time
 import numpy as np, rasterio
@@ -13,7 +13,8 @@ from rasterio.shutil import copy as rio_copy
 from rasterio.windows import Window, transform as win_transform
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.abspath(os.path.join(HERE, ".."))
+ML = os.path.dirname(HERE)
+ROOT = os.path.dirname(ML)
 
 
 def log(*a):
@@ -75,13 +76,13 @@ def main():
                     help="largest share of forest land the app can show; the rest is stored as 0")
     ap.add_argument("--step", type=int, default=1, help="quantisation of stored scores")
     a = ap.parse_args()
-    src_path = a.src or os.path.join(HERE, "data", "rasters", f"prob_{a.species}_16m.tif")
+    src_path = a.src or os.path.join(ML, "data", "rasters", f"prob_{a.species}_16m.tif")
     outdir = os.path.join(ROOT, "data", a.species); os.makedirs(outdir, exist_ok=True)
     for f in os.listdir(outdir):
         if f.startswith("prob_") and f.endswith(".tif"):
             os.remove(os.path.join(outdir, f))
-    model = json.load(open(os.path.join(HERE, "models", a.species, "model.json")))
-    report = json.load(open(os.path.join(HERE, "models", a.species, "report.json")))
+    model = json.load(open(os.path.join(ML, "models", a.species, "model.json")))
+    report = json.load(open(os.path.join(ML, "models", a.species, "report.json")))
 
     with rasterio.open(src_path) as src:
         v, _ = forest_quantiles(src)

@@ -3,7 +3,7 @@ run whichever fold ensemble the trained model's head names (MLP, LightGBM or the
 two), and write a tiled GeoTIFF with overviews (COG-style):
   value 0..100 = probability × 100, 255 = no forestry-land data.
 
-python ml/predict.py --species matsutake [--block 2048] [--out ml/data/rasters/prob_matsutake_16m.tif]
+python ml/export/predict.py --species matsutake [--block 2048] [--out ml/data/rasters/prob_matsutake_16m.tif]
                      [--bbox 227000 6722000 427000 6922000]   # one region only, EPSG:3067
 Restartable: finished blocks are recorded in <out>.progress.
 """
@@ -14,7 +14,9 @@ from rasterio.enums import Resampling
 from rasterio.windows import Window
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, HERE)
+ML = os.path.dirname(HERE)
+sys.path.insert(0, os.path.join(ML, "core"))
+sys.path.insert(0, os.path.join(ML, "train"))
 from grid import Grid, env
 from features import Sources, FEATURES, RASTERS
 from train import MLP, Prep
@@ -27,7 +29,7 @@ def log(*a):
 def load_model(species):
     """Returns the config, the preprocessor, the fold models of whichever families the trained
     head uses, and the indices that pick the model's features out of the full feature stack."""
-    mdir = os.path.join(HERE, "models", species)
+    mdir = os.path.join(ML, "models", species)
     cfg = json.load(open(os.path.join(mdir, "model.json")))
     prep = Prep(cfg["features"])
     p = cfg["prep"]

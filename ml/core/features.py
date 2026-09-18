@@ -20,8 +20,9 @@ from scipy.ndimage import uniform_filter, maximum_filter, minimum_filter
 from grid import Grid, env, luke_url, DEM_VRT
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-RASTERS = os.path.join(HERE, "data", "rasters")
-CLIMATE = os.path.join(HERE, "data", "climate")
+ML = os.path.dirname(HERE)
+RASTERS = os.path.join(ML, "data", "rasters")
+CLIMATE = os.path.join(ML, "data", "climate")
 
 MVMI_THEMES = ["kasvupaikka", "paatyyppi", "ika", "manty", "kuusi", "koivu", "tilavuus",
                "ppa", "latvuspeitto", "keskipituus"]
@@ -70,7 +71,7 @@ def class_lookup(kind):
     fn = soil_group if kind == "soil" else glac_group
     lut = np.full(256, groups.index("other"), dtype=np.int16)
     lut[0] = -1                                              # no polygon
-    path = os.path.join(HERE, "data", "gtk_classes.json")
+    path = os.path.join(ML, "data", "gtk_classes.json")
     if os.path.exists(path):
         for idx, rec in json.load(open(path)).get(kind, {}).items():
             lut[int(idx)] = groups.index(fn(rec["name"]))
@@ -184,7 +185,7 @@ class Sources:
             else:
                 self._mvmi_raw.append(ds)
                 self.mvmi[t] = WarpedVRT(ds, **dict(warp, resampling=Resampling.nearest, nodata=ds.nodata))
-        # A completed local warp of the 10 m model onto this grid (ml/build_dem16.py) is read
+        # A completed local warp of the 10 m model onto this grid (ml/ingest/build_dem16.py) is read
         # directly; otherwise the remote model is warped on the fly, which is far slower.
         dem16 = os.path.join(RASTERS, "dem_16m.tif")
         if os.path.exists(dem16 + ".ok"):

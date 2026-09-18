@@ -11,8 +11,8 @@ in somebody's back yard or against a motorway. Those come from OSM:
 
 Everything is stored in EPSG:3067 metres, ready for a distance transform on the 16 m grid.
 
-  python ml/fetch_osm.py --bbox 60.4 21.4 62.6 26.2 --out ml/data/osm/pirkanmaa.npz
-  python ml/fetch_osm.py --center 61.4978 23.7610 --radius-km 115 --out ml/data/osm/pirkanmaa.npz
+  python ml/plan/fetch_osm.py --bbox 60.4 21.4 62.6 26.2 --out ml/data/osm/pirkanmaa.npz
+  python ml/plan/fetch_osm.py --center 61.4978 23.7610 --radius-km 115 --out ml/data/osm/pirkanmaa.npz
 
 The extract is downloaded once to ml/data/raw/ unless --pbf points at a local file.
 Source: OpenStreetMap contributors, ODbL.
@@ -23,6 +23,7 @@ import osmium
 from pyproj import Transformer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+ML = os.path.dirname(HERE)
 PBF_URL = "https://download.openstreetmap.fr/extracts/europe/finland.osm.pbf"
 BIG = {"motorway", "trunk", "primary", "motorway_link", "trunk_link", "primary_link"}
 DRIVE = BIG | {"secondary", "tertiary", "unclassified", "residential", "service", "track",
@@ -52,7 +53,7 @@ def main():
     ap.add_argument("--center", type=float, nargs=2, metavar=("LAT", "LON"))
     ap.add_argument("--radius-km", type=float, default=115.0)
     ap.add_argument("--pbf", default=None, help="local .osm.pbf (downloaded if missing)")
-    ap.add_argument("--out", default=os.path.join(HERE, "data", "osm", "finland.npz"))
+    ap.add_argument("--out", default=os.path.join(ML, "data", "osm", "finland.npz"))
     a = ap.parse_args()
 
     if a.bbox:
@@ -66,7 +67,7 @@ def main():
         ap.error("give --bbox or --center")
     log(f"keeping {lat0:.2f}..{lat1:.2f} N, {lon0:.2f}..{lon1:.2f} E")
 
-    pbf = a.pbf or os.path.join(HERE, "data", "raw", "finland.osm.pbf")
+    pbf = a.pbf or os.path.join(ML, "data", "raw", "finland.osm.pbf")
     if not os.path.exists(pbf):
         os.makedirs(os.path.dirname(pbf), exist_ok=True)
         log("downloading", PBF_URL)
