@@ -147,6 +147,9 @@ oletusikä on 60 v — se puolittaa värjätyn pinta-alan osuvuuden kärsimätt�
 - 🍄 **Sienihavainnot**: 445 GBIF/Lajitietokeskus-löytöä omana tasonaan, luokiteltuna
   sen mukaan kuinka tarkasti ne on paikannettu ja onko metsä niiden jälkeen vaihtunut
   — ks. alla.
+- 📊 **Satokausikaavio** ℹ️-sivulla: samat havainnot viikoittaisena pylväskuvana kolmelta
+  leveyspiirivyöhykkeeltä (Lappi, Kainuu ja Pohjois-Pohjanmaa, Itä- ja Etelä-Suomi) — näkee
+  yhdellä silmäyksellä että pohjoinen huipentuu ensin, ja missä kohtaa kautta juuri nyt ollaan.
 - 🗺️ Taustakartat: OpenStreetMap, OpenTopoMap (korkeuskäyrät) ja Esri-satelliitti.
 - 📲 PWA-manifesti → "Lisää aloitusnäytölle" toimii sovelluksen tavoin.
 
@@ -290,6 +293,28 @@ metsikkö on syntynyt löydön jälkeen, puusto on vaihtunut. Kasvupaikan ala- j
 päätyypin muutos inventointien välillä nostaa vain lipun eikä anna tuomiota, koska ne
 kuvaavat maaperää eivätkä vaihdu neljässätoista vuodessa muuten kuin ojittamalla —
 mikä niiden välillä oikeasti muuttuu, on Luken arvio niistä.
+
+### Milloin — satokausikaavio ℹ️-sivulla
+
+Sama aineisto kertoo myös *milloin*, ja se on ℹ️-sivulla omana kuvanaan: havainnot
+ISO-viikoittain, pinottuna kolmeen leveyspiirivyöhykkeeseen. **Lappi**, **Kainuu ja
+Pohjois-Pohjanmaa** — Koillismaa mukaan lukien, sillä Kuusamo on Pohjois-Pohjanmaata ja
+pelkkä leveyspiirileikkaus veisi sen havainnot Lapin puolelle — ja **Itä- ja Etelä-Suomi**,
+eli loput maasta Pohjois-Karjalasta ja Savosta Uudellemaalle ja Varsinais-Suomeen. Rajat
+ovat kaksi suoraa maakuntarajojen mukaan: rajalla istuva kunta menee väärälle puolelle,
+mutta kuvan asia on vyöhyke eikä raja.
+
+Väri kulkee tummuusjärjestyksessä pohjoisesta etelään, koska järjestys on tässä itse
+sanoma: Lapin huippu on aikaisemmin kuin etelän. Napauta pylvästä, niin sen viikon luvut
+aukeavat kuvan alle; pystykatkoviiva merkitsee kuluvan viikon, eli sen mihin kohtaan kautta
+tämä päivä osuu. Yhteenvetorivit kertovat vyöhykkeen huippuviikon ja välin, jolle puolet
+sen havainnoista osuu.
+
+Pylvään korkeus on havaintojen määrä, ei sadon runsaus: siihen vaikuttaa myös se milloin
+ihmiset ovat metsässä ja kirjaavat löytönsä, ja kaikki vuosikymmenet 1866:sta alkaen ovat
+samassa kuvassa. Tietueet joilla on vain kuukausi tai vuosi eivät mahdu viikkoakselille, ja
+akselin päistä on karsittu yksittäiset kaudesta kaukana olevat havainnot — molempien määrä
+lukee kuvan alla.
 
 Suodatin *Parhaat vihjeet* jättää näkyviin paikannetut, joiden metsä on yhä
 pystyssä tai jotka ovat metsätalousmaan ulkopuolella. Napauta pistettä, niin modaali

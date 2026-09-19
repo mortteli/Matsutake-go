@@ -152,6 +152,32 @@
   .legend .grad { width: 34px; height: 12px; border-radius: 3px; background: linear-gradient(90deg, #ffd166, #ff2d78); }
   .note { font-size: 12.5px; color: var(--muted); line-height: 1.45; margin: 4px 0 8px; }
 
+  /* ---------- seasonality chart ---------- */
+  .schart { display: block; width: 100%; height: auto; margin: 2px 0 0; touch-action: pan-y; }
+  .schart .sgrid { stroke: #2c4636; stroke-width: 1; }
+  .schart .sgrid.base { stroke: #3d5c48; }
+  .schart .sax { fill: var(--muted); font-size: 9px; font-family: inherit; }
+  /* where today sits in the season — a hairline and a whisper, never a fourth series */
+  .schart .sax.now { fill: var(--accent); }
+  .schart .snow { stroke: var(--accent); stroke-width: 1; stroke-dasharray: 2 3; opacity: .55; }
+  /* the hit target is the whole column, not the bar: a three-record week is 3 px of ink */
+  .schart .shit { fill: #fff; fill-opacity: 0; outline: 0; cursor: pointer; }
+  .schart .shit.on, .schart .shit:focus-visible { fill-opacity: .07; }
+  /* the readout the hovered column writes into — two lines of height are reserved, so the
+     legend below it does not jump as the reader moves along the axis */
+  .sread { font-size: 12.5px; line-height: 1.4; color: var(--text); margin: 4px 0 10px;
+    min-height: 2.8em; }
+  .sread .sc { display: inline-flex; align-items: center; gap: 4px; margin-left: 11px;
+    font-variant-numeric: tabular-nums; }
+  .sread .sc i { width: 9px; height: 9px; border-radius: 2px; }
+  .seas { font-size: 12.5px; color: var(--muted); }
+  .srow { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; padding: 3px 0; }
+  .sdot { width: 11px; height: 11px; flex: 0 0 auto; border-radius: 3px; }
+  .srow .sname { color: var(--text); }
+  .srow .sval { margin-left: auto; color: var(--text); font-weight: 600;
+    font-variant-numeric: tabular-nums; }
+  .srow .smeta { flex-basis: 100%; margin-left: 19px; font-size: 12px; }
+
   /* ---------- sheets ---------- */
   .sheet {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 2000;
@@ -386,6 +412,7 @@
 <div class="sheet" id="sheetInfo">
   <div class="grab"></div>
   <div id="infoBody"></div>
+  <div id="seasonChart"></div>
   <h3>Näin käytät</h3>
   <p>🍄 oikeassa yläkulmassa = vaihda sieni · 📍 = oma sijainti (seuraa GPS:ää) ·
      🗺️ = suodattimet ja taustakartta · napauta karttaa = paikan tiedot ja arvio.</p>

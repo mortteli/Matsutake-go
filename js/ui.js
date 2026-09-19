@@ -3,6 +3,7 @@ import { map, spots } from "./maplayer.js";
 import { clearNearby } from "./nearby.js";
 import { hideProb, prob, renderProb, showProb, syncRuleLayer, updateProbLegend } from "./problayer.js";
 import { search } from "./search.js";
+import { renderSeasonality } from "./seasonality.js";
 import { SPECIES } from "./species.js";
 import { cfg, save, sp, state } from "./state.js";
 
@@ -160,6 +161,7 @@ export function applySpecies() {
   document.getElementById("legendText").textContent = s.legend;
   document.getElementById("filterTitle").textContent = s.name + "-suodatin";
   document.getElementById("infoBody").innerHTML = s.info;
+  renderSeasonality();
   document.title = s.name + " GO " + s.emoji;
   renderControls();
   renderHelpers();
