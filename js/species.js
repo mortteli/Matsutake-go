@@ -61,6 +61,8 @@ export const SPECIES = [
   ],
   // observation-trained probability layer (ml/), see docs/HABITAT_MODEL_PLAN.md
   model: "data/matsutake/prob_meta.json",
+  // the GBIF/FinBIF finds that train it, plotted as their own map layer
+  findings: "data/matsutake/observations.json",
   slopeGood: s => s.deg >= 2,
   region: lat => lat >= 66 ? "Lappi — paras alue 🌟" :
                  lat >= 64 ? "pohjoinen — hyvä alue" :
