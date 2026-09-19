@@ -7,10 +7,13 @@ offline. See `docs/HABITAT_MODEL_PLAN.md` for the reasoning and the data audit.
 Layout — each stage only imports the one before it:
 
 ```
-core/     grid.py, features.py     shared grid geometry + feature extraction, imported by every stage
+core/     grid.py, features.py,    shared grid geometry + feature extraction, imported by every stage
+          mvmi_point.py
 ingest/   fetch_*.py, climate.py,  external sources -> local files under data/ (raw or cached)
           build_dem16.py, download_mvmi.sh
 dataset/  build_dataset.py         ingested data + observations -> data/<species>/dataset.csv
+          observation_status.py    observations -> how precisely each was located, and whether
+                                   the forest it was found in is still standing
 train/    train.py, compare_heads.py   dataset.csv -> models/<species>/ + docs/MODEL_REPORT_*.md
 export/   predict.py,              trained model -> full-Finland raster -> the app's static data/
           export_app.py, export_terrain.py
@@ -27,6 +30,8 @@ python ml/ingest/climate.py                      # FMI 10 km normals -> ml/data/
 python ml/ingest/fetch_gtk.py all                # GTK soil + glacigenic polygons -> 16 m rasters (large, not committed)
 sh  ml/ingest/download_mvmi.sh                   # local copies of the ten MVMI 2023 rasters (~10 GB, not committed)
 python ml/dataset/build_dataset.py [--coarse]     # presences (cycle-matched) + background -> dataset.csv
+python ml/dataset/observation_status.py           # per-record precision + habitat verdict -> observation_status.csv
+python ml/dataset/observation_status.py --report  # the cross-tab; --from-cache re-runs it with no network
 python ml/train/train.py --species matsutake --head lgbm --select sure   # spatial CV, tuning, report
 python ml/export/predict.py --species matsutake   # full-Finland inference -> probability raster
 python ml/export/export_app.py --species matsutake --split 3   # -> data/matsutake/*.tif + prob_meta.json

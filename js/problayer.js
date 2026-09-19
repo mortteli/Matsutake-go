@@ -1,3 +1,4 @@
+import { CUT_GREY } from "./constants.js";
 import { tm35Row } from "./geo.js";
 import { map, spots } from "./maplayer.js";
 import { save, sp, state } from "./state.js";
@@ -73,8 +74,6 @@ export function probThreshold() {
 
    With `hideCut` off, or where no cut layer is published, values[1] is undefined and this
    behaves exactly as it did before. */
-export const CUT_GREY = "rgba(150,163,155,0.72)";
-
 export function probColorFn() {
   const thr = probThreshold(), pct = state.prob.pct / 100, nod = prob.meta.nodata;
   const useCut = state.hideCut;

@@ -4,7 +4,7 @@ import { fmtPct, prob, probRank, probThreshold } from "./problayer.js";
 import { harvestHTML, readHarvest, readProb } from "./rasterread.js";
 import { cfg, sp, state } from "./state.js";
 import { readSlope } from "./terrain.js";
-import { openSheet } from "./ui.js";
+import { checkRow, openSheet } from "./ui.js";
 import { loadMask, maskMin, maskRange, maskValues, newCanvas, wmsURL } from "./wms.js";
 
 /* ================= tap to inspect =================
@@ -89,12 +89,6 @@ export async function readMetric(m, latlng) {
   }));
   return { m, alts, ok: alts.some(a => a.pass === true) };
 }
-export function checkRow(state_, label, value) {
-  const mark = state_ === "ok" ? "✔" : state_ === "no" ? "✘" : "•";
-  return '<div class="c"><span class="mark ' + state_ + '">' + mark + '</span>' +
-         '<span class="k">' + label + '</span><span class="v">' + value + '</span></div>';
-}
-
 export async function inspect(latlng) {
   const species = sp(), c = cfg();
   probeMemo = new Map();          // a new point: nothing the last tap learned applies here
