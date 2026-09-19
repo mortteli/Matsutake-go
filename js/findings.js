@@ -26,6 +26,12 @@ export const findings = { data: null, dataFor: null, layer: null, rings: null, f
    the find might be, so the uncertainty rings are not drawn at all. */
 const RING_ZOOM = 11;
 
+/* Markers draw at a 4-5px radius, but tap accuracy shouldn't be held to that: a dedicated
+   canvas renderer lets the hit area extend `tolerance` px past the visible dot without
+   drawing it any bigger. Scoped to this layer only, so every other vector layer on the map
+   keeps the default SVG renderer. */
+const findingsRenderer = L.canvas({ padding: 0.5, tolerance: 10 });
+
 const BASIS_NAMES = {
   HUMAN_OBSERVATION: "havainto",
   HUMAN_OBSERVATION_PHOTO: "valokuvahavainto",
@@ -220,7 +226,7 @@ export function buildFindingsLayer(data) {
   });
   seen.forEach(group => {
     const f = group[0];
-    L.circleMarker([f.lat, f.lon], markerStyle(f))
+    L.circleMarker([f.lat, f.lon], { ...markerStyle(f), renderer: findingsRenderer })
       .addTo(layer)
       .on("click", e => { L.DomEvent.stopPropagation(e); openFinding(f, group.length); });
     if (f.prec === "summittainen" && f.unc_m)
