@@ -13,12 +13,23 @@ ML = os.path.dirname(HERE)
 OUT = os.path.join(ML, "data", "matsutake", "observations.csv")
 GBIF_TAXON = 5241820          # Tricholoma matsutake (S.Ito & S.Imai) Singer
 LAJI_TAXON = "MX.72541"
-FIELDS = ["source", "id", "date", "year", "month", "day", "lat", "lon", "unc_m", "basis", "dataset", "dataset_key", "license", "locality"]
+FIELDS = ["source", "id", "date", "year", "month", "day", "lat", "lon", "unc_m", "basis", "dataset", "dataset_key", "license", "locality", "remarks"]
 # Courtesy pause between pages. Matsutake is a few hundred records — one or two pages from each
 # API — so this costs nothing today; it is here so that pointing the script at a taxon with tens
 # of thousands of records cannot turn into a burst against a free public API. Every call below is
 # one page of a paging loop, so one sleep in one place covers both sources.
 PAGE_PAUSE_S = 0.5
+
+
+def clean_remarks(s):
+    """Free-text notes from the observer. GBIF records sourced from iNaturalist prefix these with
+    an automated "Quality assessment: ..." tag joined by " | "; that tag is metadata about the
+    record, not something the observer wrote, so it is stripped here rather than shown as if it
+    were a remark."""
+    s = (s or "").strip()
+    if s.lower().startswith("quality assessment:"):
+        s = s.split(" | ", 1)[1].strip() if " | " in s else ""
+    return s[:300] or None
 
 
 def get_json(url, tries=5):
@@ -44,7 +55,8 @@ def gbif():
                              lat=r["decimalLatitude"], lon=r["decimalLongitude"],
                              unc_m=r.get("coordinateUncertaintyInMeters"), basis=r.get("basisOfRecord"),
                              dataset=r.get("datasetName", ""), dataset_key=r.get("datasetKey", ""),
-                             license=r.get("license", ""), locality=(r.get("locality") or "")[:80]))
+                             license=r.get("license", ""), locality=(r.get("locality") or "")[:80],
+                             remarks=clean_remarks(r.get("occurrenceRemarks"))))
         off += 300
         if j.get("endOfRecords") or not j["results"]:
             break
@@ -72,7 +84,8 @@ def laji(token):
                              basis=u.get("recordBasis"), dataset=(r.get("document", {}).get("collectionId") or "").replace("http://tun.fi/", ""),
                              dataset_key=(r.get("document", {}).get("collectionId") or "").replace("http://tun.fi/", ""),
                              license=(r.get("document", {}).get("licenseId") or "").replace("http://tun.fi/MY.intellectualRights", ""),
-                             locality=(g.get("locality") or "")[:80]))
+                             locality=(g.get("locality") or "")[:80],
+                             remarks=clean_remarks(u.get("notes") or g.get("notes"))))
         if page >= j.get("lastPage", 1):
             break
         page += 1

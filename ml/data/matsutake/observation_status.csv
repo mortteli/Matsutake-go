@@ -1,6 +1,9 @@
 id,prec,year,unc_m,hab,hab_why,hab_frac,era,age_new,est_year,cut,forest_frac
 6498547472,tarkka,2026,84,ennallaan,tuore_havainto,1.0,2023,40,1983,0,1.0
 6498661350,tuntematon,2026,,ei_tietoa,liian_epatarkka,,,,,,
+6534665505,tarkka,2026,10,ennallaan,tuore_havainto,1.0,2023,88,1935,0,1.0
+6534687626,tarkka,2026,10,ulkopuolella,ei_metsatalousmaata,0.56,2023,55,1968,0,0.44
+6534692366,tarkka,2026,1,ennallaan,tuore_havainto,0.89,2023,72,1951,0,0.89
 5760866864,tarkka,2025,9,ennallaan,tuore_havainto,1.0,2023,92,1931,0,1.0
 5867901307,tuntematon,2025,,ei_tietoa,liian_epatarkka,,,,,,
 5888911706,summittainen,2025,1000,ennallaan,tuore_havainto,0.67,2023,119,1904,0,0.67
@@ -13,6 +16,7 @@ id,prec,year,unc_m,hab,hab_why,hab_frac,era,age_new,est_year,cut,forest_frac
 5844797852,tarkka,2025,250,ennallaan,tuore_havainto,1.0,2023,90,1933,0,1.0
 6133405962,tuntematon,2025,,ei_tietoa,liian_epatarkka,,,,,,
 6499727194,alueellinen,2025,2293,ei_tietoa,liian_epatarkka,,,,,,
+6519635386,tarkka,2025,25,ennallaan,tuore_havainto,1.0,2023,184,1839,0,1.0
 4925234382,tarkka,2024,1,ennallaan,tuore_havainto,1.0,2023,30,1993,0,1.0
 4927217726,tarkka,2024,1,epavarma,osa_alueesta_hakattu,0.33,2023,81,1942,2,1.0
 4929449643,tarkka,2024,1,ennallaan,tuore_havainto,1.0,2023,68,1955,0,1.0
@@ -403,8 +407,16 @@ id,prec,year,unc_m,hab,hab_why,hab_frac,era,age_new,est_year,cut,forest_frac
 2249241970,tuntematon,,,ei_tietoa,liian_epatarkka,,,,,,
 2249249578,tuntematon,,,ei_tietoa,liian_epatarkka,,,,,,
 5235907046,alueellinen,,100000,ei_tietoa,liian_epatarkka,,,,,,
+id.herb.oulu.fi/MY.6457290,tarkka,1988,100,epavarma,osa_alueesta_muuttunut,0.22,2009,63,1960,2,0.89
+id.herb.oulu.fi/MY.6563022,summittainen,1986,1000,epavarma,osa_alueesta_hakattu,0.11,2009,76,1947,2,0.78
+id.herb.oulu.fi/MY.6563041,summittainen,1974,1000,muuttunut,hakattu,0.5,2009,51,1972,2,0.78
+id.herb.oulu.fi/MY.6563054,alueellinen,1988,10000,ei_tietoa,liian_epatarkka,,,,,,
+id.herb.oulu.fi/MY.8251646,summittainen,1970,1000,muuttunut,kasvusto_havaintoa_nuorempi,0.44,2009,22,2001,0,0.78
 id.luomus.fi/MY.3268301,summittainen,1992,1000,ennallaan,ei_muutosta,0.75,2009,96,1927,0,0.89
+id.luomus.fi/MY.3268349,tarkka,1932,1,muuttunut,kasvusto_havaintoa_nuorempi,1.0,2009,54,1969,0,1.0
+id.luomus.fi/MY.3268388,summittainen,1866,1000,epavarma,osa_alueesta_muuttunut,0.33,2009,43,1980,0,0.33
 id.luomus.fi/MY.3270807,summittainen,1996,1000,muuttunut,hakattu,0.38,2009,73,1950,2,1.0
+mus.utu.fi/MY.9960406,alueellinen,1960,100000,ei_tietoa,liian_epatarkka,,,,,,
 tun.fi/HR.3211/131704250-U,alueellinen,2022,25000,ei_tietoa,liian_epatarkka,,,,,,
 tun.fi/HR.3211/178172798-U,alueellinen,2023,25000,ei_tietoa,liian_epatarkka,,,,,,
 tun.fi/HR.3211/238113645-U,alueellinen,2024,25000,ei_tietoa,liian_epatarkka,,,,,,
@@ -413,7 +425,6 @@ tun.fi/HR.3211/239907360-U,tarkka,2024,54,ennallaan,tuore_havainto,1.0,2023,74,1
 tun.fi/HR.3211/253730259-U,alueellinen,2021,25000,ei_tietoa,liian_epatarkka,,,,,,
 tun.fi/HR.3211/261562032-U,alueellinen,2020,25000,ei_tietoa,liian_epatarkka,,,,,,
 tun.fi/HR.3211/309688703-U,alueellinen,2025,25000,ei_tietoa,liian_epatarkka,,,,,,
-tun.fi/HR.3211/311267427-U,tarkka,2025,25,ennallaan,tuore_havainto,1.0,2023,184,1839,0,1.0
 tun.fi/HR.3211/311268764-U,alueellinen,2025,25000,ei_tietoa,liian_epatarkka,,,,,,
 tun.fi/HR.3211/311270339-U,alueellinen,2025,25000,ei_tietoa,liian_epatarkka,,,,,,
 tun.fi/HR.3211/311272595-U,alueellinen,2025,25000,ei_tietoa,liian_epatarkka,,,,,,
@@ -440,7 +451,6 @@ tun.fi/HR.3211/59494901-U,alueellinen,2020,25000,ei_tietoa,liian_epatarkka,,,,,,
 tun.fi/HR.3211/65768139-U,alueellinen,2016,25000,ei_tietoa,liian_epatarkka,,,,,,
 tun.fi/HR.5136/2016_228#U,tarkka,2016,1,muuttunut,puusto_nollautunut,0.67,2015,15,2008,0,1.0
 tun.fi/JX.1158000#4,tarkka,2020,1,ennallaan,ei_muutosta,1.0,2019,91,1932,0,1.0
-tun.fi/JX.2500710#3,tarkka,2026,10,ulkopuolella,ei_metsatalousmaata,0.56,2023,55,1968,0,0.44
-tun.fi/JX.2503807#3,tarkka,2026,10,ennallaan,tuore_havainto,1.0,2023,88,1935,0,1.0
-tun.fi/JX.2503859#3,tarkka,2026,1,ennallaan,tuore_havainto,0.89,2023,72,1951,0,0.89
+tun.fi/JX.1163706#4,summittainen,2007,1000,ulkopuolella,ei_metsatalousmaata,0.78,2009,56,1967,0,0.22
 tun.fi/JX.2509680#3,tarkka,2026,1,ennallaan,tuore_havainto,1.0,2023,64,1959,0,1.0
+tun.fi/JX.2514170#3,tarkka,2026,1,ennallaan,tuore_havainto,1.0,2023,94,1929,0,1.0
