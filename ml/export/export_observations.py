@@ -77,6 +77,7 @@ def main():
                 dataset=r["dataset"] or None,
                 license=r["license"] or None,
                 locality=r["locality"] or None,
+                remarks=r.get("remarks") or None,
                 link=link(r["source"], r["id"]),
                 **status.get(r["id"], {}),
             ))

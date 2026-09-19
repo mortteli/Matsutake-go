@@ -113,6 +113,10 @@ const fmtDate = d => {
 };
 const fmtM = m => m >= 1000 ? String(Math.round(m / 100) / 10).replace(".", ",") + " km" : m + " m";
 const row = (k, v) => '<div class="c"><span class="k">' + k + '</span><span class="v">' + v + '</span></div>';
+/* Remarks are free text typed by whoever logged the observation (iNaturalist etc.), unlike the
+   other fields here which come from a controlled vocabulary or a curated place name — so this is
+   the one value in the modal that must be escaped before it goes into innerHTML. */
+const escapeHtml = s => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 /* Is this record located tightly enough to stand on a stand at all? Also the line above which
    build_dataset.py lets a record train the model. */
@@ -178,6 +182,7 @@ export function openFinding(f, alsoHere) {
     row("Aineisto", f.dataset || "ei tiedossa") +
     row("Lähde", SOURCE_NAMES[f.source] || f.source) +
     row("Lisenssi", fmtLicense(f.license)) +
+    (f.remarks ? row("Huomiot", escapeHtml(f.remarks)) : "") +
     "</div>" +
     (f.link ? '<a class="navlink" target="_blank" rel="noopener" href="' + f.link +
       '">🔗 Näytä alkuperäinen tietue</a>' : "");
