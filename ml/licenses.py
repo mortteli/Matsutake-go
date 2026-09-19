@@ -97,7 +97,7 @@ def main():
          "| Monilähteinen VMI (MS-NFI) forest maps 2009–2023, 16 m | Luonnonvarakeskus (Luke) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) | site class, main type, age, volumes by species, basal area, canopy cover, height — app filters and model features |",
          "| Elevation model 10 m | Maanmittauslaitos (MML) | CC BY 4.0 | elevation, slope, aspect, TPI, relief — model features, and the app's own slope readout via `ml/export/export_terrain.py` |",
          "| Maaperä 1:200 000 (superficial deposits) and Glacigenic landforms | Geologian tutkimuskeskus (GTK) | CC BY 4.0 | soil class, esker / glaciofluvial formation — rasterized copies in `ml/data/rasters/gtk_*_16m.tif` |",
-         "| Gridded daily/monthly climate 10 km (1961–) | Ilmatieteen laitos (FMI) | CC BY 4.0 | thermal sum and precipitation normals in `ml/data/climate/` |",
+         "| Gridded daily/monthly climate 10 km (1961–) and the daily station observations (WFS) | Ilmatieteen laitos (FMI) | CC BY 4.0 | thermal sum and precipitation normals in `ml/data/climate/`; daily precipitation and mean temperature per 10 km cell in `ml/data/weather/`, and the running season in `ml/export/season_status.py` |",
          "| Copernicus DEM GLO-90 via Open-Meteo | ESA / Open-Meteo | CC BY 4.0 | fallback slope readout, used only where `data/terrain/` has not been published |",
          "| Metsävarakuviot (forest stands) | Suomen metsäkeskus | CC BY 4.0 | development class and stand age — clear-cuts and seedling stands are removed from the app's masks, read live from the WFS |",
          "| Metsänkäyttöilmoitukset (forest use declarations) | Suomen metsäkeskus | CC BY 4.0 | declared regeneration fellings — reported on tap only, never used to remove anything |", "",
@@ -123,7 +123,9 @@ def main():
           "| `ml/data/matsutake/dataset.csv` | training table: the records above joined with environmental features | CC BY-NC 4.0 (contains CC BY-NC records) |",
           "| `ml/models/matsutake/` | model weights, scaler, CV report | CC BY-NC 4.0 |",
           "| `data/matsutake/prob_*.tif`, `prob_meta.json` | 16 m probability map for the app | CC BY-NC 4.0 — attribution as above; non-commercial because CC BY-NC observation records contributed to training |",
-          "| `ml/data/climate/*.tif`, `ml/data/rasters/gtk_*_16m.tif`, `ml/data/gtk_classes.json` | rasterized / aggregated copies of FMI and GTK data | CC BY 4.0 (© FMI, © GTK) |", "",
+          "| `ml/data/climate/*.tif`, `ml/data/rasters/gtk_*_16m.tif`, `ml/data/gtk_classes.json` | rasterized / aggregated copies of FMI and GTK data | CC BY 4.0 (© FMI, © GTK) |",
+          "| `ml/data/weather/weather_dataset.csv`, `cells_*.npz` | the dated records above joined with FMI daily weather | CC BY-NC 4.0 (contains CC BY-NC records) |",
+          "| `ml/data/weather/effort_gbif*.csv` | how many Finnish fungal records GBIF holds per year and month — counts, not records | CC BY 4.0 (© GBIF contributors) |", "",
           "To publish the derived layers under plain CC BY 4.0, re-run the pipeline with the CC BY-NC "
           "records removed (`ml/ingest/fetch_observations.py` — filter on the `license` column).", "",
           "Software licences: see `LICENSE` (MIT) and `THIRD_PARTY_LICENSES.md`."]

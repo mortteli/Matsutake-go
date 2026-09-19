@@ -11,7 +11,9 @@ core/     grid.py, features.py,    shared grid geometry + feature extraction, im
           mvmi_point.py
 ingest/   fetch_*.py, climate.py,  external sources -> local files under data/ (raw or cached)
           build_dem16.py, download_mvmi.sh
+          weather_daily.py         FMI daily 10 km grids (+ station WFS for the running season)
 dataset/  build_dataset.py         ingested data + observations -> data/<species>/dataset.csv
+          build_weather_dataset.py dated finds x the weather before them -> data/weather/
           observation_status.py    observations -> how precisely each was located, and whether
                                    the forest it was found in is still standing
 train/    train.py, compare_heads.py   dataset.csv -> models/<species>/ + docs/MODEL_REPORT_*.md
@@ -36,6 +38,22 @@ python ml/train/train.py --species matsutake --head lgbm --select sure   # spati
 python ml/export/predict.py --species matsutake   # full-Finland inference -> probability raster
 python ml/export/export_app.py --species matsutake --split 3   # -> data/matsutake/*.tif + prob_meta.json
 ```
+
+Which years, rather than which places — the weather side. Independent of the habitat model
+and of the MVMI rasters, and it needs no local data beyond the FMI grids it downloads itself
+(~330 MB of cache, not committed):
+
+```
+python ml/dataset/build_weather_dataset.py --fetch     # finds x weather -> ml/data/weather/weather_dataset.csv
+python ml/train/train_weather.py                       # conditional logit + leave-one-year-out -> docs/MODEL_REPORT_weather.md
+python ml/export/season_status.py --lat 64.5 --lon 27.0   # the running season at a point, vs 1991-2020
+```
+
+`build_weather_dataset.py` also fetches Finnish fungal record counts per year and month from
+GBIF. They are the effort term: matsutake records are a record of picking, not of fruiting,
+and a year with ten times the records is a year with more people, not more mushrooms. What the
+model says once that is divided out is in `docs/MODEL_REPORT_weather.md`; the species biology
+and where the plan came from is in `docs/SAA_JA_SATOENNUSTE.md`.
 
 Terrain for the app's tap readout — independent of any species, run once:
 

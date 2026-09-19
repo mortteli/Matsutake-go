@@ -4,3 +4,8 @@ ml/data/harvests/
 
 __pycache__/
 *.pyc
+# weather_daily.py keeps one FMI GeoTIFF per year and variable here (~310 MB) and distils
+# the cells it needs into cells_*.npz. Both are caches of open data, re-fetched on demand;
+# the analysis table they produce (weather_dataset.csv) is committed instead.
+ml/data/weather/cache/
+ml/data/weather/cells_*.npz

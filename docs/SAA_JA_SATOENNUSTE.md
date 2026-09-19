@@ -47,7 +47,13 @@ avoimissa kohdissa (§11) lukee "phenology layer" — tämä on sen suunnitelma.
    elo–syyskuussa; sovelluksen omat havainnot (1990→, paikannus ≤ 10 km)
    jakautuvat 07/08/09/10 = 2 / 107 / 100 / 5. Vuosivaihtelu on suurta:
    hyvää vuotta voi seurata useampi laiha.
-7. **Ennustettavuus.** Tämän aineiston varassa realistinen tavoite ei ole
+7. **Ajettu.** Kohdat 1–6 ovat kirjallisuutta; §4 on sitä mitä tämän repon oma aineisto
+   sanoo, kun 210 päivättyä löytöä ajetaan FMI:n päivittäisiä hiloja vasten. Lyhyesti:
+   **edeltävän 60 vrk:n sade erottaa löytövuoden** samasta paikasta ja päivästä muina
+   vuosina (z = 6,8; ristiinvalidoitu sijoitus 0,66, kun 0,50 on arvaus), eikä se selity
+   keruuaktiivisuudella eikä toistu löydön jälkeisellä sateella. Syksyn jäähtyminen ei
+   erotu, ja lämpötilan vaikutus osoittautui pitkälti 45 vuoden trendiksi.
+8. **Ennustettavuus.** Tämän aineiston varassa realistinen tavoite ei ole
    "montako kiloa" vaan **kauden ajoitus ja vuoden otollisuus suhteessa
    paikan omaan ilmastoon** — ja sekin varauksella, koska GBIF-havainto on
    esiintymä, ei satomäärä (ks. §5).
@@ -165,11 +171,11 @@ osaa jo kirjata FMI:n lähteeksi (staattiset normaalit ovat jo käytössä).
 
 | Lähde | Mitä | Erotuskyky | Kattavuus | Tila |
 |---|---|---|---|---|
-| FMI päivähilat, `ilmatiede/10km_daily_precipitation/geotiff/rrday_YYYY.tif` | vuorokauden sademäärä | 10 km, ETRS-TM35FIN | **1961–2025** | ✅ listattu, sama palvelin jota `ml/ingest/climate.py` jo käyttää |
-| FMI `…/10km_daily_mean_temperature/geotiff/tday_YYYY.tif` | vrk keskilämpötila | 10 km | 1961–2025 | ✅ |
+| FMI päivähilat, `ilmatiede/10km_daily_precipitation/geotiff/rrday_YYYY.tif` | vuorokauden sademäärä | 10 km, ETRS-TM35FIN | **1961–2025** | ✅ **käytössä**, `ml/ingest/weather_daily.py` |
+| FMI `…/10km_daily_mean_temperature/geotiff/tday_YYYY.tif` | vrk keskilämpötila | 10 km | 1961–2025 | ✅ **käytössä** |
 | FMI `…/10km_daily_minimum_/maximum_temperature/`, `…_snow/`, `…_radiation/` | min/max, lumensyvyys, säteily | 10 km | 1961–2025 | ✅ saatavilla |
 | FMI 1 km kuukausihilat `kk_sade_1x1/`, `kk_lampo_1x1/` | kk-sade ja -lämpö | **1 km** | 1961–2013 | ✅ paras paikallistarkkuus, mutta päättyy 2013 |
-| FMI avoin WFS `fmi::observations::weather::daily::simple` (`rrday`, `tday`) | asemahavainnot | pistemäinen | reaaliaikainen | ✅ **testattu tästä ympäristöstä, toimii ilman avainta** — ainoa reitti kuluvaan kauteen (hilat laahaavat vuoden) |
+| FMI avoin WFS `fmi::observations::weather::daily::simple` (`rrday`, `tday`) | asemahavainnot | pistemäinen | reaaliaikainen | ✅ **käytössä**, `ml/export/season_status.py` — ainoa reitti kuluvaan kauteen (hilat laahaavat vuoden) |
 | FMI 10 km kk-normaalit (jo repossa) | lämpösumma, vuosisade 1991–2020 | 10 km | staattinen | ✅ käytössä mallissa |
 | Luke DTW-kosteusindeksi (opendata.luke.fi) | topografinen märkyys | **2 m** | koko maa | ⬜ lataamatta |
 | MML korkeusmalli 10 m (jo käytössä) | TWI itse laskettuna | 10 m | koko maa | ✅ pipeline lukee jo |
@@ -191,9 +197,82 @@ liittämisen näkökulmasta — huomaa että 10 km:n säähilalle paikannustarkk
 
 ---
 
-## 4. Suunnitelma
+## 4. Tulokset — ensimmäinen ajo
 
-### P0 — havainto × sää -taulukko (ensimmäinen ajo, ei vielä mallia)
+Ajettu 19.9.2026. Koodi: `ml/ingest/weather_daily.py`, `ml/dataset/build_weather_dataset.py`,
+`ml/train/train_weather.py`. Täydet luvut: [MODEL_REPORT_weather.md](MODEL_REPORT_weather.md).
+
+**Asetelma.** 210 päivättyä löytöä 150:ssä 10 km:n ruudussa, 1981–2025. Jokainen löytö on
+oma vertailujoukkonsa: sama ruutu ja sama kalenteripäivä kaikkina muina vuosina, 9 450
+ruutuvuotta yhteensä. Ehdollinen logistinen regressio kysyy vain sitä, mikä erottaa löydön
+vuoden saman paikan ja saman päivän muista vuosista — paikka ja vuodenaika putoavat pois
+täsmälleen, eivät likimäärin. Validointi jättää vuoden kerrallaan pois, koska toistuva
+yksikkö on vuosi eikä löytö.
+
+**1. Edeltävä sade on selvästi vahvin muuttuja.** Löytöä edeltävän 60 vrk:n sade, mitattuna
+saman ruudun ja päivän 1991–2020-jakaumaa vasten: **+0,46 log-oddsia keskihajontaa kohti
+(z = 6,8)**. Yksin ajettuna se antaa LOYO-sijoituksen **0,643** — eli mallin pisteytys nostaa
+löytövuoden 64 %:n kohdalle vertailuvuosien joukossa, kun 0,50 on arvaus. Poutajakson pituus
+tekee saman toisin päin (−0,47, z = −5,3).
+
+**2. Ikkunan pituus.** 60 vrk > 90 vrk > 30 vrk > 7 vrk (LOYO 0,643 / 0,606 / 0,600 / 0,564).
+Kyse ei siis ole edellisen viikon kuurosta vaan koko loppukesän vesitaseesta — mikä sopii
+siihen, että shiro kasvattaa itiöemää viikkoja.
+
+**3. Plasebo pitää.** Löydön **jälkeisten** 30 vrk:n sade: +0,09 (z = 1,3), LOYO 0,526.
+Sateella, joka ei ole voinut kasvattaa sientä, ei ole selitysvoimaa. Löydetty signaali ei siis
+ole "märät syksyt yleensä".
+
+**4. Keruuaktiivisuus ei selitä sitä.** Vuoden sienihavaintomäärä (GBIF, Suomi, elo–syyskuu)
+on itsessään voimakas (+0,45, z = 5,7) — havainto on ihmisen tekemä, ei sienen. Mutta kun
+malliin pannaan **saman kuukauden** keruumäärä ja vuositrendi, sade pysyy paikallaan
+(**+0,39, z = 4,7**) ja lämpötila romahtaa (+0,13, z = 1,7). Lämpötilan näennäinen vaikutus
+oli siis suurelta osin sitä, että sekä lämpötila että kirjaaminen ovat kasvaneet 45 vuodessa.
+
+**5. Suomen "90–110 % normaalista" ei toistu tässä aineistossa.** Osuvuus kasvaa
+yksisuuntaisesti kuivasta märkään (0,19× → 0,79× → 0,80× → 1,53× → 1,66×), ja kvadraattinen
+sovite kääntyy laskuun vasta **+1,66 keskihajonnalla**. Ristiriita Vaario ym. 2015:n kanssa on
+todennäköisesti vasteen ero: he mittasivat kiloja yhdellä tuottavalla paikalla, tämä mittaa
+sitä että joku löysi ja kirjasi sienen jossain 10 km:n ruudussa. Kuiva kausi estää molemmat,
+märkä kausi voi laskea kiloja mutta silti lisätä löytöjä.
+
+**6. Syksyn jäähtyminen ei erotu.** Päivien määrä, joina 7 vrk:n liukuva keskilämpö on alle
+15 °C, on käytännössä nolla­vaikutus (−0,07, z = −2,2 yksin, ~0 muiden kanssa). Tämä on samaa
+suuntaa kuin Vaario ym., jotka eivät löytäneet kynnysmaalämpötilaa sadon alulle. Ilmasta
+laskettu korvike ei tavoita 19 °C:n maakynnystä, jos sellainen on.
+
+**7. Sama etumerkki pohjoisessa ja etelässä** (+0,37 / +0,49), eli kyse ei ole yhden seudun
+ilmiöstä.
+
+**8. Vuositasolla ei näy mitään.** Koko maan vuosittainen löytömäärä korreloi keruumäärän
+kanssa (ρ = +0,39, p = 0,016) eikä efortilla korjattu osuus korreloi sateen kanssa lainkaan
+(ρ = 0,00). Kysymys on siis osattava kysyä paikan ja päivän sisällä. Tämä on myös syy olla
+julkaisematta koko maan "satovuosi-indeksiä".
+
+**Kauden tila nyt** (`ml/export/season_status.py`, 19.9.2026, asemadatasta, kauden malli):
+
+| Paikka | 60 vrk sade | % normaalista | Suhteellinen kerroin |
+|---|---|---|---|
+| Kainuu (64,5 N 27,0 E) | 227 mm | 184 % | 1,7× |
+| Itä-Lappi (66,5 N 27,5 E) | 237 mm | 195 % | 1,8× |
+| Pohjois-Karjala (62,7 N 29,0 E) | 158 mm | 112 % | 2,4× |
+| Nuuksio (60,3 N 24,5 E) | 134 mm | 90 % | 1,3× |
+
+Pohjois-Karjala saa korkeimman kertoimen pienimmällä sateella, koska sen poutajaksot ovat
+olleet lyhyitä ja sade osuu lähelle käyrän huippua; Kainuussa ja Lapissa ollaan jo huipun
+märällä puolella. Kerroin on *suhde saman paikan normaalivuoteen*, ei todennäköisyys löytää
+sieni eikä paikkojen välinen vertailu — Nuuksion 1,3× ei tarkoita että siellä olisi enemmän
+matsutakea kuin Kainuussa, päinvastoin.
+
+**Mitä tämä kaikkiaan sanoo.** Sää selittää löytövuotta sen verran, että siitä kannattaa
+kertoa käyttäjälle, muttei niin paljon että sillä kannattaisi värittää karttaa: paras LOYO-luku
+on 0,662, eli kolmasosa vertailuvuosista menee yhä väärin päin. Hyödyllisin yksittäinen luku on
+"60 vrk sade % normaalista" ja sen pari "pisin poutajakso", ja ne ovat molemmat luettavissa
+sellaisinaan ilman mallia.
+
+## 5. Suunnitelma
+
+### P0 — havainto × sää -taulukko ✅ ajettu
 
 `ml/ingest/weather_daily.py`: lataa `rrday_YYYY.tif` ja `tday_YYYY.tif`
 tarvituille vuosille (vsicurl-luku kuten nykyisessä `climate.py`:ssä), poimi
@@ -212,7 +291,7 @@ jokaiselle havainnolle sen 10 km:n solun aikasarja ja laske:
 Ulos `ml/data/weather/obs_weather.csv`. Tämä on itsessään hyödyllinen ja
 julkaisukelpoinen taulukko, vaikka mallia ei koskaan tulisi.
 
-### P1 — kuva ennen mallia
+### P1 — kuva ennen mallia ✅ korvattu suoralla testillä (§4)
 
 Kolme kuvaajaa, jotka kertovat onko tässä mitään:
 
@@ -230,7 +309,7 @@ Kolme kuvaajaa, jotka kertovat onko tässä mitään:
 Jos mikään näistä ei erotu, projekti pysähtyy tähän ja dokumentoidaan
 negatiivisena tuloksena. Se on hyväksyttävä lopputulos.
 
-### P2 — malli, jos P1 antaa aihetta
+### P2 — malli ✅ ajettu, ks. §4 ja `docs/MODEL_REPORT_weather.md`
 
 Muotoilu, joka kestää n ≈ 200:
 
@@ -247,7 +326,7 @@ Muotoilu, joka kestää n ≈ 200:
 
 LightGBM:ää **ei** tähän: aineisto on liian pieni ja rakenne on tiedossa.
 
-### P3 — karttatuote
+### P3 — karttatuote ⬜ tekemättä
 
 Kaksi erillistä asiaa, joita ei saa sekoittaa samaan väriin:
 
@@ -272,7 +351,7 @@ Käyttöliittymäehdotus, kevyimmästä järeimpään:
 
 ---
 
-## 5. Mitä tämä ei voi kertoa
+## 6. Mitä tämä ei voi kertoa
 
 - **Havainto ei ole sato.** GBIF/Lajitietokeskus kertoo että joku löysi ja
   kirjasi sienen. Määrä riippuu myös siitä kuka oli metsässä, milloin oli
@@ -296,7 +375,7 @@ Käyttöliittymäehdotus, kevyimmästä järeimpään:
 
 ---
 
-## 6. Lähteet
+## 7. Lähteet
 
 Laji ja ekologia:
 - Vaario, L.-M., Savonen, E.-M., Peltoniemi, M., Miyazawa, T., Pulkkinen, P. &
