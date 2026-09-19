@@ -32,6 +32,15 @@ document.getElementById("btnLayers").addEventListener("click", () => openSheet("
 document.getElementById("btnInfo").addEventListener("click", () => openSheet("sheetInfo"));
 document.getElementById("btnSpecies").addEventListener("click", () => openModal("modalSpecies"));
 
+/* One line of a verdict readout: a tick, a cross or a neutral dot, a label and a value. Shared
+   by the tapped-point sheet and the finding modal so the two never drift apart in wording or
+   in what a mark means — "ok" it passes, "no" it fails, "meh" the data cannot say. */
+export function checkRow(state_, label, value) {
+  const mark = state_ === "ok" ? "✔" : state_ === "no" ? "✘" : "•";
+  return '<div class="c"><span class="mark ' + state_ + '">' + mark + '</span>' +
+         '<span class="k">' + label + '</span><span class="v">' + value + '</span></div>';
+}
+
 export let toastTimer = null;
 export function toast(msg) {
   const el = document.getElementById("toast");

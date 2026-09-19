@@ -23,6 +23,10 @@ export const MAIN_NAMES = { 1:"kivennäismaa", 2:"korpi", 3:"räme", 4:"avosuo" 
 export const MAIN_CANDIDATES = [1,2,3,4];
 export const SPOT_COLOR = "#ff2d78";
 export const FINDING_COLOR = "#ffd166";
+// Ground the map has to give up on. The model raster paints a confirmed clear-cut in this grey
+// (problayer.js) and the findings layer paints a find whose stand is gone in the same one, so a
+// tapped clear-cut and a tapped observation standing on it read as the same fact.
+export const CUT_GREY = "rgba(150,163,155,0.72)";
 export const R3857 = 20037508.342789244;
 export const R_EARTH = 6378137;
 
