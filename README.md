@@ -144,6 +144,9 @@ oletusikä on 60 v — se puolittaa värjätyn pinta-alan osuvuuden kärsimätt�
 - 🔎 **Napauta karttaa** → paikan kasvupaikka, maapohja, valitun lajin
   mittarit, rinteen jyrkkyys ja suunta, alue-arvio sekä kokonaisarvio +
   navigointilinkki.
+- 🍄 **Sienihavainnot**: 445 GBIF/Lajitietokeskus-löytöä omana tasonaan, luokiteltuna
+  sen mukaan kuinka tarkasti ne on paikannettu ja onko metsä niiden jälkeen vaihtunut
+  — ks. alla.
 - 🗺️ Taustakartat: OpenStreetMap, OpenTopoMap (korkeuskäyrät) ja Esri-satelliitti.
 - 📲 PWA-manifesti → "Lisää aloitusnäytölle" toimii sovelluksen tavoin.
 
@@ -249,6 +252,51 @@ suojelu- ja puolustusvoimien alueet, rakennusten lähistön ja isojen teiden
 päästökäytävät pois, vaatii että paikalle pääsee autolla kävelymatkan päähän, ja
 järjestää loput kuviot sen mukaan miten hyvä niiden *huonoin* neljännes on.
 Aineisto siihen haetaan OpenStreetMapista (`ml/plan/fetch_osm.py`).
+
+## Sienihavainnot (🍄) — mikä niistä on yhä vihje
+
+Kartalla on 445 GBIF:n ja Lajitietokeskuksen matsutake-havaintoa. Ne eivät ole
+samanarvoisia, eikä piste voi näyttää siltä että olisivat: kolmannes on
+kuntakeskipiste sieni päällä, ja aineisto ulottuu vuoteen 1866, joten moni kuvaa
+metsää joka kaadettiin vuosikymmeniä sitten.
+
+Merkki kertoo kaksi eri asiaa, eikä niitä lasketa yhteen. **Geometria** kertoo
+paikannuksen: umpinainen piste on paikannettu tarkemmin kuin 250 m, summittaisen
+(≤ 1 km) ympärille piirtyy zoomista 11 alkaen sen todellinen epätarkkuusympyrä, ja
+sitä karkeammat eivät ole nastoja lainkaan vaan katkoviivaisia renkaita — yksi per
+koordinaatti, koska 105 tietuetta jakaa 29 pistettä ja päällekkäin ladottuina ne
+näyttäisivät Lapin parhaalta matsutakemaalta. Napauta karkeaa rengasta, niin sen
+oikea ympyrä piirtyy kartalle; 100 km nielee puoli Lappia, ja se on juuri se asia
+joka tietueesta pitää tietää.
+
+**Väri** kertoo onko maa yhä sitä mitä se oli löytöhetkellä:
+
+| | | n |
+|---|---|---|
+| 🟡 keltainen | metsä on yhä pystyssä | 146 |
+| 🟡 vaalea | metsä on ehkä muuttunut — osa ympyrästä hakattu, tai kasvupaikkatieto heittää | 63 |
+| ⚪ harmaa | hakattu tai vaihtunut — **koordinaatti on yhä hyvä**, lähimetsässä voi olla | 22 |
+| ⭕ ontto keltainen | ei metsätalousmaata: hautausmaa, piha, pelto | 27 |
+| ⭕ katkoviiva | ei arvioitavissa — paikannus liian karkea | 187 |
+
+Ne 187 ovat portitettuja, eivät arvioituja: 16 m:n ruudun lukeminen ±100 km:n
+tarkkuudella paikannetun tietueen alta kuvaisi keskipistettä, ei löytöä. Sama raja
+jolla malli päättää mitä se saa oppia.
+
+Loput 258 luetaan yhdeksästä pisteestä epätarkkuusympyrän sisällä. Painavin todiste
+on Metsäkeskuksen kuviorekisteri — hakkuukoneen omaa mittausta, ainoa mitattu eikä
+arvioitu lähde — ja sen jälkeen kasvuston ikä havainnon omaa vuosilukua vasten: jos
+metsikkö on syntynyt löydön jälkeen, puusto on vaihtunut. Kasvupaikan ala- ja
+päätyypin muutos inventointien välillä nostaa vain lipun eikä anna tuomiota, koska ne
+kuvaavat maaperää eivätkä vaihdu neljässätoista vuodessa muuten kuin ojittamalla —
+mikä niiden välillä oikeasti muuttuu, on Luken arvio niistä.
+
+Suodatin *Parhaat vihjeet* jättää näkyviin paikannetut, joiden metsä on yhä
+pystyssä tai jotka ovat metsätalousmaan ulkopuolella. Napauta pistettä, niin modaali
+kertoo tuomion ja perustelun yhdellä lauseella. Kynnykset ja se mitä tämä **ei** voi
+kertoa (harvennusta ei näe mikään, kuviorekisteri kattaa vain yksityismetsät, mikään
+ei tarkista lajinmääritystä): [docs/HABITAT_MODEL_PLAN.md](docs/HABITAT_MODEL_PLAN.md),
+kohta 9b.
 
 ## Aineistot ja lisenssit
 
