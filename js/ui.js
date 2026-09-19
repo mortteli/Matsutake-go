@@ -1,3 +1,4 @@
+import { hideFindings, renderFindingsPanel, showFindings } from "./findings.js";
 import { map, spots } from "./maplayer.js";
 import { clearNearby } from "./nearby.js";
 import { hideProb, prob, renderProb, showProb, syncRuleLayer, updateProbLegend } from "./problayer.js";
@@ -7,27 +8,29 @@ import { cfg, save, sp, state } from "./state.js";
 
 /* ================= UI plumbing ================= */
 export const sheets = ["sheetSettings", "sheetInfo", "sheetResult"];
+export const modals = ["modalSpecies", "modalFinding"];
 export const backdrop = document.getElementById("backdrop");
 export const modalSpecies = document.getElementById("modalSpecies");
 export function openSheet(id) {
   sheets.forEach(s => document.getElementById(s).classList.toggle("open", s === id));
-  modalSpecies.classList.remove("open");
+  modals.forEach(m => document.getElementById(m).classList.remove("open"));
+  backdrop.classList.add("on");
+}
+export function openModal(id) {
+  sheets.forEach(s => document.getElementById(s).classList.remove("open"));
+  modals.forEach(m => document.getElementById(m).classList.toggle("open", m === id));
   backdrop.classList.add("on");
 }
 export function closeOverlays() {
   sheets.forEach(s => document.getElementById(s).classList.remove("open"));
-  modalSpecies.classList.remove("open");
+  modals.forEach(m => document.getElementById(m).classList.remove("open"));
   backdrop.classList.remove("on");
   if (search.panel) search.panel.classList.remove("open");
 }
 backdrop.addEventListener("click", closeOverlays);
 document.getElementById("btnLayers").addEventListener("click", () => openSheet("sheetSettings"));
 document.getElementById("btnInfo").addEventListener("click", () => openSheet("sheetInfo"));
-document.getElementById("btnSpecies").addEventListener("click", () => {
-  sheets.forEach(s => document.getElementById(s).classList.remove("open"));
-  modalSpecies.classList.add("open");
-  backdrop.classList.add("on");
-});
+document.getElementById("btnSpecies").addEventListener("click", () => openModal("modalSpecies"));
 
 export let toastTimer = null;
 export function toast(msg) {
@@ -66,6 +69,7 @@ export function selectSpecies(key) {
   clearHelpers();
   clearNearby();
   hideProb(true);
+  hideFindings(true);
   applySpecies();
   spots.redraw();
   toast(sp().emoji + " " + sp().name + " — " + sp().tagline);
@@ -147,6 +151,8 @@ export function applySpecies() {
   renderSpeciesList();
   renderProb();
   if (state.prob.on && s.model) showProb(); else { updateProbLegend(); syncRuleLayer(); }
+  renderFindingsPanel();
+  if (state.findings.on && s.findings) showFindings(); else hideFindings(false);
 }
 
 export const rngOpacity = document.getElementById("rngOpacity");
