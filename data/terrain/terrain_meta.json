@@ -1,0 +1,94 @@
+{
+ "crs": "EPSG:3067",
+ "pixel_m": 64,
+ "value": "elevation",
+ "units": "dm",
+ "scale": 0.1,
+ "nodata": -32768,
+ "built": "2026-09-19",
+ "files": [
+  {
+   "url": "data/terrain/dem_64m_00.tif",
+   "bounds": [
+    57632,
+    7386496,
+    282912,
+    7778304
+   ]
+  },
+  {
+   "url": "data/terrain/dem_64m_01.tif",
+   "bounds": [
+    282912,
+    7386496,
+    508192,
+    7778304
+   ]
+  },
+  {
+   "url": "data/terrain/dem_64m_02.tif",
+   "bounds": [
+    508192,
+    7386496,
+    733472,
+    7778304
+   ]
+  },
+  {
+   "url": "data/terrain/dem_64m_10.tif",
+   "bounds": [
+    57632,
+    6994624,
+    282912,
+    7386496
+   ]
+  },
+  {
+   "url": "data/terrain/dem_64m_11.tif",
+   "bounds": [
+    282912,
+    6994624,
+    508192,
+    7386496
+   ]
+  },
+  {
+   "url": "data/terrain/dem_64m_12.tif",
+   "bounds": [
+    508192,
+    6994624,
+    733472,
+    7386496
+   ]
+  },
+  {
+   "url": "data/terrain/dem_64m_20.tif",
+   "bounds": [
+    57632,
+    6602752,
+    282912,
+    6994624
+   ]
+  },
+  {
+   "url": "data/terrain/dem_64m_21.tif",
+   "bounds": [
+    282912,
+    6602752,
+    508192,
+    6994624
+   ]
+  },
+  {
+   "url": "data/terrain/dem_64m_22.tif",
+   "bounds": [
+    508192,
+    6602752,
+    733472,
+    6994624
+   ]
+  }
+ ],
+ "source": "MML 10 m elevation model, warped to the 16 m analysis grid by ml/ingest/build_dem16.py and averaged to 64 m",
+ "attribution": "\u00a9 Maanmittauslaitos \u2014 CC BY 4.0"
+}
