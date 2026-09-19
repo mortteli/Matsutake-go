@@ -188,6 +188,8 @@ export function openFinding(f, alsoHere) {
     row("Aineisto", f.dataset || "ei tiedossa") +
     row("Lähde", SOURCE_NAMES[f.source] || f.source) +
     row("Lisenssi", fmtLicense(f.license)) +
+    (f.habitat ? row("Elinympäristö", escapeHtml(f.habitat)) : "") +
+    (f.event_remarks ? row("Paikan kuvaus", escapeHtml(f.event_remarks)) : "") +
     (f.remarks ? row("Huomiot", escapeHtml(f.remarks)) : "") +
     "</div>" +
     (f.link ? '<a class="navlink" target="_blank" rel="noopener" href="' + f.link +

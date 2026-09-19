@@ -78,6 +78,8 @@ def main():
                 license=r["license"] or None,
                 locality=r["locality"] or None,
                 remarks=r.get("remarks") or None,
+                event_remarks=r.get("event_remarks") or None,
+                habitat=r.get("habitat") or None,
                 link=link(r["source"], r["id"]),
                 **status.get(r["id"], {}),
             ))
