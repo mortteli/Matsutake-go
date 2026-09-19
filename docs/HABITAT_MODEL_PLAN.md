@@ -406,5 +406,6 @@ broken locally unless served with `serve.py`.
 ## 11. Open items
 
 - Phenology layer (rain accumulation over the season, summer warmth, snowmelt date).
+  Species biology, data sources and a staged plan: [SAA_JA_SATOENNUSTE.md](SAA_JA_SATOENNUSTE.md).
 - Second species through the same configuration once matsutake is validated.
 - Lichen cover has no open raster; site class and soil are standing in for it.
