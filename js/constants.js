@@ -27,6 +27,12 @@ export const FINDING_COLOR = "#ffd166";
 // (problayer.js) and the findings layer paints a find whose stand is gone in the same one, so a
 // tapped clear-cut and a tapped observation standing on it read as the same fact.
 export const CUT_GREY = "rgba(150,163,155,0.72)";
+// A find the evidence cannot settle. Same recipe probColorFn() uses for a declared felling —
+// the finding colour washed 45 % toward paper — so "reported but unconfirmed" looks the same
+// whether it is a pixel of the model or a point on top of it.
+export const FINDING_SUSPECT = "#f6dda2";
+// Nothing to say: located too coarsely to sit on a stand, or no forest data under it.
+export const FINDING_UNKNOWN = "#8aa192";
 export const R3857 = 20037508.342789244;
 export const R_EARTH = 6378137;
 

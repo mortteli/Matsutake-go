@@ -325,6 +325,70 @@ every model is a **relative** occurrence score; absolute probability of finding 
 identifiable from this data, so the map is calibrated to rank cells and the slider is expressed as
 "the best X % of forest land" rather than as a percentage chance.
 
+## 9b. Is a recorded find still a lead? (`ml/dataset/observation_status.py`)
+
+The map plots all 445 records. Roughly a third of them are a municipality centroid with a
+mushroom attached — 139 are located no better than 1 km, up to 100 km, and 16 of those share a
+single pixel in Utsjoki — and the file reaches back to 1866, so a good many describe a forest
+that was cut decades ago. Until this step every one of them was the same yellow dot.
+
+Two questions, deliberately not merged into one score, because a tight dot on cut ground and a
+vague ring on standing forest are different problems.
+
+**How precisely was it located** (`prec`), from `unc_m` alone, at the thresholds
+`build_dataset.py` already uses so the map and the model say the same thing about the same
+record: `tarkka` ≤ 250 m (114) · `summittainen` ≤ 1 km (144) · `alueellinen` above that (139) ·
+`tuntematon` where no accuracy was reported (48, nearly all herbarium specimens).
+
+**Whether the ground is still what it was** (`hab`). Precision gates this: reading a 16 m cell
+under a record located to ± 100 km describes the centroid, not the find, so `alueellinen` and
+`tuntematon` records are never assessed. The remaining 258 are sampled at nine points — the
+coordinate plus eight at the uncertainty disc's median radius, deterministic so the committed
+output reproduces — and each point is judged, then the points are aggregated by majority with
+ties going to the worse state and a minority "cut" pulling the record down rather than being
+outvoted into silence.
+
+| Evidence | Worth | Why |
+|---|---|---|
+| Metsäkeskus stand register says open or seedling | verdict: **muuttunut** | Harvesting-machine telemetry. The only thing here that is measured rather than estimated. |
+| Regeneration felling declared | flag: **epavarma** | An intention, not an obligation; 57 % are realised. |
+| MVMI 2023 stand age puts establishment after the find year, by more than the margin | verdict: **muuttunut** | The case this whole step exists for: a 1935 find standing in a forest planted in 1993. |
+| Stand age ≥ 60 in the find's own cycle, ≤ 20 in 2023 | verdict: **muuttunut** | Forty years down in at most fourteen elapsed is a felling and nothing else. Covers 2009–2021, where the harvest layer does not reach. |
+| Volume collapsed, or site/main type changed between cycles | flag: **epavarma** | Site type and main type describe soil, which does not turn over in fourteen years except by ditching — a disagreement is mostly the k-NN estimator changing its mind. |
+| Off forestry land in **both** cycles | **ulkopuolella** | The cemetery case. MVMI never described this ground, so nothing can say the trees went and nothing can say they stayed. |
+| Forestry-land mask moved between cycles | **nothing** | Measured over 1200×1200 cell windows: around Tampere 3.7 % of cells leave the mask between 2009 and 2023 and 5.6 % enter it; in Etelä-Savo 2.8 % each way. Symmetry at that scale is noise, not land-use change. |
+
+`fra_luokka` was the obvious way to tell a treed churchyard (its class 4, "other land with tree
+cover") from a car park. It carries the same forestry-land mask as every other MVMI theme, so
+off forestry land it is empty too, and the branch was dropped. What the rosette can still report
+is how much forestry land lies inside the record's own uncertainty — `forest_frac` — which is
+the honest version of "the forest next door might still have it".
+
+**The age margin is a bias correction, not a tolerance.** MVMI age is a k-NN estimate that
+regresses toward the plot mean, so old stands read young, which is exactly the direction that
+manufactures false "the forest was replaced" verdicts. `--report` prints the verdict counts at
+10 / 20 / 30 / 40 years; 20 is what shipped.
+
+### What this cannot tell you
+
+- The stand register covers **privately owned forest only**. `ennallaan` on Metsähallitus land
+  is weaker evidence than the same word on private land, and the app cannot say which you are
+  looking at. `cut = 0` means the register has nothing here, never "the forest is standing".
+- **MVMI cannot see a thinning.** A stand taken down to 40 % of its volume still reads
+  `ennallaan` here and may well have lost its matsutake. This detects replacement, not decline.
+- Nothing here validates the **identification**. A `tarkka` + `ennallaan` dot still rests on
+  somebody's 1970 determination.
+- 2009 and 2011 are on a 20 m grid with a different origin, so a cross-cycle comparison is
+  nearest-neighbour. The residual half-cell is far inside the record's own uncertainty, and the
+  nine-point rosette absorbs it.
+
+### Known, not fixed
+
+`cycle_for_year()` floors at 2009, so an 1866 find located to 1 m trains the model against 2009
+forest — some presences describe a stand that did not exist when the mushroom was found. This
+step now measures how many, but does not act on it; feeding the verdict back into
+`build_dataset.py` would touch the model, its metrics and the published rasters.
+
 ## 10. What shipped
 
 - `ml/` — reproducible pipeline: observations, GTK and FMI rasters, a 16 m elevation warp,

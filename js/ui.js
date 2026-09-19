@@ -1,4 +1,4 @@
-import { hideFindings, renderFindingsPanel, showFindings } from "./findings.js";
+import { clearFocus, hideFindings, renderFindingsPanel, showFindings } from "./findings.js";
 import { map, spots } from "./maplayer.js";
 import { clearNearby } from "./nearby.js";
 import { hideProb, prob, renderProb, showProb, syncRuleLayer, updateProbLegend } from "./problayer.js";
@@ -26,19 +26,25 @@ export function closeOverlays() {
   modals.forEach(m => document.getElementById(m).classList.remove("open"));
   backdrop.classList.remove("on");
   if (search.panel) search.panel.classList.remove("open");
+  clearFocus();          // the uncertainty circle a finding modal drew belongs to that modal
 }
 backdrop.addEventListener("click", closeOverlays);
 document.getElementById("btnLayers").addEventListener("click", () => openSheet("sheetSettings"));
 document.getElementById("btnInfo").addEventListener("click", () => openSheet("sheetInfo"));
 document.getElementById("btnSpecies").addEventListener("click", () => openModal("modalSpecies"));
+// the findings chip is a three-dot key with no room to explain itself; the sheet has the rest
+document.getElementById("legendFinding").addEventListener("click", () => openSheet("sheetSettings"));
 
 /* One line of a verdict readout: a tick, a cross or a neutral dot, a label and a value. Shared
    by the tapped-point sheet and the finding modal so the two never drift apart in wording or
-   in what a mark means — "ok" it passes, "no" it fails, "meh" the data cannot say. */
-export function checkRow(state_, label, value) {
+   in what a mark means — "ok" it passes, "no" it fails, "meh" the data cannot say.
+
+   `wide` is for a value that is a sentence rather than a measurement: it drops to its own line
+   under the label instead of being crushed into whatever width is left on the right. */
+export function checkRow(state_, label, value, wide) {
   const mark = state_ === "ok" ? "✔" : state_ === "no" ? "✘" : "•";
-  return '<div class="c"><span class="mark ' + state_ + '">' + mark + '</span>' +
-         '<span class="k">' + label + '</span><span class="v">' + value + '</span></div>';
+  return '<div class="c' + (wide ? " wide" : "") + '"><span class="mark ' + state_ + '">' + mark +
+         '</span><span class="k">' + label + '</span><span class="v">' + value + '</span></div>';
 }
 
 export let toastTimer = null;
