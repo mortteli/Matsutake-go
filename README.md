@@ -62,6 +62,22 @@ ruuduista Etelä-Suomessa noin 13 % osuu hakattuun maahan — enemmän kuin
 metsäpinta-alasta keskimäärin, juuri siksi että malli suosii vanhaa männikköä
 ja uudistushakkuu kohdistuu samaan puustoon.
 
+### Entä lannoitus?
+
+Sama korjausajatus — metsään on tehty jotain, jota MVMI ei näe — koeteltiin myös
+lannoituksella, joka heikentää mykorritsasienten itiöemätuotantoa ja jonka pitäisi siis
+laskea matsutaken pisteitä. Rekisteristä löytyy kuitenkin vain valtion tukema
+**terveyslannoitus**: turvemaan tuhkaa ja booria, 82 388 toteutettua kuviota ja 158 155 ha.
+Niistä kartan parhaaseen prosenttiin osuu viisi kuviota ja kuusi hehtaaria — 0,002 %
+kyseisestä pinta-alasta, ja 455 tunnetusta matsutakehavainnosta kaksi on sellaisen kuvion
+200 metrin säteellä. Ojitettu suo ei ole matsutaken metsä, joten taso ei muuttaisi
+kartasta mitään.
+
+Se lannoitus, joka osuisi — typpi kuivahkon kankaan männikössä, noin 50 000 ha vuodessa —
+ei vaadi lupaa eikä ilmoitusta eikä saa tukea, eikä siitä siksi jää julkista jälkeä
+mihinkään. Mittaus, lähteet ja se mikä vastauksen muuttaisi:
+[docs/LANNOITUS_matsutake.md](docs/LANNOITUS_matsutake.md).
+
 ### Miksi juuri nämä ehdot
 
 - **Matsutake** kasvaa vanhoissa männiköissä kuivilla ja karuilla kankailla.
