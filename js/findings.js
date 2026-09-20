@@ -4,11 +4,12 @@ import { save, sp, state } from "./state.js";
 import { checkRow, closeOverlays, openModal } from "./ui.js";
 
 /* ================= findings layer =================
-   The GBIF / FinBIF occurrence records that ml/ trains the probability model on (see
-   ml/export/export_observations.py), plotted as their own point layer so a single find can be
-   inspected the same way a tapped point can. One JSON per species, fetched once and cached —
-   there is currently data for matsutake only, so the toggle only appears when `sp().findings`
-   names a file.
+   The GBIF / FinBIF occurrence records behind a species — what the probability model trains on
+   where there is one, and what its filter's defaults were measured against where there is not
+   (see ml/export/export_observations.py). Plotted as their own point layer so a single find can
+   be inspected the same way a tapped point can. One JSON per species, fetched once and cached;
+   matsutake and kanttarelli have one, the other three do not, so the toggle only appears when
+   `sp().findings` names a file.
 
    A record carries two independent qualities, and the marker keeps them on separate channels
    because one cannot substitute for the other. Fill colour says whether the ground is still
@@ -171,7 +172,9 @@ export function openFinding(f, alsoHere) {
       radius: f.unc_m, fill: false, color: FINDING_UNKNOWN, weight: 1.5, dashArray: "5 5",
     }).addTo(map);
   }
-  const [icon, verdict] = HAB_HEAD[f.hab] || ["🍄", "Matsutake-havainto"];
+  // the fallback covers a record the habitat pass never assessed (located too coarsely, or a
+  // species with no status table yet), so it has to name the species that is actually selected
+  const [icon, verdict] = HAB_HEAD[f.hab] || [sp().emoji, sp().name + "-havainto"];
   document.getElementById("findingBody").innerHTML =
     '<div class="result-head"><span class="big">' + icon + '</span>' +
     '<div><div class="verdict">' + verdict + '</div>' +
@@ -298,7 +301,7 @@ export function renderFindingsPanel() {
   const s = sp(), host = document.getElementById("findingsPanel");
   host.innerHTML = "";
   if (!s.findings) {
-    host.innerHTML = '<p class="note">Ei vielä tälle lajille — havaintoja on toistaiseksi vain matsutakelle.</p>';
+    host.innerHTML = '<p class="note">Ei vielä tälle lajille — havaintopisteitä on toistaiseksi matsutakelle ja kanttarellille.</p>';
     return;
   }
   host.innerHTML =

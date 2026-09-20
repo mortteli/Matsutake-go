@@ -241,6 +241,12 @@ def sample_all(rosettes, eras, cache, offline, path):
         with open(path, "a") as fh:
             for (theme, cycle), want in sorted(need.items()):
                 log(f"sampling {theme} {cycle or ''} at {len(want)} records")
+                # sample_cut() is left on its matsutake default on purpose, for every species.
+                # data/matsutake/cut_*.tif is not matsutake data: it is Metsakeskus harvest
+                # state burned onto the national grid, and it only sits under that name because
+                # it was published alongside the matsutake model. Passing a.species here would
+                # look tidier and would find nothing for any other species, silently dropping
+                # the one piece of evidence in this file that measures rather than estimates.
                 got = sample_cut(want) if theme == "cut" else sample_theme(theme, cycle, want)
                 for rid, vals in got.items():
                     key = f"{rid}:cut" if theme == "cut" else f"{rid}:{cycle}:{theme}"

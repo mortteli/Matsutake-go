@@ -236,9 +236,13 @@ export function renderSeasonality() {
       " · huippu viikolla " + s.peak;
     host.innerHTML =
       '<h3>Havaintojen ajoittuminen</h3>' +
-      '<p class="note">Milloin matsutakea on löydetty: yksi pylväs viikossa, väri kertoo ' +
-      'alueen. Sama havaintoaineisto kuin kartan 🍄-tasolla, eli eri vuosikymmenet samassa ' +
-      'kuvassa — pylvään korkeus on havaintojen määrä, ei sadon runsaus.</p>' +
+      // "milloin löytöjä on tehty" rather than the species name in the partitive: the ending
+      // is not regular across these five (ukonsientä, not *ukonsienia), and the heading and
+      // the layer emoji already say which mushroom this is
+      '<p class="note">Milloin löytöjä on tehty: yksi pylväs viikossa, väri kertoo ' +
+      'alueen. Sama havaintoaineisto kuin kartan ' + sp().emoji + '-tasolla, eli eri ' +
+      'vuosikymmenet samassa kuvassa — pylvään korkeus on havaintojen määrä, ei sadon ' +
+      'runsaus.</p>' +
       svg(s) +
       '<p class="sread" id="seasRead">' + summary + '</p>' +
       '<div class="seas">' + AREAS.map(a => {
