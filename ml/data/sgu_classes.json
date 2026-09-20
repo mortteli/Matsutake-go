@@ -156,5 +156,153 @@
    "code": 89,
    "name": "Svallsediment, grus--block"
   }
+ },
+ "grundlager_1m": {
+  "1": {
+   "code": 100,
+   "name": "Morän"
+  },
+  "2": {
+   "code": 50,
+   "name": "Isälvssediment"
+  },
+  "3": {
+   "code": 75,
+   "name": "Torv"
+  },
+  "4": {
+   "code": 84,
+   "name": "Postglacial sand--grus"
+  },
+  "5": {
+   "code": 86,
+   "name": "Lera--silt"
+  },
+  "6": {
+   "code": 888,
+   "name": "Berg"
+  },
+  "7": {
+   "code": 91,
+   "name": "Vatten"
+  },
+  "8": {
+   "code": 9191,
+   "name": "Glaciär"
+  },
+  "9": {
+   "code": 9792,
+   "name": "Moränlera eller lerig morän"
+  },
+  "10": {
+   "code": 9800,
+   "name": "Morän eller vittringsjord"
+  }
+ },
+ "ytlager_25k": {
+  "1": {
+   "code": 10,
+   "name": "Svämsediment, sand"
+  },
+  "2": {
+   "code": 100,
+   "name": "Morän"
+  },
+  "3": {
+   "code": 101,
+   "name": "Moränlera"
+  },
+  "4": {
+   "code": 13,
+   "name": "Flygsand"
+  },
+  "5": {
+   "code": 14,
+   "name": "Oklassad jordart"
+  },
+  "6": {
+   "code": 21,
+   "name": "Sand"
+  },
+  "7": {
+   "code": 31,
+   "name": "Postglacial sand"
+  },
+  "8": {
+   "code": 33,
+   "name": "Svallsediment, grus"
+  },
+  "9": {
+   "code": 43,
+   "name": "Glacial finlera"
+  },
+  "10": {
+   "code": 44,
+   "name": "Glacial grovlera"
+  },
+  "11": {
+   "code": 50,
+   "name": "Isälvssediment"
+  },
+  "12": {
+   "code": 55,
+   "name": "Isälvssediment, sand"
+  },
+  "13": {
+   "code": 75,
+   "name": "Torv"
+  },
+  "14": {
+   "code": 79,
+   "name": "Postglacial grovsilt-finsand"
+  },
+  "15": {
+   "code": 82,
+   "name": "Vittringsjord"
+  },
+  "16": {
+   "code": 84,
+   "name": "Postglacial sand--grus"
+  },
+  "17": {
+   "code": 86,
+   "name": "Lera--silt"
+  },
+  "18": {
+   "code": 8804,
+   "name": "Älvsediment"
+  },
+  "19": {
+   "code": 89,
+   "name": "Svallsediment, grus--block"
+  },
+  "20": {
+   "code": 8937,
+   "name": "Svämsediment"
+  },
+  "21": {
+   "code": 9,
+   "name": "Svämsediment, ler--silt"
+  },
+  "22": {
+   "code": 95,
+   "name": "Sandig morän"
+  },
+  "23": {
+   "code": 97,
+   "name": "Sandig-siltig morän"
+  },
+  "24": {
+   "code": 9794,
+   "name": "Lerig morän"
+  },
+  "25": {
+   "code": 98,
+   "name": "Morängrovlera"
+  },
+  "26": {
+   "code": 99,
+   "name": "Moränfinlera"
+  }
  }
 }
