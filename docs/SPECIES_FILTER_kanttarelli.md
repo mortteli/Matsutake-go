@@ -102,6 +102,82 @@ kuusivaltaisuus — ja se maksaa reilusti yli puolet löydöistä, joten se on s
 Tämä sanotaan myös lajin tietosivulla: yleislajin karttaa ei saa yhtä aikaa kapeaksi ja
 rehelliseksi.
 
+## Tekevätkö säätimet mitään? — säädinkäyrät
+
+Tietosivu kehotti ennen kiristämään säätimiä, ja README väitti että kiristäminen romahduttaa
+osuvuuden (6,5× → 3,5×). Kumpaakaan ei ollut mitattu. Tässä on jokaisen säätimen koko matka,
+muut ehdot oletuksissaan. "osuvuus" = havainnot ÷ kohdistettu verrokki.
+
+**Vanha isäntäpuusäädin** (muut ehdot vanhoissa oletuksissaan):
+
+| säädin | havainnoista | verrokista | ala | osuvuus |
+|---|---|---|---|---|
+| 0 / 20 / **40** *(vanha oletus)* | 65 % | 44 % | 30 % | **1,49×** |
+| 60 | 64 % | 41 % | 27 % | 1,55× |
+| 80 | 57 % | 37 % | 20 % | 1,56× |
+| 100 | 50 % | 29 % | 16 % | 1,75× |
+| 120 | 40 % | 23 % | 13 % | 1,75× |
+| 150 | 25 % | 14 % | 8 % | 1,83× |
+
+**Uusi tilavuussäädin** (muut ehdot uusissa oletuksissaan):
+
+| säädin | havainnoista | verrokista | ala | osuvuus |
+|---|---|---|---|---|
+| 0 / 50 | 73 % | 50 % | 43 % | 1,45× |
+| 100 | 70 % | 49 % | 34 % | 1,42× |
+| **150** *(uusi oletus)* | 60 % | 37 % | 18 % | **1,62×** |
+| 200 | 40 % | 23 % | 12 % | 1,72× |
+| 250 | 24 % | 13 % | 6 % | **1,94×** |
+| 300 | 12 % | 6 % | 4 % | 1,82× |
+
+Kolme johtopäätöstä, joista kaksi oikaisee aiempaa käsitystä.
+
+**1. Vanha säädin ei ollut rikki — sen oletus oli.** Isäntäpuuraja 0, 20 ja 40 antavat täsmälleen
+saman kartan: säädin oli tasannetta koko alaosaltaan, ja oletus 40 istui keskellä sitä. Ylöspäin
+työnnettynä se kyllä toimi (1,83× arvolla 150). Vika ei siis ollut siinä, ettei säädin tehnyt
+mitään, vaan siinä että *oletusasento* ei tehnyt mitään. Uusi säädin on samanmuotoinen —
+tasannetta 0–100 — mutta sen oletus on tasanteen yläpuolella.
+
+**2. Kiristäminen ei romahduta osuvuutta, vaan parantaa sitä.** Jokainen säädin nostaa osuvuutta
+kiristettäessä. README:n vanha 6,5× → 3,5× ei pidä tällä aineistolla paikkaansa, ja se väite on
+poistettu.
+
+**3. Säätimet eivät ole uuden myötä *laadullisesti* tuottavampia.** Samalla
+löytöosuudella vanha ja uusi ovat käytännössä tasoissa: isäntäpuu 120 antaa 40 % / 1,75×, tilavuus
+200 antaa 40 % / 1,72×. Uusi säädin yltää hieman korkeammalle (1,94× vs. 1,83×) ja sen asteikko on
+tulkittavissa (koko puuston m³/ha, ei "kolmen puulajin suurin"), mutta varsinainen parannus on
+oletuksen sijainti, ei vipu itse. Näin se on myös sanottu.
+
+### Tehokkain säädin ei ole se, jota vaihdoin
+
+| ikäsäädin (uusilla oletuksilla) | havainnoista | verrokista | ala | osuvuus |
+|---|---|---|---|---|
+| 0 / 20 | 65 % | 39 % | 19 % | 1,66× |
+| **40** *(oletus)* | 60 % | 37 % | 18 % | 1,62× |
+| 60 | 42 % | 22 % | 12 % | **1,90×** |
+| 80 | 22 % | 9 % | 6 % | **2,36×** |
+| 100 | 6 % | 3 % | 2 % | 1,83× |
+
+| latvuspeittosäädin (uusilla oletuksilla) | havainnoista | verrokista | ala | osuvuus |
+|---|---|---|---|---|
+| 0 / 25 / **40** *(oletus)* | 60 % | 37 % | 18 % | 1,63× |
+| 55 | 56 % | 34 % | 17 % | 1,65× |
+| 70 | 28 % | 15 % | 10 % | 1,85× |
+
+**Puuston ikä on säätimistä tehokkain** — 60 v antaa 1,90× ja 80 v 2,36×, eli enemmän kuin
+tilavuussäädin parhaimmillaan. Siksi säätimen vihje sanoo sen ääneen: se on tieto, jota käyttäjä
+ei voi arvata, ja se tekee säätimistä tuottavampia ilman että oletusta muutetaan.
+
+Ikäoletus jätettiin silti 40 vuoteen. Se ei ole tilastollisesti paras asento — 0 antaa 1,66× ja
+40 antaa 1,62×, eli oletus istuu pienessä kuopassa — mutta ero on mittausmelun kokoluokkaa, ja
+40 v rajaa pois taimikot, joissa ei kannata kävellä riippumatta siitä mitä luvut sanovat. 60 v
+puolestaan pudottaisi löytöosuuden 42 %:iin, mikä on sama vaihtokauppa kuin kuusivaltaisuudella:
+säätimen paikka, ei oletuksen.
+
+Latvuspeitto on säätimistä heikoin: se on tasannetta 55:een asti eikä pure ennen 70:tä.
+Oletuksen lasku 55:stä 40:een ei siis menetä mitään — luvut ovat identtiset — mutta on rehellistä
+sanoa, ettei se myöskään voita mitään.
+
 ## Sivulöydös: `tilavuus` on WMS:ssä puoliskaalassa
 
 Luke tarjoaa puulajikohtaiset tilavuustasot (`manty`, `kuusi`, `koivu`) tavuina, yksi

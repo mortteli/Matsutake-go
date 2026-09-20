@@ -161,6 +161,17 @@ isäntäpuuna erottelee hienoisesti väärään suuntaan** (41 % vs. 43 %). Kosk
 OR-ehdon valikoivuuden määrää sen heikoin jäsen, kolmen puulajin unioni oli
 suodattimen löysin kohta. Sen tilalla on nyt koko puuston tilavuus.
 
+Säätimistä mitattiin samalla koko matka, ja tulos oikaisee tämän dokumentin
+aiempaa väitettä: **kiristäminen ei romahduta osuvuutta vaan parantaa sitä**,
+joten rivi "6,5× → 3,5×" on poistettu. Vanha isäntäpuusäädin ei myöskään ollut
+rikki — se oli *tasannetta* koko alaosaltaan (0, 20 ja 40 antoivat saman
+kartan), ja vanha oletus istui keskellä sitä. Samalla löytöosuudella vanha ja
+uusi säädin ovat tasoissa (isäntäpuu 120 → 40 % / 1,75×, tilavuus 200 → 40 % /
+1,72×), joten parannus on oletuksen sijainti eikä vipu itse.
+
+Tehokkain säädin ei ole kumpikaan niistä vaan **puuston ikä**: 60 v antaa 1,9×
+ja 80 v 2,4×. Se lukee nyt säätimen vihjeessä, koska sitä ei voi arvata.
+
 Rehellisyyden nimissä: **oletusten parannus on vaatimaton ja se tulee pääosin
 Keski- ja Pohjois-Suomesta.** Etelä-Suomessa valtaosa metsästä ylittää
 150 m³/ha jo valmiiksi, joten 20 km:n ruutu Nuuksion yllä värittyy vanhoilla
