@@ -2,7 +2,9 @@
 
 Writes data/<species>/prob_meta.json plus one or more GeoTIFFs (tiled, deflate, overviews)
 under data/<species>/. GitHub refuses files over 100 MB, so the raster is split into a grid
-of regional files when needed; the app loads only the files intersecting the view.
+of regional files when needed; the app loads only the files intersecting the view. A part that
+still comes out over --max-mb is quartered and rewritten until it fits, so --split only chooses
+the starting grid.
 
 python ml/export/export_app.py --species matsutake [--src ml/data/rasters/prob_matsutake_16m.tif] [--max-mb 90]
 """
@@ -53,6 +55,8 @@ def write_part(src, window, path, floor, step):
 
 
 NQ = 1001          # quantile points stored for the app: 0.1 % resolution, enough for its top stop
+MAX_SPLIT_DEPTH = 3   # a part may be quartered this many times before its size is reported as-is
+MIN_PART_PX = 512     # one COG block: quartering below this buys compression nothing
 
 
 def forest_quantiles(src, decimate=8):
@@ -88,21 +92,46 @@ def main():
         v, _ = forest_quantiles(src)
         floor = float(np.percentile(v, 100 - a.max_pct))
         log(f"forest cells sampled {v.size}, floor for the best {a.max_pct} % = score {floor:.0f}")
-        files, n = [], a.split
+        files = []
+        limit = a.max_mb * 1e6
+
+        def emit(w, name, depth=0):
+            """Write one part, or quarter it and recurse if it came out over the size limit.
+
+            GitHub refuses a file over 100 MB outright, so a part that lands over `--max-mb`
+            is not a warning to read later: it is a push that will be rejected. How well a
+            region compresses cannot be known before writing it — it depends on how much of
+            the region is above the floor and how varied those scores are — so the part is
+            written, measured, and quartered if it missed. The discarded write costs a minute
+            and only happens on the parts that need it.
+            """
+            data = src.read(1, window=w, out_shape=(max(1, int(w.height) // 64), max(1, int(w.width) // 64)))
+            if not ((data != 255) & (data >= floor)).any():
+                return                                         # nothing in the mapped range here
+            path = os.path.join(outdir, name + ".tif")
+            size = write_part(src, w, path, floor, a.step)
+            splittable = depth < MAX_SPLIT_DEPTH and int(w.height) >= 2 * MIN_PART_PX and int(w.width) >= 2 * MIN_PART_PX
+            if size > limit and splittable:
+                log(f"{name}.tif {size/1e6:.1f} MB over {a.max_mb:g} MB — splitting into quarters")
+                os.remove(path)
+                h0, w0 = int(w.height) // 2, int(w.width) // 2
+                for k, (dr, dc, hh, ww) in enumerate(((0, 0, h0, w0), (0, w0, h0, int(w.width) - w0),
+                                                      (h0, 0, int(w.height) - h0, w0),
+                                                      (h0, w0, int(w.height) - h0, int(w.width) - w0))):
+                    emit(Window(w.col_off + dc, w.row_off + dr, ww, hh), f"{name}_{k}", depth + 1)
+                return
+            b = rasterio.windows.bounds(w, src.transform)
+            files.append(dict(url=f"data/{a.species}/{name}.tif", bounds=[round(x) for x in b]))
+            over = "  OVER LIMIT (cannot split further)" if size > limit else ""
+            log(f"{name}.tif {size/1e6:.1f} MB{over}")
+
+        n = a.split
         rows = [int(round(i * src.height / n)) for i in range(n + 1)]
         cols = [int(round(i * src.width / n)) for i in range(n + 1)]
         for i in range(n):
             for j in range(n):
-                w = Window(cols[j], rows[i], cols[j + 1] - cols[j], rows[i + 1] - rows[i])
-                data = src.read(1, window=w, out_shape=(max(1, w.height // 64), max(1, w.width // 64)))
-                if not ((data != 255) & (data >= floor)).any():
-                    continue                                   # nothing in the mapped range here
-                name = f"prob_{a.species}_16m_{i}{j}.tif"
-                path = os.path.join(outdir, name)
-                size = write_part(src, w, path, floor, a.step)
-                b = rasterio.windows.bounds(w, src.transform)
-                files.append(dict(url=f"data/{a.species}/{name}", bounds=[round(x) for x in b]))
-                log(f"{name} {size/1e6:.1f} MB" + ("  OVER LIMIT" if size > a.max_mb * 1e6 else ""))
+                emit(Window(cols[j], rows[i], cols[j + 1] - cols[j], rows[i + 1] - rows[i]),
+                     f"prob_{a.species}_16m_{i}{j}")
         # quantiles of the values as stored, so the app's threshold and colour ramp match the files
         qv = np.where(v < floor, 0, np.round(v / a.step) * a.step)
         quant = np.percentile(qv, np.linspace(0, 100, NQ)).astype(float).round(1).tolist()

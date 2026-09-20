@@ -1,80 +1,81 @@
 # Habitat model report — matsutake
 
-Rows: 5837 (presences 109, random-forest background 3000, other-fungi background 2587); 62 features; 5-fold spatial block CV (25 km blocks).
+Rows: 5845 (presences 112, random-forest background 3000, other-fungi background 2587); 63 features; 5-fold spatial block CV (25 km blocks).
 
-Map head: **lgbm** (hyper-parameters chosen for precision in the best 2 %).
+Map head: **mlp+lgbm** (hyper-parameters chosen for precision in the best 2 %).
 
 ## Models (pooled out-of-fold)
 
 | Model | AUC vs fungi | PR-AUC vs fungi | recall@2 % | prec@2 % | recall@5 % | prec@5 % | recall@10 % | Boyce |
 |---|---|---|---|---|---|---|---|---|
-| rule_old_default | 0.591 | 0.076 | 0.101 | 0.138 | 0.156 | 0.101 | 0.239 | 0.683 |
-| rule_new_default | 0.741 | 0.129 | 0.156 | 0.17 | 0.394 | 0.161 | 0.587 | 0.506 |
-| rule_E | 0.708 | 0.117 | 0.147 | 0.18 | 0.257 | 0.137 | 0.459 | 0.644 |
-| logreg | 0.879 | 0.373 | 0.45 | 0.43 | 0.651 | 0.212 | 0.771 | 0.819 |
-| gam | 0.88 | 0.381 | 0.394 | 0.434 | 0.587 | 0.245 | 0.798 | 0.827 |
-| maxent | 0.889 | 0.419 | 0.468 | 0.398 | 0.661 | 0.216 | 0.807 | 0.908 |
-| lgbm | 0.88 | 0.401 | 0.413 | 0.413 | 0.615 | 0.3 | 0.725 | 0.911 |
-| xgb | 0.866 | 0.385 | 0.413 | 0.405 | 0.578 | 0.269 | 0.734 | 0.816 |
-| mlp | 0.883 | 0.345 | 0.422 | 0.414 | 0.67 | 0.259 | 0.798 | 0.812 |
-| head:lgbm | 0.88 | 0.401 | 0.413 | 0.413 | 0.615 | 0.3 | 0.725 | 0.911 |
+| rule_old_default | 0.56 | 0.081 | 0.116 | 0.159 | 0.152 | 0.101 | 0.214 | 0.362 |
+| rule_new_default | 0.726 | 0.127 | 0.196 | 0.183 | 0.384 | 0.154 | 0.589 | 0.465 |
+| rule_E | 0.685 | 0.121 | 0.161 | 0.209 | 0.286 | 0.139 | 0.473 | 0.439 |
+| logreg | 0.865 | 0.322 | 0.42 | 0.448 | 0.598 | 0.205 | 0.75 | 0.841 |
+| gam | 0.866 | 0.315 | 0.411 | 0.407 | 0.598 | 0.205 | 0.759 | 0.931 |
+| maxent | 0.854 | 0.257 | 0.411 | 0.346 | 0.589 | 0.161 | 0.732 | 0.816 |
+| lgbm | 0.855 | 0.275 | 0.33 | 0.374 | 0.455 | 0.222 | 0.652 | 0.935 |
+| xgb | 0.853 | 0.278 | 0.348 | 0.371 | 0.509 | 0.243 | 0.652 | 0.966 |
+| mlp | 0.87 | 0.306 | 0.339 | 0.409 | 0.616 | 0.234 | 0.795 | 0.894 |
+| head:mlp+lgbm | 0.872 | 0.317 | 0.375 | 0.372 | 0.562 | 0.25 | 0.759 | 0.917 |
 
 recall@k %: share of held-out finds scoring above the top-k % of random forest cells (i.e. if the map is coloured over k % of forest land). prec@k %: of the fungus-reporting sites inside that coloured area, the share that are matsutake finds — what a visit to a coloured cell is worth, and the number to watch for a deliberately tight map.
 
 All models are fitted in the presence-background setting: presences vs. a background made of random forestry-land cells (what habitat is available) and other-fungi observation sites (where people actually look, i.e. the target-group correction for observer bias). `maxent` is the MaxEnt-equivalent infinitely-weighted L1 logistic regression on MaxEnt feature classes (linear, quadratic, forward/reverse hinges); `gam` is a spline-basis logistic GAM; `logreg` is a ridge logistic regression; `lgbm`/`xgb` are gradient-boosted trees; `mlp` is a neural network. The row named `head:` is the one the exported map is made of. Configs are the best of a small grid on the same folds (slightly optimistic, the MLP's nested-CV config aside), so read the head's own numbers as the optimistic end of its range.
 
-## Threshold curve of the map head (lgbm, out-of-fold)
+## Threshold curve of the map head (mlp+lgbm, out-of-fold)
 
 | Map covers (share of forest) | Recall of finds | Other-fungi sites kept | Matsutake share of fungi sites | Lift vs random |
 |---|---|---|---|---|
-| 0.25 % | 14 % | 0 % | 72 % | 58.7× |
-| 0.5 % | 23 % | 0 % | 66 % | 47.7× |
-| 1 % | 31 % | 1 % | 52 % | 31.2× |
-| 2 % | 41 % | 2 % | 41 % | 20.6× |
-| 5 % | 61 % | 6 % | 30 % | 12.3× |
-| 10 % | 72 % | 14 % | 17 % | 7.2× |
-| 15 % | 79 % | 22 % | 13 % | 5.3× |
-| 20 % | 82 % | 28 % | 10 % | 4.1× |
-| 30 % | 91 % | 40 % | 8 % | 3.1× |
-| 50 % | 97 % | 60 % | 6 % | 1.9× |
+| 0.25 % | 9 % | 0 % | 52 % | 39.3× |
+| 0.5 % | 17 % | 0 % | 52 % | 35.7× |
+| 1 % | 29 % | 1 % | 52 % | 29.5× |
+| 2 % | 37 % | 2 % | 37 % | 18.8× |
+| 5 % | 56 % | 7 % | 25 % | 11.2× |
+| 10 % | 75 % | 17 % | 15 % | 7.6× |
+| 15 % | 82 % | 25 % | 12 % | 5.5× |
+| 20 % | 84 % | 30 % | 10 % | 4.2× |
+| 30 % | 93 % | 41 % | 8 % | 3.1× |
+| 50 % | 96 % | 61 % | 6 % | 1.9× |
 
 ## Rank-averaged ensembles (same folds)
 
 | Ensemble | AUC vs fungi | PR-AUC vs fungi | recall@5 % | recall@10 % | recall@20 % | Boyce |
 |---|---|---|---|---|---|---|
-| mlp+lgbm | 0.889 | 0.398 | 0.679 | 0.798 | 0.908 | 0.886 |
-| mlp+maxent | 0.889 | 0.401 | 0.67 | 0.807 | 0.853 | 0.86 |
-| mlp+lgbm+maxent | 0.893 | 0.417 | 0.679 | 0.798 | 0.872 | 0.862 |
-| all | 0.89 | 0.426 | 0.661 | 0.807 | 0.872 | 0.923 |
+| mlp+lgbm | 0.873 | 0.311 | 0.571 | 0.75 | 0.866 | 0.93 |
+| mlp+maxent | 0.868 | 0.29 | 0.598 | 0.795 | 0.848 | 0.652 |
+| mlp+lgbm+maxent | 0.874 | 0.308 | 0.598 | 0.804 | 0.848 | 0.889 |
+| all | 0.878 | 0.319 | 0.571 | 0.795 | 0.857 | 0.849 |
 
 Rank averages cannot be stored in the map (they have no probability scale), so a rank ensemble can only ever be a comparison; `--head mlp+lgbm` averages the two probabilities instead.
 
-Best MLP config: `{"hidden": 32, "depth": 1, "dropout": 0.4, "wd": 0.001, "lr": 0.001}`
+Best MLP config: `{"hidden": 128, "depth": 2, "dropout": 0.4, "wd": 0.01, "lr": 0.001}`
 
 ## Ablations (MLP, same folds)
 
 | Variant | PR-AUC vs fungi | recall@5 % | recall@10 % | Boyce |
 |---|---|---|---|---|
-| full | 0.345 | 0.67 | 0.798 | 0.812 |
-| without_soil | 0.257 | 0.596 | 0.688 | 0.878 |
-| without_terrain | 0.351 | 0.624 | 0.734 | 0.796 |
-| without_climate | 0.37 | 0.661 | 0.734 | 0.858 |
-| without_neigh | 0.285 | 0.624 | 0.688 | 0.858 |
-| with_location | 0.427 | 0.67 | 0.761 | 0.652 |
+| full | 0.306 | 0.616 | 0.795 | 0.894 |
+| without_soil | 0.153 | 0.446 | 0.571 | 0.905 |
+| without_terrain | 0.291 | 0.625 | 0.732 | 0.812 |
+| without_climate | 0.308 | 0.616 | 0.768 | 0.819 |
+| without_neigh | 0.265 | 0.554 | 0.759 | 0.684 |
+| without_structure | 0.305 | 0.625 | 0.741 | 0.797 |
+| with_location | 0.349 | 0.634 | 0.768 | 0.603 |
 
 ## Hyper-parameter trials
 
 | PR-AUC vs fungi | recall@5 % | config |
 |---|---|---|
-| 0.345 | 0.651 | `{"hidden": 32, "depth": 1, "dropout": 0.4, "wd": 0.001, "lr": 0.001}` |
-| 0.373 | 0.679 | `{"hidden": 128, "depth": 1, "dropout": 0.1, "wd": 0.01, "lr": 0.001}` |
-| 0.348 | 0.642 | `{"hidden": 128, "depth": 1, "dropout": 0.25, "wd": 0.0001, "lr": 0.001}` |
-| 0.323 | 0.697 | `{"hidden": 128, "depth": 2, "dropout": 0.4, "wd": 0.01, "lr": 0.001}` |
-| 0.327 | 0.697 | `{"hidden": 64, "depth": 1, "dropout": 0.4, "wd": 0.0001, "lr": 0.003}` |
-| 0.323 | 0.67 | `{"hidden": 128, "depth": 2, "dropout": 0.25, "wd": 0.0001, "lr": 0.003}` |
-| 0.338 | 0.706 | `{"hidden": 64, "depth": 2, "dropout": 0.25, "wd": 0.001, "lr": 0.001}` |
-| 0.333 | 0.642 | `{"hidden": 64, "depth": 2, "dropout": 0.1, "wd": 0.001, "lr": 0.003}` |
-| 0.297 | 0.679 | `{"hidden": 64, "depth": 3, "dropout": 0.25, "wd": 0.0001, "lr": 0.001}` |
-| 0.28 | 0.688 | `{"hidden": 64, "depth": 3, "dropout": 0.1, "wd": 0.001, "lr": 0.003}` |
-| 0.299 | 0.679 | `{"hidden": 64, "depth": 3, "dropout": 0.4, "wd": 0.0001, "lr": 0.003}` |
-| 0.288 | 0.679 | `{"hidden": 32, "depth": 3, "dropout": 0.25, "wd": 0.01, "lr": 0.001}` |
+| 0.313 | 0.571 | `{"hidden": 128, "depth": 2, "dropout": 0.4, "wd": 0.01, "lr": 0.001}` |
+| 0.309 | 0.607 | `{"hidden": 64, "depth": 3, "dropout": 0.25, "wd": 0.0001, "lr": 0.001}` |
+| 0.318 | 0.643 | `{"hidden": 32, "depth": 1, "dropout": 0.4, "wd": 0.001, "lr": 0.001}` |
+| 0.273 | 0.571 | `{"hidden": 64, "depth": 1, "dropout": 0.4, "wd": 0.0001, "lr": 0.003}` |
+| 0.287 | 0.589 | `{"hidden": 64, "depth": 3, "dropout": 0.1, "wd": 0.001, "lr": 0.003}` |
+| 0.321 | 0.634 | `{"hidden": 64, "depth": 2, "dropout": 0.25, "wd": 0.001, "lr": 0.001}` |
+| 0.293 | 0.562 | `{"hidden": 128, "depth": 1, "dropout": 0.1, "wd": 0.01, "lr": 0.001}` |
+| 0.301 | 0.518 | `{"hidden": 128, "depth": 2, "dropout": 0.25, "wd": 0.0001, "lr": 0.003}` |
+| 0.293 | 0.571 | `{"hidden": 128, "depth": 1, "dropout": 0.25, "wd": 0.0001, "lr": 0.001}` |
+| 0.253 | 0.571 | `{"hidden": 64, "depth": 2, "dropout": 0.1, "wd": 0.001, "lr": 0.003}` |
+| 0.279 | 0.67 | `{"hidden": 32, "depth": 3, "dropout": 0.25, "wd": 0.01, "lr": 0.001}` |
+| 0.307 | 0.598 | `{"hidden": 64, "depth": 3, "dropout": 0.4, "wd": 0.0001, "lr": 0.003}` |

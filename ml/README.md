@@ -28,11 +28,11 @@ pip install -r ml/requirements.txt
 python ml/ingest/fetch_observations.py           # GBIF (+ laji.fi if LAJI_TOKEN is set in the env)
 python ml/ingest/climate.py                      # FMI 10 km normals -> ml/data/climate/*.tif
 python ml/ingest/fetch_gtk.py all                # GTK soil + glacigenic polygons -> 16 m rasters (large, not committed)
-sh  ml/ingest/download_mvmi.sh                   # local copies of the ten MVMI 2023 rasters (~10 GB, not committed)
+sh  ml/ingest/download_mvmi.sh                   # local copies of the eleven MVMI 2023 rasters (~10 GB, not committed)
 python ml/dataset/build_dataset.py [--coarse]     # presences (cycle-matched) + background -> dataset.csv
 python ml/dataset/observation_status.py           # per-record precision + habitat verdict -> observation_status.csv
 python ml/dataset/observation_status.py --report  # the cross-tab; --from-cache re-runs it with no network
-python ml/train/train.py --species matsutake --head lgbm --select sure   # spatial CV, tuning, report
+python ml/train/train.py --species matsutake --head mlp+lgbm --select sure   # spatial CV, tuning, report
 python ml/export/predict.py --species matsutake   # full-Finland inference -> probability raster
 python ml/export/export_app.py --species matsutake --split 3   # -> data/matsutake/*.tif + prob_meta.json
 ```
@@ -54,8 +54,8 @@ Choosing what the map is made of
 python ml/train/compare_heads.py --species matsutake --seeds 5   # model families over several fold splits
 ```
 
-`--head` decides which family the exported map is: `lgbm` (the shipped one), `mlp`, or
-`mlp+lgbm` for the average of the two probabilities. `--select sure` picks hyper-parameters on
+`--head` decides which family the exported map is: `mlp+lgbm` (the shipped one, the average of
+the two probabilities), or `lgbm` or `mlp` alone. `--select sure` picks hyper-parameters on
 precision in the best 2 % of forest land instead of overall PR-AUC — the map is read at its top,
 so that is what it is tuned for. The reasoning and the numbers:
 [docs/MODEL_CHOICE_matsutake.md](../docs/MODEL_CHOICE_matsutake.md).
@@ -83,6 +83,9 @@ Notes
   for the whole map.
 * The exported parts are Cloud-Optimised GeoTIFFs read by the app with HTTP range requests. Serve
   the site with `python3 serve.py`, not `python3 -m http.server`, which ignores Range headers.
+* `export_app.py` quarters any part that comes out over `--max-mb` and keeps quartering (three
+  levels deep) until each file fits, so `--split` only sets the starting grid. GitHub rejects a
+  file over 100 MB outright, and how well a region compresses is not knowable before writing it.
 * Presences from 250 m to 1 km train at weight 0.3 with features averaged over the uncertainty
   disc and are never scored; `--fine-only` reproduces the comparison without them.
 

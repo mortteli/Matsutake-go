@@ -393,7 +393,8 @@ step now measures how many, but does not act on it; feeding the verdict back int
 
 - `ml/` — reproducible pipeline: observations, GTK and FMI rasters, a 16 m elevation warp,
   cycle-matched feature extraction, training with spatial CV, inference, app export.
-- `ml/models/matsutake/` — the five fold networks, the scaler, and the cross-validation report.
+- `ml/models/matsutake/` — the five fold networks and the five fold boosters the map averages,
+  the scaler, and the cross-validation report.
 - `data/matsutake/` — the published map, nine Cloud-Optimised GeoTIFF parts at 16 m.
 - The app's 🧠 panel: model layer, "best X % of forest land" slider, and a model row in the
   tap readout.
@@ -444,7 +445,36 @@ What changed:
   60 % (`MATSU_MAX_COVER`) — the same threshold already validated as rule E in `train.py`'s rule
   baselines, which drops recall only from 48 % to 45 % on top of the existing default conditions
   while cutting the mapped area.
-- Pending after this change: rerun `build_dataset.py` → `train.py` → `predict.py` →
-  `export_app.py` to retrain on the new features and re-publish the probability raster; the
-  §10 "what shipped" model and the report numbers in `docs/MODEL_REPORT_matsutake.md` are stale
-  until that runs.
+### Retrained 2026-09-20
+
+`build_dataset.py --coarse` → `train.py` → `predict.py` → `export_app.py` were rerun on the new
+features and the raster re-published. Three things came out of it that the change above did not
+predict.
+
+**The training table grew as much as the features did.** The laji.fi refetch had already landed,
+so the rebuild picked up 112 precisely-located finds instead of 109 and 258 presences instead of
+250, on 63 features instead of 62. Any comparison against the 2026-09-11 report is therefore
+across two moving parts, not one; the honest comparisons below all hold the data fixed and vary
+only the model.
+
+**Canopy openness earns recall, not precision, and only just.** Dropping the whole `structure`
+group — `latvuspeitto`, `ppa`, `stems_ha`, `keskilapimitta` and the neighbourhood means — over
+five fold splits costs LightGBM 0.039 ± 0.019 of recall@2 % and 0.037 ± 0.026 of recall@5 %, and
+the network 0.027 ± 0.030 of recall@5 %. Precision is flat either way (lgbm prec@2 % −0.004 ±
+0.006). So the group is worth keeping and the sign is consistent, but this is not the dominant
+signal §4.1's single-condition table suggested: most of what canopy cover knows, the model
+already had through site class, age and pine volume, which it is correlated with. The one-split
+ablation in `report.json` reads as a dead heat (0.306 against 0.305) and should not be read
+alone — a single split moves these numbers by more than the effect being measured.
+
+**The map head changed to `mlp+lgbm`.** On the rebuilt table, averaging the network's and the
+boosters' probabilities beats LightGBM alone on both AUCs, both PR-AUCs, recall at every level
+and precision at 1 % and 5 %, is level at prec@2 %, and gives up 0.018 of Boyce (−0.041 ± 0.053
+over five splits). `docs/MODEL_CHOICE_matsutake.md` said that choice should be revisited when the
+observation set grew; it has been, and the numbers are recorded there.
+
+Worth knowing for the next run: `--select sure` picks LightGBM's hyper-parameters on prec@2 % on
+one split, and here it chose the 300-tree config, which is the weaker of the two on recall. The
+`lgbm` row in the report (recall@5 % 0.455) is that config on that split; over five splits with
+the 400-tree config it averages 0.564. The selection rule is doing what it says, but on ~112
+evaluation finds one split is thin evidence to select hyper-parameters on.

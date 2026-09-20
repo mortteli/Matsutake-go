@@ -283,7 +283,7 @@ rakentuu niistä.
 ## Todennäköisyyskartta (🧠)
 
 🗺️-valikon **Todennäköisyyskartta** on havainnoista opetettu malli
-(gradient boosting, LightGBM), joka antaa jokaiselle 16 m ruudulle arvion siitä,
+(neuroverkon ja gradient boostingin keskiarvo), joka antaa jokaiselle 16 m ruudulle arvion siitä,
 kuinka matsutaken tunnettujen löytöpaikkojen kaltainen se on. Malli yhdistää Luken
 metsätiedot, MML:n korkeusmallin (rinne, suunta, harjanne), GTK:n maaperä- ja
 harjukartan sekä Ilmatieteen laitoksen lämpösumman.
@@ -294,16 +294,26 @@ arviointi vain ≤ 250 m tarkkuuden havainnoilla) asetukset tarkoittavat tätä:
 
 | Kartta värittää | Tunnetuista löydöistä mukana | Sienihavaintopaikoista matsutakea | Osuvuus vs. satunnainen metsä |
 |---|---|---|---|
-| parhaat 0,25 % | 14 % | 72 % | 59× |
-| parhaat 0,5 % | 23 % | 66 % | 48× |
-| parhaat 1 % | 31 % | 52 % | 31× |
-| parhaat 2 % | 41 % | 41 % | 21× |
-| parhaat 5 % | 61 % | 30 % | 12× |
-| parhaat 15 % | 79 % | 13 % | 5× |
+| parhaat 0,25 % | 10 % | 52 % | 39× |
+| parhaat 0,5 % | 18 % | 53 % | 36× |
+| parhaat 1 % | 30 % | 52 % | 30× |
+| parhaat 2 % | 38 % | 37 % | 19× |
+| parhaat 5 % | 56 % | 25 % | 11× |
+| parhaat 15 % | 82 % | 12 % | 5× |
 
 Kolmas sarake on se, joka kertoo kannattaako ajaa: kun kartan värillä olevalta
 alueelta on ylipäätään ilmoitettu sieni, kuinka usein se on matsutake. Vanha
-sääntökartta ylsi 5 %:n kohdalla 16 %:iin löydöistä.
+sääntökartta ylsi 5 %:n kohdalla 15 %:iin löydöistä.
+
+Luvut ovat tiukimmassa päässä matalampia kuin aiemmassa julkaisussa (0,25 %:n
+kohdalla 72 % → 52 %), väljässä päässä korkeampia (15 %:n kohdalla 79 % → 82 %).
+Vertailu ei ole suoraviivainen: samalla kun malliperhe vaihtui, havaintoaineisto
+päivittyi, joten arviointijoukko ei ole sama. 0,25 %:n siivuun osuu vain reilu
+kymmenen löytöä, joten pari siirtynyttä havaintoa heiluttaa sen lukua kymmenen
+prosenttiyksikköä; väljemmät rivit lepäävät selvästi useamman löydön varassa ja
+ovat siksi ne, joita kannattaa verrata. Saman aineiston sisällä mitattuna uusi
+malliperhe voitti vanhan kaikilla mittareilla Boyce-indeksiä lukuun ottamatta
+([docs/MODEL_CHOICE_matsutake.md](docs/MODEL_CHOICE_matsutake.md)).
 
 Kartta kattaa metsämaan parhaan 15 %:n; sen ulkopuolella malli ei piirrä mitään.
 Miksi malliperhe on juuri tämä ja mitä vertailu antoi:
