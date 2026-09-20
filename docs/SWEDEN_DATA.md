@@ -1,88 +1,103 @@
 # Sweden — open forest data for training (comparison to Finland)
 
-Sweden's matsutake range extends into the far north (Norrbotten), and finds are
-turning up there in GBIF/Artportalen. This is a data audit for whether Sweden
-has an open-data stack that could support the same pipeline as
-[`ml/`](../ml/README.md) — not an implementation yet. Short answer: **yes, almost
-variable for variable**, but three things differ enough to matter before any
-code gets written: raster access needs a login (unlike Luke's open CORS WMS),
-two feature layers have no direct equivalent, and the national grid is a
-different projection.
+Sweden's matsutake range extends into the far north (Norrbotten), and finds are turning up there
+in growing numbers. This started as a source audit against Finland's `ml/` pipeline and turned
+into a working first cut: `ml/core/grid_se.py` and four `ml/ingest/fetch_*_se.py`-style scripts
+now exist and have each been run against real data (see "What's actually been run" below). This
+document is both the audit and the record of what was verified while building it.
 
 ## Source-by-source match
 
-| Role in the FI pipeline | Finnish source | Swedish equivalent | Producer | Resolution | Licence | Access |
+| Role in the FI pipeline | Finnish source | Swedish equivalent | Producer | Resolution / CRS | Licence | Access |
 |---|---|---|---|---|---|---|
-| Forest structure (site type, main type, age, species volumes, canopy cover) | Monilähteinen VMI (MVMI), 16 m | **Skogliga grunddata** (National Forest Attribute Maps) | SLU + Skogsstyrelsen, from Lantmäteriet laser scanning + Riksskogstaxeringen (NFI) field plots | 12.5 m (2015 vintage); 25 m for the 2000/2005/2010 vintages | Open data, CC0 per Skogsstyrelsen's open-data page | Download (`gis.slu.se/data/slu_forest_map`), WMS/WFS/REST via Skogsstyrelsen's "Geodatatjänster" — **raster download/WMS needs a free user account**, unlike Luke's account-free CORS GeoServer |
-| Elevation / slope / aspect | MML 10 m DEM | **Lantmäteriet höjddata**, grid 1 m (newer, finer than Finland's) | Lantmäteriet | 1 m | CC0 | `opendata.lantmateriet.se`, account required but free, no fee |
-| Soil / esker | GTK Maaperä 1:200 000 + glacigenic formations | **SGU Jordarter** (soil type map, best available scale per area) + glaciofluvial/esker layer | SGU (Sveriges geologiska undersökning) | 1:25 000–1:100 000 where mapped, 1:1 000 000 fallback elsewhere | Stated as open data on SGU's site; exact licence text not yet confirmed — verify before redistributing derived rasters | WMS (`resource.sgu.se/service/wms/130/...`) + download |
-| Climate normals (thermal sum, precipitation) | FMI gridded 10 km | **SMHI** gridded climate data (PTHBV-type products) | SMHI | ~4 km grid | CC BY 4.0 SE | `opendata.smhi.se` |
-| Stand reality-check (remove clear-cuts from the current-generation mask) | Metsäkeskus metsävarakuviot (dev. class) | **Utförda avverkningar** (completed fellings — actual measured clear-cut polygons, similar detection method) | Skogsstyrelsen | vector | CC0 | `geodpags.skogsstyrelsen.se`, no login for vector downloads |
-| Declared-but-not-yet-cut (tap-only info layer) | Metsäkeskus metsänkäyttöilmoitukset | **Avverkningsanmälda områden** (harvest notifications) | Skogsstyrelsen | vector | CC0 | same portal |
-| Training presences | GBIF + FinBIF (laji.fi) | GBIF, fed by **Artportalen** (Swedish Species Observation System) | GBIF.org / SLU Artdatabanken | point | Mixed CC0 / CC BY / CC BY-NC per record, same pattern as FinBIF | GBIF occurrence API, `taxonKey=5241820&country=SE` |
+| Forest structure (volumes, height, diameter, basal area, biomass) | Monilähteinen VMI (MVMI), 16 m | **SLU forest map** (Skogliga grunddata), 2015 "leaf" set | SLU + Skogsstyrelsen, from Lantmäteriet laser scanning + Riksskogstaxeringen field plots | 12.5 m, SWEREF99 TM (EPSG:3006) | Open data | **Plain static GeoTIFFs on `gis.slu.se`, no login** — `/vsicurl/` works exactly like Paituli does for MVMI. Confirmed live: `ml/core/grid_se.py` reads the real header (52400×97400 px, 12.5 m, EPSG:3006) over the network. The *Skogsstyrelsen*-branded WMS/REST wrapper around the same data does need an account — irrelevant here since the ingest scripts never touch it |
+| Species share of volume | manty/kuusi/koivu volumes | SLU forest map, 2018 "andel" set: pine/spruce/birch/oak/beech/contorta/other-deciduous | SLU + Skogsstyrelsen | 12.5 m | Open data | Same server, same access, confirmed via directory listing |
+| Stand age | age (all MVMI cycles) | SLU forest map, 2010 vintage only | SLU + Skogsstyrelsen | 25 m, **RT90 2.5 gon V (EPSG:3021)**, not SWEREF99 | Open data | Confirmed present at `2010/Data/Raster/Rt90/AGE_XX_P_10.tif`; needs reprojecting before use, and is ~15 years stale — no newer age raster is published alongside the 2015/2018 sets |
+| Elevation / slope / aspect | MML 10 m DEM | Lantmäteriet höjddata, grid 1 m | Lantmäteriet | 1 m | CC0 | `opendata.lantmateriet.se` — free account required (not yet obtained; nothing built against it yet) |
+| Soil | GTK Maaperä 1:200 000 | **SGU Jordarter** | SGU | 1:25 000–1:100 000 (3.4 GB zip) or 1:1 000 000 (15 MB zip) | Open data (SGU's WMS states `Fees: NONE`, `AccessConstraints: NONE`) | Direct GeoPackage-in-zip download, no login: `resource.sgu.se/data/oppnadata/...` |
+| Stand reality-check (remove clear-cuts) | Metsäkeskus metsävarakuviot | **Utförda avverkningar** (`sksUtfordAvverk`) | Skogsstyrelsen | vector, GeoPackage, 2.7 GB zip | Open data | Direct download, no login: `geodpags.skogsstyrelsen.se/geodataport/data/` |
+| Declared-but-not-cut (tap-only info) | Metsäkeskus metsänkäyttöilmoitukset | **Avverkningsanmälan** (`sksAvverkAnm`) | Skogsstyrelsen | vector, GeoPackage, 67 MB zip | Open data | Same portal |
+| Climate normals | FMI gridded 10 km | **SMHI PTHBV** | SMHI | ~4 km, point/multipoint query only (no bulk grid file) | CC BY 4.0 SE | `opendata-download-metanalys.smhi.se` — public JSON API |
+| Training presences | GBIF + FinBIF (laji.fi) | GBIF, fed by Artportalen | GBIF.org | point | Mixed CC0 / CC BY-NC | GBIF occurrence API |
 
-Sweden uses **SWEREF99 TM (EPSG:3006)** as its national grid, the equivalent of
-Finland's ETRS-TM35FIN (EPSG:3067) — same idea (a single national TM
-projection), different code and origin, so nothing in `core/grid.py` carries
-over as-is.
+## What's actually been run
+
+- **`ml/core/grid_se.py`** — read live against `gis.slu.se`. Confirmed: SWEREF99 TM (EPSG:3006),
+  12.5 m cells, 52400 × 97400 px, bounds (267500, 6132500)–(922500, 7350000).
+- **`ml/ingest/fetch_observations_se.py`** — run to completion against the live GBIF API.
+  **5501** georeferenced Swedish *Tricholoma matsutake* records (vs Finland's 445), 5215 of them
+  at ≤250 m coordinate uncertainty, none dropped on licence. That count needs a large caveat,
+  though: **only 33 of the 5501 (0.6 %) carry a validated identification** — the rest are
+  `identificationVerificationStatus=Unvalidated` citizen sightings straight from Artportalen, not
+  expert-reviewed museum/collection records the way most of the Finnish set is. The sample is also
+  almost entirely recent: of the first 300 records fetched, 299 were logged in 2024–2026 — this
+  really does look like the recent wave the map is being built to catch, not a hundred years of
+  steady reporting the way Finland's set reads. The new `verification_status` column exists so
+  training can weight or filter on it rather than pooling both kinds of record at face value.
+  Output: `ml/data/matsutake_se/observations.csv` (committed).
+- **`ml/ingest/fetch_sgu.py`** — the `--coarse` (1:1 000 000) path was run end-to-end against a
+  full local copy of the zip. Real schema: layer `grundlager`, code field `jg2` (int), name field
+  `jg2_tx`, 45121 polygons, EPSG:3006 already (no reprojection needed, unlike GTK's WFS for
+  Finland). The fine-scale 1:25k-100k product's columns were **not** verified — the zip is 3.4 GB,
+  too large to fetch and inspect in one sitting — but SGU's own WMS layer list names it
+  `grundlager` too, so the coarse schema is the first guess; the script logs the real columns and
+  raises before writing anything if the guess is wrong.
+- **`ml/ingest/fetch_skogsstyrelsen_harvests.py`** — the declared-felling half was run end-to-end
+  against a full local copy of `sksAvverkAnm_gpkg.zip`. Real schema: layer `AvverkningsAnmalanYta`,
+  129176 features, EPSG:3006. **`Avverktyp` is the felling-type field to filter on, not
+  `Andamal`** — that was the first guess and it's wrong: `Andamal` is 92 % `"Uppgift saknas"` (no
+  data), a purpose/land-use field, not a felling-type one. `Avverktyp='Föryngringsavverkning'`
+  (regeneration felling) matched 120102 of 129176 records and rasterized cleanly onto the SLU
+  grid. The completed-felling half (`sksUtfordAvverk`, 2.7 GB) was **not** verified the same way —
+  its field names in the script are an unverified guess based on the declared layer's naming
+  convention, and the code logs the real layer/column list and falls back rather than silently
+  producing an empty raster.
+- **`ml/ingest/fetch_smhi_climate.py`** — run against the live API for a 40-point sample. Found
+  and fixed two real API quirks while doing it: multipoint queries take **repeated `ll=` params**,
+  not a semicolon-joined list (the API's own error message said so), and the server 400s without
+  `Accept-Encoding: gzip`. 22 of the 40 sample points returned land data, the rest sea/border
+  nulls, which the script now filters instead of crashing on. A full-country run is ~50 000
+  lattice points in ~1000 batched requests — not run in full here, but every piece of the pipeline
+  (lattice generation, batching, null handling, GeoTIFF writing) has been exercised against the
+  real API.
+- **`ml/ingest/download_slu_forestmap.sh`** — every URL in it was checked with a real HTTP
+  request (directory listing or HEAD) before being written in; the files themselves (1–3.5 GB
+  each, ~10 GB total) were not downloaded in full given the size.
 
 ## Where it doesn't line up
 
-- **Login wall on the raster side.** The app's live map layer works by asking
-  Luke's GeoServer for a `SLD_BODY`-recoloured tile straight from the browser
-  — no server, no key, CORS open. Skogsstyrelsen's WMS/REST for the forest
-  attribute rasters wants an account. That rules out the live-tile trick for
-  a Swedish rule-based layer; it would need the same treatment already used
-  for the harvest correction and the probability map — pre-bake Cloud-Optimised
-  GeoTIFFs offline and ship them as static files read via HTTP range requests.
-- **No direct `kasvupaikka` (site fertility class) layer.** Skogliga grunddata
-  gives volumes, height, diameter, basal area and biomass, not a soil-fertility
-  class. A stand-in would have to be built from SGU soil texture (sandy/esker
-  ground for the dry, lichen-rich sites matsutake wants) plus low canopy cover
-  plus pine dominance — a real feature-engineering step, not a straight port of
-  `mvmi_point.py`.
-- **No direct canopy-cover layer either**, but there is a workable substitute:
-  Naturvårdsverket's **Nationella marktäckedata (NMD)**, a supplementary raster
-  giving percent coverage in two height bands (0.5–5 m and 5–45 m), 10 m grid,
-  CC0, no account needed. That maps reasonably well onto `latvuspeitto`.
-- **Age is stale.** The `age` raster only exists for the 2000/2005/2010
-  vintages (25 m); the current 2015, 12.5 m vintage doesn't carry it in what's
-  documented publicly. Skogsstyrelsen mentions a second laser-scanning round
-  finishing in 2024, so a newer age product may exist behind the account wall
-  — needs checking once someone has logged in, not something a web search
-  resolves.
-- **Presence data may be thinner than it looks.** The literature (Danell &
-  Camacho's Swedish matsutake survey) counts only ~81 records nationally
-  between 1849–1997, though a dedicated 1998 field survey found 121 localities
-  in Norrbotten — those field-survey localities likely predate Artportalen and
-  may not be digitized into GBIF at all. Worth pulling actual GBIF counts
-  (`ml/ingest/fetch_observations.py`-style query, `country=SE`) before assuming
-  parity with Finland's 445 records.
+- **No direct site-fertility-class layer.** The SLU forest map gives volumes, height, diameter,
+  basal area and biomass, not a soil-fertility class the way MVMI's `kasvupaikka` does. A stand-in
+  would have to be engineered from SGU soil texture (sandy/esker ground for the dry, lichen-rich
+  sites matsutake wants) plus low canopy cover plus pine dominance.
+- **No canopy-cover layer either**, but there's a workable substitute not yet wired up:
+  Naturvårdsverket's Nationella marktäckedata (NMD), CC0, 10 m, giving percent coverage in two
+  height bands.
+- **Age is stale and in the wrong projection** — see the table above.
+- **Presence data is much larger but far less curated than Finland's.** 5501 vs 445 sounds like an
+  advantage, but only 33 records have been through any identification review, and the recency
+  skew (2024–2026) suggests a lot of it is the same recent public-attention wave that prompted
+  this whole audit, not decades of steady collection the way the Finnish museum records are.
 
-## What's *better* in Sweden
+## What's better in Sweden
 
-- Elevation at 1 m vs Finland's 10 m.
-- Species-level volumes include contorta, oak and beech separately, not just
-  pine/spruce/birch.
-- The clear-cut correction layer (`Utförda avverkningar`) looks like it may
-  cover all forest ownership, not just private land the way Metsäkeskus's
-  kuviot are limited — worth confirming, since that was the one hard limit
-  called out in the Finnish harvest-correction section of the README.
+- Elevation at 1 m vs Finland's 10 m (once a Lantmäteriet account exists).
+- Species-level volumes split further (contorta, oak, beech) via the 2018 "andel" set.
+- The completed-felling layer looks like it may cover all forest ownership, not just private land
+  the way Metsäkeskus's kuviot are limited to — worth confirming once its schema is verified.
+- The forest-attribute rasters need no account at all for the ingest pipeline (only the
+  Skogsstyrelsen-branded live-tile WMS does), unlike what Skogsstyrelsen's own documentation pages
+  suggest at first read.
 
-## If this goes ahead
+## Next steps
 
-Roughly the same shape as the existing `ml/ingest/` scripts, one per source
-(`fetch_slu_forestmap.py`, `fetch_sgu.py`, `fetch_smhi_climate.py`,
-`fetch_skogsstyrelsen_harvests.py`), plus a SWEREF99 TM grid definition
-alongside the existing ETRS-TM35FIN one in `core/grid.py`. Given the feature
-gaps above, treat it as a second, parallel model rather than pooling
-Finnish and Swedish training rows into one — the feature sets aren't quite
-the same shape (no native site-class raster, a proxy canopy-cover source,
-a stale age layer) until that's built and validated on its own, the same way
-`docs/HABITAT_MODEL_PLAN.md` was validated against Finnish GBIF records before
-being trusted.
-
-Before writing any ingest code: register a Skogsstyrelsen open-data account to
-see the actual WMS `GetCapabilities` and raster band names, and pull the real
-GBIF occurrence count for `country=SE` to see how much presence data there
-actually is to train on.
+1. Verify `sksUtfordAvverk`'s real schema (fetch the 2.7 GB file, or find a smaller regional
+   subset) and confirm the fine-scale SGU layer's column names the same way.
+2. Register a Lantmäteriet open-data account for the elevation grid.
+3. Run `download_slu_forestmap.sh` and the full `fetch_smhi_climate.py` country pass.
+4. Build `ml/core/features_se.py` alongside `features.py`, and a `dataset_se.csv` builder — treat
+   Sweden as a second, parallel model rather than pooling training rows with Finland's, since the
+   feature sets aren't the same shape yet (proxy canopy cover, no native site class, a stale
+   reprojected age layer).
+5. Decide how to handle `verification_status` in training — at minimum, check whether restricting
+   to validated-only records changes anything before trusting the full 5501.

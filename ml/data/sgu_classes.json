@@ -1,0 +1,42 @@
+{
+ "1": {
+  "code": 100,
+  "name": "Morän"
+ },
+ "2": {
+  "code": 50,
+  "name": "Isälvssediment"
+ },
+ "3": {
+  "code": 75,
+  "name": "Torv"
+ },
+ "4": {
+  "code": 84,
+  "name": "Postglacial sand--grus"
+ },
+ "5": {
+  "code": 86,
+  "name": "Lera--silt"
+ },
+ "6": {
+  "code": 888,
+  "name": "Berg"
+ },
+ "7": {
+  "code": 91,
+  "name": "Vatten"
+ },
+ "8": {
+  "code": 9191,
+  "name": "Glaciär"
+ },
+ "9": {
+  "code": 9792,
+  "name": "Moränlera eller lerig morän"
+ },
+ "10": {
+  "code": 9800,
+  "name": "Morän eller vittringsjord"
+ }
+}

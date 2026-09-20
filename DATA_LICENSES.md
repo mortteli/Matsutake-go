@@ -80,10 +80,14 @@ To publish the derived layers under plain CC BY 4.0, re-run the pipeline with th
 
 Software licences: see `LICENSE` (MIT) and `THIRD_PARTY_LICENSES.md`.
 
-## Sweden — not yet used
+## Sweden — ingest pipeline in progress, not yet trained on
 
-Nothing Swedish is ingested or trained on yet. A source-by-source audit of
-Sweden's open-data equivalents to the table above (forest attributes, DEM,
-soil, climate, harvest layers, occurrence records) — including where they
-line up, where they don't, and what a Swedish model would need — is in
-[docs/SWEDEN_DATA.md](docs/SWEDEN_DATA.md).
+`ml/data/matsutake_se/observations.csv` — 5501 *Tricholoma matsutake* records for Sweden, GBIF
+(fed by Artportalen), fetched 2026-09-20. Licence mix: CC0 1.0: 5479, CC BY 4.0: 14, CC BY-NC 4.0:
+8 (none dropped as all-rights-reserved or share-alike). Unlike the
+Finnish set, only 33 records (0.6 %) carry a validated identification — the rest are unreviewed
+citizen sightings — and the great majority date from 2024–2026. See
+[docs/SWEDEN_DATA.md](docs/SWEDEN_DATA.md) for what that means for training, plus the full
+source-by-source audit of forest-attribute, soil, harvest and climate sources (what's been
+verified against real data vs. what's still an educated guess) and what's still missing before a
+model could be trained (elevation, canopy cover, a feature-extraction step).
