@@ -5,3 +5,7 @@ data/rasters/*
 data/raw/
 __pycache__/
 data/osm/
+
+# Sweden — same convention: rasters and raw downloads rebuilt on demand, classes/observations committed
+data/rasters_se/
+data/climate_se/

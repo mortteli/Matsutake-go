@@ -91,3 +91,12 @@ Data sources (all open): Luke MVMI 2009–2023 (CC BY 4.0), MML elevation model 
 climate 10 km (CC BY 4.0), GBIF / FinBIF occurrence records (various CC licences).
 
 `LAJI_TOKEN` is read from the environment only; never commit it.
+
+## Sweden (in progress)
+
+A parallel, earlier-stage pipeline for Sweden: `core/grid_se.py` (SWEREF99 TM, EPSG:3006) plus
+`ingest/fetch_observations_se.py`, `ingest/fetch_sgu.py`, `ingest/fetch_skogsstyrelsen_harvests.py`,
+`ingest/fetch_smhi_climate.py` and `ingest/download_slu_forestmap.sh`. No `features_se.py` or
+dataset/train step exists yet. What's been verified against real data vs. what's still an
+educated guess (some field names in the two largest, multi-GB sources couldn't be checked without
+downloading them in full): [docs/SWEDEN_DATA.md](../docs/SWEDEN_DATA.md).
