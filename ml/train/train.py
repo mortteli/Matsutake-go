@@ -529,13 +529,14 @@ def main():
                           for f in sorted(set(folds))], axis=0)
         ens = lg_ens if a.head == "lgbm" else (ens + lg_ens) / 2
     bgq = np.quantile(ens[(d.group == "bg_random").values], np.linspace(0, 1, 101))
-    json.dump(dict(species=a.species, features=cols, head=a.head, select=a.select,
+    json.dump(dict(species=a.species, country=a.country, features=cols, head=a.head, select=a.select,
                    prep=prep.to_json(), mlp=dict(best_cfg, n_in=len(cols)), lgbm=lgb_cfg,
                    n_members=len(members), bg_random_quantiles=bgq.tolist(),
                    trained=time.strftime("%Y-%m-%d"), dataset=os.path.relpath(path, ML)),
               open(os.path.join(outdir, "model.json"), "w"), indent=1)
     json.dump(report, open(os.path.join(outdir, "report.json"), "w"), indent=1)
-    d[["group", "lat", "lon", "year", "cycle", "score_mlp"]].to_csv(os.path.join(outdir, "oof_scores.csv"), index=False)
+    oof_cols = [c for c in ["id", "group", "lat", "lon", "year", "cycle", "score_mlp"] if c in d.columns]
+    d[oof_cols].to_csv(os.path.join(outdir, "oof_scores.csv"), index=False)
     write_report(report, a.species)
     log("DONE")
 
