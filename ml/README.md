@@ -83,6 +83,9 @@ Notes
   for the whole map.
 * The exported parts are Cloud-Optimised GeoTIFFs read by the app with HTTP range requests. Serve
   the site with `python3 serve.py`, not `python3 -m http.server`, which ignores Range headers.
+* `export_app.py` quarters any part that comes out over `--max-mb` and keeps quartering (three
+  levels deep) until each file fits, so `--split` only sets the starting grid. GitHub rejects a
+  file over 100 MB outright, and how well a region compresses is not knowable before writing it.
 * Presences from 250 m to 1 km train at weight 0.3 with features averaged over the uncertainty
   disc and are never scored; `--fine-only` reproduces the comparison without them.
 
