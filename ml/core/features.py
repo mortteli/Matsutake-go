@@ -25,12 +25,13 @@ RASTERS = os.path.join(ML, "data", "rasters")
 CLIMATE = os.path.join(ML, "data", "climate")
 
 MVMI_THEMES = ["kasvupaikka", "paatyyppi", "ika", "manty", "kuusi", "koivu", "tilavuus",
-               "ppa", "latvuspeitto", "keskipituus"]
+               "ppa", "latvuspeitto", "keskipituus", "keskilapimitta"]
 # Physically possible maximum per theme. Older products carry undocumented secondary no-data
 # values (the 2009 rasters hold 32766 and 24580 alongside the declared 32767), so anything above
 # these ceilings is treated as missing rather than trusted as a measurement.
 MVMI_MAX = {"kasvupaikka": 10, "paatyyppi": 4, "ika": 1000, "manty": 3000, "kuusi": 3000,
-            "koivu": 3000, "tilavuus": 3000, "ppa": 200, "latvuspeitto": 100, "keskipituus": 600}
+            "koivu": 3000, "tilavuus": 3000, "ppa": 200, "latvuspeitto": 100, "keskipituus": 600,
+            "keskilapimitta": 150}
 MARGIN = 16                     # cells; largest neighbourhood is 31 (radius 15)
 
 SOIL_GROUPS = ["coarse", "till", "fine", "rock", "peat", "other"]
@@ -79,12 +80,13 @@ def class_lookup(kind):
 
 
 # ----------------------------------------------------------------------------- feature list
-CONT = ["ika", "manty", "kuusi", "koivu", "tilavuus", "ppa", "latvuspeitto", "keskipituus"]
+CONT = ["ika", "manty", "kuusi", "koivu", "tilavuus", "ppa", "latvuspeitto", "keskipituus",
+        "keskilapimitta"]
 NEIGH = ["ika", "manty", "kuusi", "latvuspeitto", "ppa"]
 
 FEATURES = (
     CONT
-    + ["pine_share", "spruce_share", "decid_share", "stem_density"]
+    + ["pine_share", "spruce_share", "decid_share", "stems_ha"]
     + [f"site_{k}" for k in range(1, 9)] + ["site_missing"]
     + [f"main_{k}" for k in range(1, 5)]
     + [f"{v}_m3" for v in NEIGH] + [f"{v}_m9" for v in NEIGH]
@@ -117,7 +119,12 @@ def block_features(src, margin=MARGIN):
     out["pine_share"] = src["manty"] / vol
     out["spruce_share"] = src["kuusi"] / vol
     out["decid_share"] = src["koivu"] / vol
-    out["stem_density"] = src["ppa"] / (np.maximum(src["keskipituus"], 10.0) / 10.0)  # basal area per metre of height
+    # estimated stems/ha from basal area and quadratic mean diameter (N = G / (pi/4 * d^2)), the
+    # standard forestry stand-density figure — a stronger openness/light proxy than canopy cover
+    # alone, since an old, widely-spaced stand can carry the same latvuspeitto as a young dense one
+    d_m = np.maximum(src["keskilapimitta"], 1.0) / 100.0  # floor at 1 cm to avoid inf on d=0
+    with np.errstate(divide="ignore", invalid="ignore"):
+        out["stems_ha"] = src["ppa"] / (np.pi / 4 * d_m ** 2)
     for k in range(1, 9):
         out[f"site_{k}"] = (site == k).astype(np.float32)
     out["site_missing"] = (~np.isfinite(site)).astype(np.float32)

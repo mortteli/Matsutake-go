@@ -1,4 +1,4 @@
-import { AGE_STEPS, BIGVOL_STEPS, COVER_STEPS, LAYER, MAX_SPRUCE, MIN_COVER, VOL_STEPS } from "./constants.js";
+import { AGE_STEPS, BIGVOL_STEPS, COVER_STEPS, LAYER, MATSU_MAX_COVER, MAX_SPRUCE, MIN_COVER, VOL_STEPS } from "./constants.js";
 import { helperLayer } from "./maplayer.js";
 import { maskMin, maskRange, maskValues } from "./wms.js";
 
@@ -28,10 +28,11 @@ export const SPECIES = [
   // defaults checked against 104 GBIF finds (≤ 100 m accuracy): "kuivahko" on and
   // "little spruce" lift the share of known finds inside the map from 9 % to ~48 %
   // while the map still covers only ~7 % of forest land — see docs/HABITAT_MODEL_PLAN.md
-  defaults: { minAge: 60, minPine: 20, kuivahko: true, karukko: true, lowSpruce: true },
+  defaults: { minAge: 60, minPine: 20, maxCover: MATSU_MAX_COVER, kuivahko: true, karukko: true, lowSpruce: true },
   controls: [
     { type: "range", key: "minAge",  label: "Puuston ikä vähintään", min: 40, max: 120, step: 5, unit: " v" },
     { type: "range", key: "minPine", label: "Mäntyä vähintään",      min: 0,  max: 120, step: 5, unit: " m³/ha" },
+    { type: "range", key: "maxCover", label: "Latvuspeitto enintään", hint: "avoin, valoisa mäntymetsä — tiheä talousmetsä ei kelpaa", min: 30, max: 100, step: 5, unit: " %" },
     { type: "toggle", key: "kuivahko",  label: "Myös kuivahko kangas", hint: "puolukkatyyppi — puolet havainnoista on täällä" },
     { type: "toggle", key: "karukko",   label: "Myös karukkokangas",   hint: "jäkäläkankaat mukaan" },
     { type: "toggle", key: "lowSpruce", label: "Vain vähäkuusiset",     hint: "kuusta enintään " + MAX_SPRUCE + " m³/ha — matsutake karttaa kuusikoita" },
@@ -46,6 +47,7 @@ export const SPECIES = [
     ];
     if (c.minPine > 0) g.push([cond(LAYER.pine, maskMin(LAYER.pine, c.minPine))]);
     if (c.lowSpruce) g.push([cond(LAYER.spruce, maskRange(LAYER.spruce, -1, MAX_SPRUCE))]);
+    if (c.maxCover < 100) g.push([cond(LAYER.cover, maskRange(LAYER.cover, -1, c.maxCover))]);
     return g;
   },
   metrics(c) {
@@ -53,11 +55,13 @@ export const SPECIES = [
       { label: "Puuston ikä", dir: "min",   limit: c.minAge,    unit: "v",     steps: AGE_STEPS, any: [{ layer: LAYER.age }] },
       { label: "Mäntyä",      dir: "min",   limit: c.minPine,   unit: "m³/ha", steps: VOL_STEPS, any: [{ layer: LAYER.pine }] },
       { label: "Kuusta",      dir: "range", lo: -1, limit: MAX_SPRUCE, unit: "m³/ha", steps: VOL_STEPS, any: [{ layer: LAYER.spruce }], soft: !c.lowSpruce },
+      { label: "Latvuspeitto", dir: "range", lo: -1, limit: c.maxCover, unit: "%", steps: COVER_STEPS, any: [{ layer: LAYER.cover }], soft: c.maxCover >= 100 },
     ];
   },
   helpers: [
     { label: "Kuiva kangas (kaikki iät)", make: () => helperLayer(LAYER.site, maskValues(LAYER.site, [5], "#ff9d2e")) },
     { label: "Vanha metsä (kaikki tyypit)", make: () => helperLayer(LAYER.age, maskMin(LAYER.age, 60, "#2e86ff")) },
+    { label: "Harva puusto (latvuspeitto ≤ " + MATSU_MAX_COVER + " %)", make: () => helperLayer(LAYER.cover, maskRange(LAYER.cover, -1, MATSU_MAX_COVER, "#2e86ff")) },
   ],
   // observation-trained probability layer (ml/), see docs/HABITAT_MODEL_PLAN.md
   model: "data/matsutake/prob_meta.json",
@@ -73,13 +77,16 @@ export const SPECIES = [
     'karuilla kankailla. Kartan pinkit alueet ovat metsiä, joissa <b>kaikki</b> valitut ehdot täyttyvät:</p>' +
     '<p>✔️ kasvupaikka on <b>kuiva tai kuivahko kangas</b> (kanerva-/puolukkatyyppi) tai karukkokangas — kivennäismaalla<br>' +
     '✔️ puusto on vanhaa (oletus ≥ 60 v)<br>✔️ mäntyä on riittävästi<br>' +
-    '✔️ kuusta on vain vähän — matsutake karttaa kuusikoita</p>' +
+    '✔️ kuusta on vain vähän — matsutake karttaa kuusikoita<br>' +
+    '✔️ latvuspeitto on harva (oletus enintään ' + MATSU_MAX_COVER + ' %) — avoin, valoisa metsä, ei tiivis talousmäntykkö</p>' +
     '<p>Tunnetuista havainnoista puolet on Luken aineistossa <i>kuivahkoa</i> kangasta ja vain joka ' +
     'kahdeksas <i>kuivaa</i>, joten kuivahko on oletuksena mukana. Parhaat paikat ovat hiekkaisia ' +
     'harjuja ja rinteiden yläosia — <b>maaperä ei ole vielä kartassa</b>, joten suosi harjumaastoa.</p>' +
-    '<p>Jäkäläiset, valoisat ja hieman rinteiset paikat ovat parhaita — tarkista rinne napauttamalla ' +
-    'karttaa. Mitä pohjoisempana, sitä varmempi esiintyminen: Lappi ja Koillismaa ovat Suomen parasta ' +
-    'matsutake-aluetta, mutta lajia löytyy karuilta mäntykankailta koko maasta.</p>' +
+    '<p>Jäkäläiset, valoisat ja hieman rinteiset paikat ovat parhaita: latvuspeitto ≤ 50 % löytyy ' +
+    '70 %:sta tunnetuista havainnoista, vain 19 %:sta muista sienihavainnoista, joten harvuus on nyt ' +
+    'omana säätimenään — tarkista rinne napauttamalla karttaa. Mitä pohjoisempana, sitä varmempi ' +
+    'esiintyminen: Lappi ja Koillismaa ovat Suomen parasta matsutake-aluetta, mutta lajia löytyy ' +
+    'karuilta mäntykankailta koko maasta.</p>' +
     '<h3>Satokausi</h3>' +
     '<p>Pohjois-Suomi: elokuun loppu – syyskuu.<br>Etelä-Suomi: syyskuu – lokakuun alku.<br>' +
     'Itiöemät kasvavat usein puoliksi maan/jäkälän alla — katso kohoumia!</p>',

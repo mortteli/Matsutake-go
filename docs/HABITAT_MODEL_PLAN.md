@@ -27,8 +27,8 @@ taken from search excerpts; laji.fi carries the identical LuontoPortti species t
 | Host tree | Pine companion everywhere; Suomen Luonto: "männyn **ja kuusen** seuralaisena"; forms mycorrhiza with both pine and spruce in vitro | MVMI `manty`, `kuusi`, `koivu` m³/ha; pine share of `tilavuus` | pine ≥ 20 m³/ha only |
 | Site type | Dry / barren heath, lichen heath: "kuivilla mäntyvaltaisilla kankailla … poronjäkäliä, kanervaa ja puolukkaa"; "hiekkapohjaisilla jäkäläkankailla paikoin runsas" | MVMI `kasvupaikka` 5–6 (4 secondary; 7 = kalliomaa/hietikko) | yes (5, 6, optional 4) |
 | Soil | Sandy; glaciofluvial deposits and **eskers (harjut)**, often along larger rivers; in the south also rocky shallow soil; never clay; **thin humus** | GTK Maaperä 1:200k surface soil class (Hk/Sr/Mr/Ka…), GTK glaciofluvial formations layer (tested, works) | **no** |
-| Stand structure | Old forest gives the yields (first fruiting from 10–15 yr stands); **old and sparse** stand, thin litter | MVMI `ika`, `ppa` (basal area), `latvuspeitto`, `keskipituus`, `keskilapimitta` | age ≥ 60 only; sparseness not used |
-| Light | "valoisissa, hiekkapohjaisissa mäntymetsissä" | low–moderate `latvuspeitto`, low `ppa` | **no** |
+| Stand structure | Old forest gives the yields (first fruiting from 10–15 yr stands); **old and sparse** stand, thin litter | MVMI `ika`, `ppa` (basal area), `latvuspeitto`, `keskipituus`, `keskilapimitta` | age ≥ 60 in the map; `latvuspeitto` ≤ 60 % added 2026-09-20 (both map and model), `stems_ha` (from `ppa`+`keskilapimitta`) added to the model only — see §12 |
+| Light | "valoisissa, hiekkapohjaisissa mäntymetsissä"; Vaario et al. 2015: best yields in 41–60 yr pure pine stands with "moderately open A–B canopy density" | `latvuspeitto` (+ 3×3/9×9 neighbourhood mean), `stems_ha` | **yes**, since 2026-09-20 — see §12 |
 | Topography | Sandy eskers and hillsides; "suosivan jäkälää kasvavia harjuja ja vieläpä niiden **pohjoisrinteitä**" | MML DEM 10 m (Paituli, open): slope, aspect/northness, TPI, ruggedness | slope only in tap readout, not in the map |
 | Moisture | Well-drained soil, but yields only in rainy summers; ~average precipitation before onset ⇒ high yield (Vaario 2015); snow cover / melt mentioned | static: TWI, distance to water; dynamic: FMI daily obs (`rrday`, `tday`, snow) — tested, works | **no** |
 | Disturbance | Reindeer grazing and fire favour it; best yields with little ground vegetation | Reindeer husbandry area (poronhoitoalue) flag; fire history not open | **no** (latitude text only) |
@@ -408,3 +408,43 @@ broken locally unless served with `serve.py`.
 - Phenology layer (rain accumulation over the season, summer warmth, snowmelt date).
 - Second species through the same configuration once matsutake is validated.
 - Lichen cover has no open raster; site class and soil are standing in for it.
+
+## 12. Stand openness / light (2026-09-20)
+
+Revisited on a direct report: every matsutake the user has personally found, and every one
+recognisable from photos, stood in a visibly open, light stand — not a dense, forestry-grade
+pine plantation. That matches what §1's "Light" row already flagged as unimplemented, and it is
+the single strongest signal in §4.1 that was not acted on: `latvuspeitto` ≤ 50 % holds for 70 %
+of the 104 fine presences, against 42 % of random forestry land and only 19 % of the other-fungi
+background — a bigger gap than age, pine volume, or anything except soil grain and the
+glaciofluvial-formation flag. Vaario et al. 2015 (the only Finnish field study) independently
+reports the best yields in 41–60 yr pure pine stands with "moderately open A–B canopy density",
+not the densest ones; the US Forest Service's write-up of the sibling species *T. magnivelare*
+gives the same story — management that lets light reach the forest floor outproduces dense
+thinning-age pine.
+
+`latvuspeitto` (canopy cover) was already a model feature (`ml/core/features.py`, incl. its 3×3
+and 9×9 neighbourhood means) but was never in the app's rule filter — matsutake was the only one
+of the five species with no canopy-cover control at all. Checked Luke's open MVMI theme list
+(45 themes, `LUETAMA-2019.txt`): there is no published stems/ha (`runkoluku`) raster — it is only
+used internally to derive seedling-stand canopy cover — but `keskilapimitta_` (mean diameter, cm)
+*is* open and was not being read. Combined with the already-read `ppa` (basal area), it gives the
+standard forestry stem-count estimate `N = ppa / (π/4 · d²)`, a real stand-density figure and a
+better structural proxy than the ad hoc `ppa / keskipituus` the model used before — an old,
+widely-spaced stand and a young dense one can share the same canopy cover but not the same stem
+count.
+
+What changed:
+- `ml/core/features.py`: added `keskilapimitta` as an MVMI theme/feature; replaced the old
+  `stem_density` proxy with `stems_ha`, the basal-area/diameter stem-count estimate.
+- `ml/train/train.py`: added a `structure` ablation group (`latvuspeitto`, `ppa`, `stems_ha`,
+  `keskilapimitta` and their neighbourhood means) so the report can show how much this group is
+  worth.
+- `js/species.js` / `js/constants.js`: matsutake gets a "Latvuspeitto enintään" slider, default
+  60 % (`MATSU_MAX_COVER`) — the same threshold already validated as rule E in `train.py`'s rule
+  baselines, which drops recall only from 48 % to 45 % on top of the existing default conditions
+  while cutting the mapped area.
+- Pending after this change: rerun `build_dataset.py` → `train.py` → `predict.py` →
+  `export_app.py` to retrain on the new features and re-publish the probability raster; the
+  §10 "what shipped" model and the report numbers in `docs/MODEL_REPORT_matsutake.md` are stale
+  until that runs.
