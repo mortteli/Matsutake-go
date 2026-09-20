@@ -156,13 +156,24 @@ export function closeMask(mask, w, h, r) {
 }
 
 /* One linear pass into parallel arrays per component: how big, how far across, where it is. The
-   point we hand back is the cell *deepest inside* the patch, not its centroid — a centroid can
-   land in the clearcut a horseshoe curls around, and the deepest cell is also simply where you
-   want to be standing. pick_sites.py picks its bx/by the same way and for the same reason. */
+   point we hand back is not the patch's centroid — a centroid can land in the clearcut a
+   horseshoe curls around — nor is it simply the cell deepest inside the whole patch: around
+   Tampere in particular (see NEARBY_CLOSE above) one patch can be a single blob many kilometres
+   across, and its globally deepest point can sit on the far side of it from whoever is standing
+   in a perfectly good, plenty-deep part of the very same patch. So among the cells that already
+   clear MIN_CORE_M — never a clearcut ribbon — the one nearest the anchor is picked, not the
+   deepest one. `mid` is the pixel the scan box is centred on, i.e. the anchor itself
+   (scanGeometry builds the box symmetric around it), and a cell is NEARBY_CELL_M ground metres
+   square by construction, so pixel distance already is ground distance for this comparison —
+   no reprojection needed. pick_sites.py still picks its bx/by as the single deepest cell, which
+   is fine there: it works one candidate site at a time, never one patch spanning a whole region. */
 export function patchStats(lab, n, dist, mask, geom, fix) {
-  const cells = new Int32Array(n + 1), best = new Int32Array(n + 1).fill(-1), bestD = new Uint16Array(n + 1);
+  const cells = new Int32Array(n + 1), bestD = new Uint16Array(n + 1);
   const minX = new Int32Array(n + 1).fill(geom.N), maxX = new Int32Array(n + 1).fill(-1);
   const minY = new Int32Array(n + 1).fill(geom.N), maxY = new Int32Array(n + 1).fill(-1);
+  const near = new Int32Array(n + 1).fill(-1), nearD2 = new Float64Array(n + 1).fill(Infinity);
+  const minD = 3 * (MIN_CORE_M / NEARBY_CELL_M + 1) / 2;   // inverse of the coreM formula below
+  const mid = (geom.N - 1) / 2;
   for (let i = 0; i < lab.length; i++) {
     const id = lab[i];
     if (!id) continue;
@@ -172,7 +183,11 @@ export function patchStats(lab, n, dist, mask, geom, fix) {
     if (x > maxX[id]) maxX[id] = x;
     if (y < minY[id]) minY[id] = y;
     if (y > maxY[id]) maxY[id] = y;
-    if (dist[i] > bestD[id]) { bestD[id] = dist[i]; best[id] = i; }
+    if (dist[i] > bestD[id]) bestD[id] = dist[i];
+    if (dist[i] >= minD) {
+      const d2 = (x - mid) * (x - mid) + (y - mid) * (y - mid);
+      if (d2 < nearD2[id]) { nearD2[id] = d2; near[id] = i; }
+    }
   }
   const cellHa = NEARBY_CELL_M * NEARBY_CELL_M / 1e4;
   const me = toTM35(fix.lat, fix.lon);
@@ -182,9 +197,10 @@ export function patchStats(lab, n, dist, mask, geom, fix) {
     // the chamfer counts the step out to the first *background* cell, so the deepest cell of an
     // n-wide patch reads (n+1)/2 — subtract the one cell back off. Values are built from 3s and
     // 4s, so 80 m lands on the next reachable step up, a 3-cell (96 m) core.
-    const coreM = (2 * (bestD[id] / 3) - 1) * NEARBY_CELL_M;
-    if (areaHa < MIN_SPOT_HA || coreM < MIN_CORE_M) continue;
-    const bx = best[id] % geom.N, by = (best[id] - bx) / geom.N;
+    const maxCoreM = (2 * (bestD[id] / 3) - 1) * NEARBY_CELL_M;
+    if (areaHa < MIN_SPOT_HA || maxCoreM < MIN_CORE_M) continue;
+    const p = near[id], coreM = (2 * (dist[p] / 3) - 1) * NEARBY_CELL_M;
+    const bx = p % geom.N, by = (p - bx) / geom.N;
     const ll = scanCellLatLng(geom, bx, by);
     const there = toTM35(ll.lat, ll.lng);
     // row indices grow southward, so the patch's south-west corner is (minX, maxY)
