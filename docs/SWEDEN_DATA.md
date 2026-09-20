@@ -35,21 +35,29 @@ document is both the audit and the record of what was verified while building it
   steady reporting the way Finland's set reads. The new `verification_status` column exists so
   training can weight or filter on it rather than pooling both kinds of record at face value.
   Output: `ml/data/matsutake_se/observations.csv` (committed).
-- **`ml/ingest/fetch_sgu.py`** — both resolutions have now been downloaded and verified in full
-  (not just the coarse one). Coarse (1:1 000 000, 15 MB): layer `grundlager`, code field `jg2`
-  (int), name field `jg2_tx`, 45121 polygons, EPSG:3006 already (no reprojection needed, unlike
-  GTK's WFS for Finland) — ran end-to-end, rasterized cleanly. Fine (1:25 000–1:100 000, 3.4 GB
-  zip / 8.7 GB gpkg): the `grundlager` layer and `jg2`/`jg2_tx` fields carry over exactly as
-  guessed — but the fine product is **2 956 837 polygons**, 65× the coarse one, and also ships
-  two more detailed candidate layers not in the coarse product: `ytlager` (`jy1`/`jy1_tx`) and
-  `oversta_ytlager` (`jy0`/`jy0_tx`, the topmost surface layer — arguably the more ecologically
-  relevant one for matsutake's dry sandy/lichen-ground preference than the geological `grundlager`
-  it currently reads). The fine layer's rasterize was **not** run to completion: the coarse run
-  alone took over 10 minutes for 45121 polygons in the current block-by-block Python
-  STRtree+rasterize approach, so 2.96 M polygons at the same rate would be impractically slow —
-  this needs a different strategy (per-region tiling, or shelling out to `gdal_rasterize` if it's
-  available in the target environment; it isn't in this one) before it's usable at full
-  resolution, not just a bigger run of the same code.
+- **`ml/ingest/fetch_sgu.py`** — both resolutions, and all three fine-product layers, have now
+  been downloaded and verified in full. Coarse (1:1 000 000, 15 MB): layer `grundlager`, code
+  field `jg2` (int), name field `jg2_tx`, 45121 polygons, EPSG:3006 already (no reprojection
+  needed, unlike GTK's WFS for Finland) — ran end-to-end, rasterized cleanly. Fine
+  (1:25 000–1:100 000, 3.4 GB zip / 8.7 GB gpkg) ships three layers:
+  - `grundlager` — the same fields carry over exactly as guessed, but this is
+    **2 956 837 polygons**, 65× the coarse product. Its rasterize was **not** run to completion:
+    the coarse run alone took over 10 minutes for 45121 polygons in the current block-by-block
+    Python STRtree+rasterize approach, so 2.96 M polygons at the same rate would be impractically
+    slow — needs per-region tiling or a native rasterizer (`gdal_rasterize` isn't installed in
+    this environment) before it's usable at full resolution.
+  - `ytlager` (`jy1`/`jy1_tx`) — **411 549 polygons**, 26 classes, dominated by Morän (220k), Torv
+    (84k), Oklassad jordart (58k), Svallsediment grus-block (14k), Lera-silt (13k), Isälvssediment
+    (10k), Postglacial sand-grus (8k). This is the surface layer *where it differs from
+    grundlager* — coverage is partial by design (0 = no override, read grundlager for that cell
+    instead), not a data gap. Small enough to rasterize in full: ran end-to-end in ~2 minutes
+    (255.7M of 5.1B cells covered) and is the more ecologically relevant layer for matsutake's dry
+    sandy/lichen-ground preference, since it's the actual surface a mycelium sits in rather than
+    the parent material below it.
+  - `oversta_ytlager` (`jy0`/`jy0_tx`) — turned out to be a near-empty niche layer once sampled:
+    only **2242 polygons nationally**, and only **2 classes** (89 "Svallsediment, grus--block" —
+    wave-washed gravel/boulder — and 75 "Torv" — peat). Rasterized in 4 seconds, but too sparse to
+    be a general-purpose feature; kept as a documented dead end rather than wired into training.
 - **`ml/ingest/fetch_skogsstyrelsen_harvests.py`** — both halves have now been run end-to-end
   against full local copies. Declared-felling (`sksAvverkAnm_gpkg.zip`, 67 MB): layer
   `AvverkningsAnmalanYta`, 129176 features, EPSG:3006. **`Avverktyp` is the felling-type field to
@@ -107,10 +115,10 @@ document is both the audit and the record of what was verified while building it
 
 ## Next steps
 
-1. Speed up `fetch_sgu.py`'s rasterizer (or tile it by county) before attempting the fine-scale
-   1:25k-100k soil pass — the schema is confirmed but a 2.96 M-polygon full run isn't practical
-   with the current per-block STRtree approach. Consider `oversta_ytlager` (topmost surface soil)
-   instead of `grundlager` (parent material) while doing so.
+1. `ytlager` and `oversta_ytlager` are rasterized and ready to use (`ml/data/sgu_classes.json` has
+   all three layers now). `grundlager` at fine scale still needs `fetch_sgu.py`'s rasterizer sped
+   up or tiled by county before a full run is practical — 2.96 M polygons is too many for the
+   current per-block STRtree approach (the 45k-polygon coarse run alone took >10 minutes).
 2. Register a Lantmäteriet open-data account for the elevation grid.
 3. Run `download_slu_forestmap.sh` and the full `fetch_smhi_climate.py` country pass.
 4. Build `ml/core/features_se.py` alongside `features.py`, and a `dataset_se.csv` builder — treat
