@@ -46,6 +46,11 @@ export const MIN_COVER = 10;
 // matsutake avoids spruce stands: 83 % of known finds have less spruce than this,
 // against 37 % of other mushroom sites (docs/HABITAT_MODEL_PLAN.md)
 export const MAX_SPRUCE = 20;
+// matsutake wants light, open pine stands, not dense forestry-grade canopy: 70 % of known finds
+// have canopy cover at or below this, against 19 % of other mushroom sites, and it matches the
+// already-validated rule E threshold (docs/HABITAT_MODEL_PLAN.md, Vaario et al. 2015 — best
+// yields in "moderately open A–B canopy density" 41–60 yr pine stands)
+export const MATSU_MAX_COVER = 60;
 
 /* ================= "lähellä sinua" =================
    A *spot* is one contiguous mushroom forest: an 8-connected patch of 32 m cells where every

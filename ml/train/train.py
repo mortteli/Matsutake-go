@@ -35,6 +35,10 @@ GROUPS = {   # for ablations
     "terrain": ["elev", "slope", "northness", "eastness", "tpi7", "tpi31", "relief7"],
     "climate": ["thermal_sum", "precip"],
     "neigh":   [f for f in FEATURES if f.endswith("_m3") or f.endswith("_m9") or f.endswith("9") or f.endswith("31")],
+    # stand openness/light: canopy cover, basal area, stem count and mean diameter, incl.
+    # their neighbourhood aggregates — the "old but sparse, light gets to the ground" signal
+    "structure": [f for f in FEATURES if f in ("latvuspeitto", "ppa", "stems_ha", "keskilapimitta")
+                  or f.startswith("latvuspeitto_") or f.startswith("ppa_")],
 }
 
 
