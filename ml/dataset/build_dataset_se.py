@@ -75,8 +75,34 @@ def _init_se(_vintage):
     build_dataset._SRC = SourcesSE(GridSE(), VINTAGE)
 
 
+GBIF_SEARCH = "https://api.gbif.org/v1/occurrence/search?"
+SHALLOW_MAX = 3000                      # deepest offset worth asking for; see below
+LAT_BANDS = [(lo, lo + 1) for lo in range(55, 70)]
+
+
 def fetch_fungi_background(n, dataset_key, seed):
-    """Other fungi reported by the same population that reports the matsutake."""
+    """Other fungi reported by the same population that reports the matsutake.
+
+    Two things differ from build_dataset.py's version, and both are forced.
+
+    RESTRICTED TO ARTPORTALEN. 5428 of the 5501 presences come from Artportalen. Drawing the
+    background from all of GBIF-Sweden -- museum collections, iNaturalist, monitoring
+    programmes -- would make prec_fungi_at_k measure which institution digitised what rather
+    than where mushroom pickers actually go, and prec_fungi_at_2 is what `--select sure`
+    picks hyper-parameters on. The dataset key is read out of observations.csv, not
+    hard-coded.
+
+    STRATIFIED BY LATITUDE, WITH SHALLOW OFFSETS. build_dataset.py draws random offsets up to
+    99000. That is fine against Finland's smaller result sets and pathological here: this
+    query matches 1.16 million records, and GBIF walks the offset to answer. Measured against
+    the live API -- offset 300 returns in 1.7 s, offset 45000 does not return within 120 s.
+    The first full run sat in this function for twenty minutes without completing a page.
+
+    So the sample is stratified instead: one shallow window per degree of latitude. That is
+    both fast and better than deep random offsets would have been anyway, since a single
+    global offset ordering is roughly insertion order, which is a proxy for dataset and date
+    rather than for place -- and place is the whole point of a target-group background.
+    """
     path = os.path.join(DATA, "background_fungi.csv")
     if os.path.exists(path):
         rows = list(csv.DictReader(open(path)))
@@ -88,20 +114,41 @@ def fetch_fungi_background(n, dataset_key, seed):
                 month="8,9", year="2010,2026", limit=300)
     if dataset_key:
         base["datasetKey"] = dataset_key
+
     rows, seen = [], set()
-    stalls = 0
-    while len(rows) < n and stalls < 30:
-        before = len(rows)
-        q = dict(base, offset=rnd.randrange(0, 99000, 300))
-        j = get_json("https://api.gbif.org/v1/occurrence/search?" + urllib.parse.urlencode(q))
-        for r in j.get("results", []):
-            if r.get("speciesKey") == MATSUTAKE_TAXON or r["gbifID"] in seen:
+    per_band = max(300, n // len(LAT_BANDS) + 300)
+    for lo, hi in LAT_BANDS:
+        try:
+            count = get_json(GBIF_SEARCH + urllib.parse.urlencode(
+                dict(base, decimalLatitude=f"{lo},{hi}", limit=0))).get("count", 0)
+        except Exception as e:                                   # noqa: BLE001
+            log("band", lo, "count failed:", e)
+            continue
+        if not count:
+            continue
+        cap = min(count, SHALLOW_MAX)
+        offsets = sorted({rnd.randrange(0, max(cap - 300, 1) + 1, 300)
+                          for _ in range(per_band // 300 + 2)})
+        got = 0
+        for off in offsets:
+            try:
+                j = get_json(GBIF_SEARCH + urllib.parse.urlencode(
+                    dict(base, decimalLatitude=f"{lo},{hi}", offset=off)))
+            except Exception as e:                               # noqa: BLE001
+                log("band", lo, "offset", off, "failed:", e)
                 continue
-            seen.add(r["gbifID"])
-            rows.append(dict(id=r["gbifID"], lat=r["decimalLatitude"], lon=r["decimalLongitude"],
-                             year=r.get("year"), species=r.get("species", "")))
-        stalls = stalls + 1 if len(rows) == before else 0
-        log("fungi background", len(rows))
+            for r in j.get("results", []):
+                if r.get("speciesKey") == MATSUTAKE_TAXON or r["gbifID"] in seen:
+                    continue
+                if r.get("decimalLatitude") is None or r.get("decimalLongitude") is None:
+                    continue
+                seen.add(r["gbifID"])
+                got += 1
+                rows.append(dict(id=r["gbifID"], lat=r["decimalLatitude"],
+                                 lon=r["decimalLongitude"], year=r.get("year"),
+                                 species=r.get("species", "")))
+        log(f"fungi background  lat {lo}-{hi}: {count} available, took {got}, total {len(rows)}")
+
     os.makedirs(DATA, exist_ok=True)
     with open(path, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=["id", "lat", "lon", "year", "species"])
