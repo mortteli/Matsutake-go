@@ -4,3 +4,8 @@ ml/data/harvests/
 
 __pycache__/
 *.pyc
+
+# fetch_fertilization.py caches the tukirekisteri stand centroids here while it measures
+# them against the published raster. A working file, not an output: nothing in data/ is
+# built from it.
+ml/data/fertilization.json
