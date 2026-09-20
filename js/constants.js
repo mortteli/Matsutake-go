@@ -13,6 +13,7 @@ export const LAYER = {
   pine:   "MVMI:manty_"                 + CYCLE, // m³/ha
   spruce: "MVMI:kuusi_"                 + CYCLE, // m³/ha
   birch:  "MVMI:koivu_"                 + CYCLE, // m³/ha
+  vol:    "MVMI:tilavuus_"              + CYCLE, // m³/ha (koko puusto)
   cover:  "MVMI:latvuspeitto_"          + CYCLE, // % (koko puusto)
   bcover: "MVMI:lehtip_latvuspeitto_"   + CYCLE, // % (lehtipuut)
 };
@@ -39,6 +40,7 @@ export const R_EARTH = 6378137;
 export const AGE_STEPS    = [20, 40, 60, 80, 100, 130, 170];
 export const VOL_STEPS    = [10, 20, 40, 70, 110];
 export const BIGVOL_STEPS = [20, 50, 90, 130, 180];
+export const TOTVOL_STEPS = [50, 100, 150, 200, 260];
 export const COVER_STEPS  = [10, 25, 40, 55, 70, 85];
 // below this the pixel is bare ground (fresh clear-cut, field edge), not a
 // half-open grassy spot — used as the floor of ukonsieni's canopy band
@@ -51,6 +53,42 @@ export const MAX_SPRUCE = 20;
 // already-validated rule E threshold (docs/HABITAT_MODEL_PLAN.md, Vaario et al. 2015 — best
 // yields in "moderately open A–B canopy density" 41–60 yr pine stands)
 export const MATSU_MAX_COVER = 60;
+/* kanttarelli: total standing volume, the one theme that actually tells a chanterelle forest
+   from the forest next door. Measured against 393 GBIF finds (accuracy <= 100 m, 2010+, one per
+   100 m cell) and 373 random forestry-land points 2-5 km from a find — the same region-matched
+   control the other species' defaults were set against, see docs/SPECIES_FILTER_kanttarelli.md.
+
+   The host-volume union this replaces (spruce *or* birch *or* pine >= 40 m³/ha) barely
+   discriminated at all: it let 94 % of the finds through and 77 % of the control points with it.
+   Birch was the worst of the three — 41 % of finds against 43 % of controls, i.e. very slightly
+   *anti*-predictive — and the union's weakest member sets its selectivity, because OR passes a
+   cell as soon as any one member does. Total volume at this threshold keeps 60 % of the finds
+   while painting 18 % of forestry land nationally, where the old defaults kept 65 % and painted
+   30 %; against the matched controls that is 1.62x where the old defaults managed 1.49x.
+
+   Read that national figure with its regional caveat: south of 62 deg N most forest is already
+   denser than this, so the painted area there barely moves (a 20 km box over Nuuksio goes from
+   44 % to 43 %) and the gain is in the middle and the north. The lever that genuinely tightens
+   the south is the spruce toggle below. Saying so in the species' own info text is deliberate —
+   a generalist's map cannot be made narrow and honest at the same time. */
+export const KANT_MIN_VOL = 150;
+// "fewer but surer", the tightening the info text used to promise without a lever that delivered
+// it: in the south this holds 36 % of the finds against 15 % of the matched controls — 2.3x,
+// where the default manages 1.5x there. Off by default, because the price is the other half of
+// the finds, and a spot the map never paints is one the user never hears about.
+export const KANT_SPRUCE_DOM = 110;
+/* Luke serves the per-species volume themes (manty, kuusi, koivu) as bytes of m³/ha, one raster
+   step per m³/ha. `tilavuus` is the whole stand and runs past 500 m³/ha, which a byte does not
+   hold, so that one theme is published at half scale: one raster step is 2 m³/ha. Checked
+   against the source GeoTIFFs at Paituli over a spread of stands — WMS 15/45/70/95/125/170
+   where the GeoTIFF reads 35/91/141/192/255/344 — and confirmed as the app's own masks in
+   docs/SPECIES_FILTER_kanttarelli.md. Stands over ~510 m³/ha saturate at 255, which is harmless
+   for a "vähintään" mask: a saturated cell is still above every threshold the slider offers.
+
+   Every threshold the user sets is in m³/ha and every probe is in raster steps, so the
+   conversion belongs at that boundary and nowhere else. Negatives pass through untouched: a
+   range mask's `lo` of -1 is a sentinel meaning "no lower bound", not a measurement. */
+export const rasterVol = v => v < 0 ? v : Math.round(v / 2);
 
 /* ================= "lähellä sinua" =================
    A *spot* is one contiguous mushroom forest: an 8-connected patch of 32 m cells where every

@@ -12,7 +12,7 @@ värit ja sama napautustarkastelu.
 |---|---|---|
 | 🍄 **Matsutake** (tuoksuvalmuska, _Tricholoma matsutake_) | kuiva / kuivahko kangas / karukkokangas · kivennäismaa · vanha puusto · mäntyä · **vain vähän kuusta** · harva, valoisa latvusto | `kasvupaikka`, `paatyyppi`, `ika`, `manty`, `kuusi`, `latvuspeitto` |
 | 🌰 **Herkkutatti** (_Boletus edulis_) | tuore / lehtomainen kangas · kivennäismaa · runsaasti kuusta · tiheä latvusto | `kasvupaikka`, `paatyyppi`, `ika`, `kuusi` (tai `manty`), `latvuspeitto` |
-| 🌼 **Kanttarelli** (keltavahvero, _Cantharellus cibarius_) | tuore / lehtomainen / kuivahko kangas · kivennäismaa · kuusta, koivua **tai** mäntyä · puolivarjoinen latvusto | `kasvupaikka`, `paatyyppi`, `ika`, `kuusi`/`koivu`/`manty`, `latvuspeitto` |
+| 🌼 **Kanttarelli** (keltavahvero, _Cantharellus cibarius_) | tuore / lehtomainen / kuivahko kangas · kivennäismaa · **runsaspuustoinen** (≥ 150 m³/ha) · puolivarjoinen latvusto · valinnaisesti vain kuusivaltaiset | `kasvupaikka`, `paatyyppi`, `ika`, `tilavuus`, `latvuspeitto`, (`kuusi`) |
 | 🎺 **Suppilovahvero** (_Craterellus tubaeformis_) | tuore / lehtomainen kangas · kivennäismaa **tai korpi** · runsaasti kuusta · tiheä latvusto · iäkäs puusto | `kasvupaikka`, `paatyyppi`, `ika`, `kuusi`, `latvuspeitto` |
 | ☂️ **Ukonsieni** (_Macrolepiota procera_) | lehto / lehtomainen kangas · kivennäismaa · puoliavoin, valoisa puusto | `kasvupaikka`, `paatyyppi`, `latvuspeitto`, `lehtip_latvuspeitto` |
 
@@ -86,9 +86,17 @@ ja uudistushakkuu kohdistuu samaan puustoon.
   Suokuviot on rajattu pois.
 - **Kanttarelli** on kuusen, koivun ja männyn sienijuurikumppani ja viihtyy
   kosteahkoilla sammalpohjaisilla tuoreilla kankailla, myös kuivahkoilla.
-  Isäntäpuuehto on unioni — **kuusta, koivua tai mäntyä** riittävästi — ja
-  latvuspeitto pidetään puolivarjoisana, jotta sammal ei kuivu. Laji on
-  yleislaji, joten sen kartta on väljin: ks. alla oleva viritysosio.
+  Isäntäpuuehto oli pitkään unioni — kuusta, koivua **tai** mäntyä riittävästi —
+  kunnes se mitattiin 393:a havaintoa ja yhtä montaa 2–5 km päässä olevaa
+  metsäpistettä vasten: unioni päästi läpi 94 % havainnoista mutta myös 77 %
+  verrokista, ja koivu erotteli niistä kolmesta jopa hiukan väärään suuntaan
+  (41 % havainnoista, 43 % verrokista). OR-ehdon valikoivuuden määrää sen heikoin
+  jäsen, joten unioni on korvattu **koko puuston tilavuudella** (≥ 150 m³/ha),
+  joka on ainoa yksittäinen taso, joka sekä erottelee että on ilmaistavissa
+  kartan maskeina. Laji on silti yleislaji ja sen kartta väljin — erityisesti
+  Etelä-Suomessa, missä metsä on jo valmiiksi tätä tuuheampaa. Aidosti kiristävä
+  säädin on **Vain kuusivaltaiset**. Koko mittaus:
+  [docs/SPECIES_FILTER_kanttarelli.md](docs/SPECIES_FILTER_kanttarelli.md).
 - **Suppilovahvero** on ainoa laji, joka **hyväksyy suokuviot**: korpi on sen
   tyypillistä maastoa. Ehtoina ovat kostea kuusivaltainen kangas tai korpi,
   tiheä latvuspeitto ja iäkäs puusto (lahopuuta maassa). Kartta ei näe pieniä
@@ -112,7 +120,7 @@ luettiin samat MVMI-tasot, joita kartta käyttää.
 | 🍄 Matsutake, vanhat oletukset (kuiva kangas) | 9 % | 0 % | — |
 | 🍄 Matsutake, uudet oletukset (kuivahko mukana, vähän kuusta) | 48 % | 7 % | 7× |
 | 🍄 Matsutake, + latvuspeitto ≤ 60 %* | — | — | — |
-| 🌼 Kanttarelli | 72 % | 11 % | 6,5× |
+| 🌼 Kanttarelli (mitattu sittemmin uudelleen, ks. alla) | 72 % | 11 % | 6,5× |
 | 🎺 Suppilovahvero | 51 % | 9 % | 5,8× |
 | 🌰 Herkkutatti (vertailukohta, ennallaan) | 19 % | 2 % | 8,3× |
 
@@ -126,11 +134,40 @@ taulukon omalla 45 havainnon / 45 verrokkipisteen menetelmällä mitattu — riv
 se ajetaan. Samalla 104 GBIF-havainnon aineistolla mitattu, hieman erilaisin oheisehdoin (sääntö
 D `docs/HABITAT_MODEL_PLAN.md` §4.2), latvuspeitto ≤ 60 % pudotti löytöosuuden 48 %:sta 45 %:iin.
 
-Kanttarellin ehtoja kiristämällä kartta kyllä pienenee, mutta osuvuus suhteessa
-verrokkiin romahtaa (6,5× → 3,5×): laji ei yksinkertaisesti ole kovin tarkka
-kasvupaikastaan, joten oletukset on jätetty väljiksi ja loput jätetty
-säätimille. Suppilovahverolla puuston ikä sen sijaan erottelee aidosti, joten
-oletusikä on 60 v — se puolittaa värjätyn pinta-alan osuvuuden kärsimättä.
+Suppilovahverolla puuston ikä erottelee aidosti, joten oletusikä on 60 v — se
+puolittaa värjätyn pinta-alan osuvuuden kärsimättä.
+
+#### Kanttarelli, mitattuna uudelleen
+
+Kanttarellin rivi yllä on jätetty näkyviin, mutta se on vanhentunut. Laji
+mitattiin uudelleen isommalla aineistolla — **393 havaintoa ja 373
+kohdistettua verrokkipistettä** 45:n ja 45:n sijaan — ja luvut näyttävät
+toisenlaisilta:
+
+| Kanttarelli | Havainnoista | Verrokista | Suhde | Metsämaasta värittyy |
+|---|---|---|---|---|
+| vanhat oletukset (isäntäpuu-unioni) | 65 % | 44 % | 1,5× | 30 % |
+| **uudet oletukset** (tilavuus ≥ 150 m³/ha) | 60 % | 37 % | **1,6×** | **18 %** |
+| uudet + *Vain kuusivaltaiset* | 32 % | 14 % | **2,3×** | 9 % |
+
+Ero aiempaan 6,5×:ään tulee osin **verrokin rajauksesta**: nyt verrokkipisteet
+on rajattu metsämaalle, koska kartan käyttäjä valitsee metsän ja metsän eikä
+metsän ja järven väliltä. Rajaamattomana sama vanha suodatin saisi 2,8×.
+Rajaus selittää osan erosta, otoskoko (45 vs. 393) oletettavasti loput.
+
+Kaksi tulosta muuttivat ehtoja: **kasvupaikkaluokka ei erottele kanttarellia
+käytännössä lainkaan** (92 % havainnoista, 91 % verrokista), ja **koivu
+isäntäpuuna erottelee hienoisesti väärään suuntaan** (41 % vs. 43 %). Koska
+OR-ehdon valikoivuuden määrää sen heikoin jäsen, kolmen puulajin unioni oli
+suodattimen löysin kohta. Sen tilalla on nyt koko puuston tilavuus.
+
+Rehellisyyden nimissä: **oletusten parannus on vaatimaton ja se tulee pääosin
+Keski- ja Pohjois-Suomesta.** Etelä-Suomessa valtaosa metsästä ylittää
+150 m³/ha jo valmiiksi, joten 20 km:n ruutu Nuuksion yllä värittyy vanhoilla
+oletuksilla 44-prosenttisesti ja uusilla 43-prosenttisesti. Se ehto, joka
+etelässä aidosti kiristää, on kuusivaltaisuus (2,3×) — ja se maksaa yli puolet
+löydöistä, joten se on säädin eikä oletus. Yleislajin karttaa ei saa yhtä
+aikaa kapeaksi ja rehelliseksi.
 
 > **Huom:** parhaat ukonsienipaikat — pientareet, hakamaat, pihat ja niityt —
 > eivät ole metsävara-aineistossa lainkaan. Kartta antaa suunnan; etsi

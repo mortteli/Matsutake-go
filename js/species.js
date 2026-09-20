@@ -1,4 +1,4 @@
-import { AGE_STEPS, BIGVOL_STEPS, COVER_STEPS, LAYER, MATSU_MAX_COVER, MAX_SPRUCE, MIN_COVER, VOL_STEPS } from "./constants.js";
+import { AGE_STEPS, BIGVOL_STEPS, COVER_STEPS, KANT_MIN_VOL, KANT_SPRUCE_DOM, LAYER, MATSU_MAX_COVER, MAX_SPRUCE, MIN_COVER, TOTVOL_STEPS, VOL_STEPS, rasterVol } from "./constants.js";
 import { helperLayer } from "./maplayer.js";
 import { maskMin, maskRange, maskValues } from "./wms.js";
 
@@ -178,23 +178,21 @@ export const SPECIES = [
     stand: "Oikea kasvupaikka — puusto ei täytä ehtoja",
     miss: "Ei kanttarellityyppiä",
   },
-  defaults: { minAge: 40, minHost: 40, minCover: 55, lehtomainen: true, kuivahko: true, korpi: false, pineToo: true },
+  // defaults measured against 393 GBIF finds and 373 region-matched control points — total
+  // volume replaces the host-volume union, which let through almost as much control forest as
+  // find forest (see KANT_MIN_VOL in constants.js and docs/SPECIES_FILTER_kanttarelli.md)
+  defaults: { minAge: 40, minVol: KANT_MIN_VOL, minCover: 40, lehtomainen: true, kuivahko: true, korpi: false, spruceDom: false },
   controls: [
-    { type: "range", key: "minHost",  label: "Isäntäpuuta vähintään", hint: "kuusta, koivua tai mäntyä — mikä tahansa niistä riittää", min: 0, max: 150, step: 10, unit: " m³/ha" },
+    { type: "range", key: "minVol",   label: "Puustoa vähintään", hint: "koko puuston tilavuus — kanttarellin paras yksittäinen merkki", min: 0, max: 300, step: 10, unit: " m³/ha" },
     { type: "range", key: "minCover", label: "Latvuspeitto vähintään", hint: "puolivarjo pitää sammalpohjan kosteana", min: 0, max: 90, step: 5, unit: " %" },
     { type: "range", key: "minAge",   label: "Puuston ikä vähintään", min: 20, max: 120, step: 5, unit: " v" },
     { type: "toggle", key: "lehtomainen", label: "Myös lehtomainen kangas", hint: "ravinteikkaampi käenkaali–mustikkatyyppi" },
     { type: "toggle", key: "kuivahko",    label: "Myös kuivahko kangas",    hint: "puolukkatyypin männiköt ja koivikot mukaan" },
     { type: "toggle", key: "korpi",       label: "Myös korvet",             hint: "kosteat korpikuviot ja ojanvarret mukaan" },
-    { type: "toggle", key: "pineToo",     label: "Mänty kelpaa isäntäpuuksi", hint: "kanttarelli on myös männyn kumppani" },
+    { type: "toggle", key: "spruceDom",   label: "Vain kuusivaltaiset",     hint: "kuusta vähintään " + KANT_SPRUCE_DOM + " m³/ha — vähemmän mutta varmempia kohteita" },
   ],
   siteClasses: c => [3].concat(c.lehtomainen ? [2] : [], c.kuivahko ? [4] : []),
   mainTypes: c => c.korpi ? [1, 2] : [1],
-  hostLayers(c) {
-    const h = [{ layer: LAYER.spruce, label: "Kuusta" }, { layer: LAYER.birch, label: "Koivua" }];
-    if (c.pineToo) h.push({ layer: LAYER.pine, label: "Mäntyä" });
-    return h;
-  },
   conditions(c) {
     const g = [
       [cond(LAYER.site, maskValues(LAYER.site, this.siteClasses(c)))],
@@ -202,21 +200,29 @@ export const SPECIES = [
       [cond(LAYER.age,  maskMin(LAYER.age, c.minAge))],
     ];
     if (c.minCover > 0) g.push([cond(LAYER.cover, maskMin(LAYER.cover, c.minCover))]);
-    // isäntäpuu: kuusi tai koivu (tai mänty) riittää — unioni yhden ehdon sisällä
-    if (c.minHost > 0)
-      g.push(this.hostLayers(c).map(h => cond(h.layer, maskMin(h.layer, c.minHost))));
+    // tilavuus is the one half-scale theme, so the m³/ha the user set becomes raster steps here
+    if (c.minVol > 0)   g.push([cond(LAYER.vol,   maskMin(LAYER.vol, rasterVol(c.minVol)))]);
+    if (c.spruceDom)    g.push([cond(LAYER.spruce, maskMin(LAYER.spruce, KANT_SPRUCE_DOM))]);
     return g;
   },
   metrics(c) {
     return [
-      { label: "Puuston ikä",   dir: "min", limit: c.minAge,   unit: "v",     steps: AGE_STEPS,   any: [{ layer: LAYER.age }] },
-      { label: "Isäntäpuustoa", dir: "min", limit: c.minHost,  unit: "m³/ha", steps: VOL_STEPS,   any: this.hostLayers(c) },
-      { label: "Latvuspeitto",  dir: "min", limit: c.minCover, unit: "%",     steps: COVER_STEPS, any: [{ layer: LAYER.cover }] },
+      { label: "Puuston ikä",   dir: "min", limit: c.minAge,   unit: "v",     steps: AGE_STEPS,    any: [{ layer: LAYER.age }] },
+      // limit and steps stay in m³/ha so the readout can print them; `raster` is how the probes
+      // get there (see rasterVol in constants.js)
+      { label: "Puustoa",       dir: "min", limit: c.minVol,   unit: "m³/ha", steps: TOTVOL_STEPS, raster: rasterVol, any: [{ layer: LAYER.vol }] },
+      { label: "Latvuspeitto",  dir: "min", limit: c.minCover, unit: "%",     steps: COVER_STEPS,  any: [{ layer: LAYER.cover }] },
+      // shown either way: spruce is what the tightening toggle turns on, so the readout should
+      // say how far a spot is from qualifying even while the toggle is off
+      { label: "Kuusta",        dir: "min", limit: KANT_SPRUCE_DOM, unit: "m³/ha", steps: BIGVOL_STEPS, any: [{ layer: LAYER.spruce }], soft: !c.spruceDom },
     ];
   },
   helpers: [
     { label: "Tuore kangas (kaikki iät)", make: () => helperLayer(LAYER.site, maskValues(LAYER.site, [3], "#ff9d2e")) },
-    { label: "Koivikot (koivua ≥ 40 m³/ha)", make: () => helperLayer(LAYER.birch, maskMin(LAYER.birch, 40, "#2e86ff")) },
+    // rasterVol here too: the helper draws the same threshold the condition does, and the layer
+    // is the half-scale one either way
+    { label: "Runsaspuustoiset (≥ " + KANT_MIN_VOL + " m³/ha)", make: () => helperLayer(LAYER.vol, maskMin(LAYER.vol, rasterVol(KANT_MIN_VOL), "#2e86ff")) },
+    { label: "Kuusivaltaiset (kuusta ≥ " + KANT_SPRUCE_DOM + " m³/ha)", make: () => helperLayer(LAYER.spruce, maskMin(LAYER.spruce, KANT_SPRUCE_DOM, "#2e86ff")) },
   ],
   slopeGood: s => s.deg >= 2, // loivat rinteet ja notkelmat pysyvät kosteina
   region: lat => lat >= 68 ? "pohjoisin Lappi — harvempi" :
@@ -229,12 +235,25 @@ export const SPECIES = [
     'koivusekametsissä, mielellään polkujen, ojien ja purojen varsilla sekä loivissa rinteissä. ' +
     'Kartan pinkit alueet täyttävät <b>kaikki</b> valitut ehdot:</p>' +
     '<p>✔️ kasvupaikka on <b>tuore kangas</b> (mustikkatyyppi) tai lehtomainen kangas<br>' +
-    '✔️ isäntäpuuta on riittävästi: kuusta, koivua <i>tai</i> mäntyä<br>' +
+    '✔️ puustoa on riittävästi: <b>vähintään ' + KANT_MIN_VOL + ' m³/ha</b><br>' +
     '✔️ latvuspeitto on vähintään valittu — puolivarjo pitää sammalen kosteana<br>' +
     '✔️ puusto ei ole taimikkoa</p>' +
-    '<p><b>Kanttarelli on yleislaji.</b> Se ei ole yhtä tarkka kasvupaikastaan kuin muut tämän ' +
-    'sovelluksen sienet, joten kartta värittää eteläisessä Suomessa helposti neljänneksen metsistä. ' +
-    'Kiristä säätimiä 🗺️-napista, jos haluat vähemmän mutta varmempia kohteita.</p>' +
+    '<p><b>Kanttarelli on yleislaji</b>, eikä tätä kannata kaunistella: se ei ole läheskään yhtä ' +
+    'tarkka kasvupaikastaan kuin muut tämän sovelluksen sienet, joten sen kartta on väistämättä ' +
+    'väljin. Ehtoja on mitattu 393:a suomalaista havaintoa ja yhtä montaa 2–5 km päässä olevaa ' +
+    'satunnaista metsäpistettä vasten. Mittaus kertoi ennen muuta, mikä <i>ei</i> erottele: ' +
+    'kasvupaikkaluokka päästää läpi yhtä suuren osan verrokeista kuin havainnoista, ja ' +
+    '<b>koivu</b> isäntäpuuna on jopa aavistuksen verrokkien puolella. Ne ehdot ovat poissa. ' +
+    'Jäljelle jää <b>puuston määrä</b>: havainnoista 60 % on vähintään ' + KANT_MIN_VOL +
+    ' m³/ha:n metsässä, verrokkipisteistä 37 %.</p>' +
+    '<p><b>Etelä-Suomessa tämä ei kutista karttaa paljoakaan</b> — siellä valtaosa metsästä on ' +
+    'jo valmiiksi tätä tuuheampaa, joten väritys pysyy laajana. Ero näkyy Keski- ja ' +
+    'Pohjois-Suomessa, missä värjätty ala noin puolittuu.</p>' +
+    '<p>Jos haluat <b>vähemmän mutta varmempia</b> kohteita, kytke 🗺️-napista ' +
+    '<i>Vain kuusivaltaiset</i>. Se on tämän lajin ainoa ehto, joka aidosti kiristää: ' +
+    'Etelä-Suomessa se osuu 36 %:iin havainnoista mutta vain 15 %:iin verrokkipisteistä, eli ' +
+    'runsaat kaksinkertaisella tarkkuudella. Hinta on suora: reilu puolet löydöistä jää kartan ' +
+    'ulkopuolelle. Se on vaihtokauppa, ei parannus kumpaankin suuntaan.</p>' +
     '<p>Kanttarelli kasvaa <b>samoilla paikoilla vuodesta toiseen</b> ja usein tiiviinä ryhminä: ' +
     'kun löydät yhden, tutki muutaman metrin säde ja merkitse paikka muistiin. Keltaiset lakit ' +
     'jäävät helposti sammalen ja varvikon alle — selaa sammalta kepillä.</p>' +

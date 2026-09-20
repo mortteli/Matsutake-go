@@ -69,9 +69,11 @@ call sites do not:**
   `LAYER.site`, 4 for `LAYER.main`) and `readMetric` per metric (see below) are all plain
   `Promise.all`, no pool.
 
-This is not a small overshoot. One tile for kanttarelli with `pineToo` on (site + main + age +
-cover + 3-way host union) is 7 jobs; Leaflet's default `keepBuffer` (2) means many tiles are being
-created at once on any pan or zoom. Dozens of tiles × several jobs each routinely means 50-100+
+This is not a small overshoot. One tile for kanttarelli used to be 7 jobs (site + main + age +
+cover + a 3-way host union with `pineToo` on); replacing that union with a single total-volume
+condition makes it 5, or 6 with the spruce toggle, but suppilovahvero and herkkutatti are still
+5 each and the pooling is still missing, so the shape of the problem is unchanged. Leaflet's
+default `keepBuffer` (2) means many tiles are being created at once on any pan or zoom. Dozens of tiles × several jobs each routinely means 50-100+
 simultaneous requests to a server whose own header says 6 — from the *one* call site the code
 already knows needs pooling, right next to the comment saying so.
 

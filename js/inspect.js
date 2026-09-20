@@ -45,9 +45,13 @@ export async function readClass(layerName, candidates, latlng) {
   const i = hits.indexOf(true);
   return i === -1 ? null : candidates[i];
 }
-// value bracket via parallel threshold probes: [lo, hi) between steps
-export async function readBracket(layerName, steps, latlng) {
-  const hits = await Promise.all(steps.map(t => probeMin(layerName, t, latlng)));
+/* value bracket via parallel threshold probes: [lo, hi) between steps.
+   `steps` are in the unit the readout prints; `toRaster` is how a theme whose raster is not in
+   that unit gets probed (today only tilavuus, at half scale — see rasterVol in constants.js).
+   The brackets that come back are the steps themselves, so everything above this line stays in
+   display units and the conversion never leaks into the verdict logic. */
+export async function readBracket(layerName, steps, latlng, toRaster = v => v) {
+  const hits = await Promise.all(steps.map(t => probeMin(layerName, toRaster(t), latlng)));
   let lo = null, hi = null;
   for (let i = 0; i < steps.length; i++) {
     if (hits[i]) { lo = steps[i]; hi = i + 1 < steps.length ? steps[i + 1] : null; }
@@ -79,12 +83,13 @@ export function bracketVerdict(band, b) {
 // one metric: does any of its alternative layers clear the threshold?
 export async function readMetric(m, latlng) {
   const band = metricBand(m);
+  const toRaster = m.raster || (v => v);
   const alts = await Promise.all(m.any.map(async a => {
-    const val = await readBracket(a.layer, m.steps, latlng);
+    const val = await readBracket(a.layer, m.steps, latlng, toRaster);
     const known = bracketVerdict(band, val);
     const pass = known !== undefined ? known
-      : await (m.dir === "range" ? probeRange(a.layer, m.lo, m.limit, latlng)
-                                 : probeMin(a.layer, m.limit, latlng));
+      : await (m.dir === "range" ? probeRange(a.layer, toRaster(m.lo), toRaster(m.limit), latlng)
+                                 : probeMin(a.layer, toRaster(m.limit), latlng));
     return { label: a.label || m.label, pass, val };
   }));
   return { m, alts, ok: alts.some(a => a.pass === true) };
