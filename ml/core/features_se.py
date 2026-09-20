@@ -342,12 +342,21 @@ class SourcesSE:
         self.dem = WarpedVRT(self._dem, **warp, resampling=Resampling.bilinear) if self._dem else None
         self.dem_scale = 0.1                                  # stored as decimetres
 
+        # fetch_nmd.py --compact-only rewrites each 10 m national raster onto this exact grid
+        # as deflated uint8 (basskikt alone goes from 10.85 GB to a few hundred MB) and
+        # deletes the original, so the *_12m5 copy is the one that normally exists. The
+        # native name is still accepted, warped on the fly, for a working tree that has one.
         self._nmd, self.nmd = {}, {}
         for key, fn in (("base", "basskikt.tif"), ("prod", "produktivitet.tif"),
                         ("cover", "cover_5_45m.tif"), ("understory", "cover_05_5m.tif")):
-            p = os.path.join(NMD_DIR, fn)
-            if os.path.exists(p + ".ok"):
-                ds = rasterio.open(p)
+            packed = os.path.join(NMD_DIR, fn.replace(".tif", "_12m5.tif"))
+            native = os.path.join(NMD_DIR, fn)
+            if os.path.exists(packed + ".ok"):
+                ds = rasterio.open(packed)
+                self._nmd[key] = ds
+                self.nmd[key] = ds                     # already on the grid; no warp needed
+            elif os.path.exists(native + ".ok"):
+                ds = rasterio.open(native)
                 self._nmd[key] = ds
                 self.nmd[key] = WarpedVRT(ds, **warp, resampling=Resampling.nearest,
                                           src_nodata=ds.nodata, nodata=ds.nodata)

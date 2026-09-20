@@ -120,13 +120,17 @@ def precision(unc_m):
     return "alueellinen"
 
 
-def rosette(lat, lon, unc_m):
+def rosette(lat, lon, unc_m, transformer=None):
     """Nine points: the record's own coordinate and eight at the uncertainty disc's median
     radius. Deterministic, unlike build_dataset.py's five random draws — this output is
     committed and diffed, so it has to come out the same twice. The 30 m floor gives even a
     1 m GPS fix a 3x3 neighbourhood, which is what keeps one stray road cell inside a forest
-    from deciding the verdict on its own."""
-    x, y = TO_TM35.transform(lon, lat)
+    from deciding the verdict on its own.
+
+    `transformer` defaults to WGS84 -> TM35FIN. observation_status_se.py passes the SWEREF99
+    TM one instead so that the Swedish records are classified by exactly this geometry rather
+    than by a second copy of it that could drift."""
+    x, y = (transformer or TO_TM35).transform(lon, lat)
     r = max(unc_m or 0, 30) / math.sqrt(2)
     return [(x, y)] + [(x + r * math.cos(math.radians(a)), y + r * math.sin(math.radians(a)))
                        for a in range(0, 360, 45)]

@@ -156,13 +156,79 @@ def extract(url, entry, dest):
     open(dest + ".ok", "w").close()
 
 
+def compact(path, out_path):
+    """Warp one NMD raster onto the 12.5 m analysis grid as compressed uint8, in place of the
+    10 m original.
+
+    NMD ships these as packbits-compressed uint16 at 10 m over a national bounding box, which
+    for basskikt is 10.85 GB on disk holding values that never exceed 224. Deflated uint8 on
+    the analysis grid is a few hundred megabytes for the same information, and the pipeline's
+    binding constraint is a 29 GB disk that the geopackages already peak most of.
+
+    This is a deliberate exception to features_se.py's usual rule of leaving sources in their
+    native grid and warping at read time. That rule exists so a training pixel and an
+    inference pixel see the same number; resampling once, here, to the exact grid both of
+    them use preserves that just as well, and nearest-neighbour on a class raster at 10 m ->
+    12.5 m loses nothing that survives the analysis grid anyway.
+    """
+    import numpy as np, rasterio
+    from rasterio.enums import Resampling
+    from rasterio.vrt import WarpedVRT
+    sys.path.insert(0, os.path.join(ML, "core"))
+    from grid_se import GridSE, env
+
+    grid = GridSE()
+    tmp = out_path + ".part"
+    with env():
+        with rasterio.open(path) as src:
+            with WarpedVRT(src, crs=grid.crs, transform=grid.transform, width=grid.width,
+                           height=grid.height, resampling=Resampling.nearest,
+                           src_nodata=src.nodata, nodata=src.nodata) as vrt:
+                prof = grid.profile("uint8", nodata=255)
+                with rasterio.open(tmp, "w", **prof) as dst:
+                    for i, w in enumerate(grid.blocks(4096)):
+                        arr = vrt.read(1, window=w)
+                        # 255 is the nodata of the compacted raster; NMD never uses it as a
+                        # class, but clip rather than wrap so a surprise value is visible.
+                        out = np.clip(arr, 0, 254).astype("uint8")
+                        if src.nodata is not None:
+                            out[arr == src.nodata] = 255
+                        dst.write(out, 1, window=w)
+                        if i % 50 == 0:
+                            log(f"    compact block {i}")
+    os.replace(tmp, out_path)
+    open(out_path + ".ok", "w").close()
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--only", choices=sorted(PRODUCTS), action="append",
                     help="fetch only these products (repeatable); default is all four")
     ap.add_argument("--list", action="store_true", help="print archive members and exit")
+    ap.add_argument("--compact-only", action="store_true",
+                    help="compact rasters already fetched, then stop")
+    ap.add_argument("--keep-native", action="store_true",
+                    help="keep the 10 m original after compacting (needs a lot of disk)")
     ap.add_argument("--out", default=OUT)
     a = ap.parse_args()
+
+    if a.compact_only:
+        for key in (a.only or sorted(PRODUCTS)):
+            _, _, local = PRODUCTS[key]
+            native = os.path.join(a.out, local)
+            packed = os.path.join(a.out, local.replace(".tif", "_12m5.tif"))
+            if os.path.exists(packed + ".ok") or not os.path.exists(native):
+                continue
+            log(f"compacting {local}  ({os.path.getsize(native) / 2**30:.2f} GB)")
+            compact(native, packed)
+            if not a.keep_native:
+                os.remove(native)
+                for side in (native + ".ok",):
+                    if os.path.exists(side):
+                        os.remove(side)
+            log(f"  -> {os.path.basename(packed)} "
+                f"({os.path.getsize(packed) / 2**20:.0f} MB)")
+        return
 
     os.makedirs(a.out, exist_ok=True)
     wanted = a.only or sorted(PRODUCTS)
