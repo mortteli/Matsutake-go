@@ -207,6 +207,36 @@ kolmen puulajin unioni). Uusi on 5, kuusivaltaisuus päällä 6.
 rinnakkaisuudesta; luku pienenee, mutta itse ongelma (pooling puuttuu `SpotLayer.createTile`ssa)
 on edelleen auki eikä tämä muutos koske siihen.
 
+## Havainnot kartalle
+
+Mittauksessa käytetyt havainnot ovat nyt myös sovelluksen oma taso, samaan tapaan kuin
+matsutakella: `ml/ingest/fetch_observations.py --species kanttarelli` hakee ne GBIF:stä,
+`ml/dataset/observation_status.py --species kanttarelli` luokittelee ne, ja
+`ml/export/export_observations.py --species kanttarelli` pakkaa ne tiedostoon
+`data/kanttarelli/observations.json` (1,3 MB, pakattuna siirrossa 141 kt).
+
+Luokittelun tulos, 2 747 havaintoa:
+
+| | määrä | mitä se tarkoittaa |
+|---|---|---|
+| ennallaan | 1 168 | kuviotiedon mukaan metsä on yhä pystyssä |
+| epävarma | 310 | osa epävarmuusalueesta on muuttunut |
+| muuttunut | 59 | hakattu |
+| metsätalousmaan ulkopuolella | 372 | piha, puisto, tienvarsi — kanttarelli on kaupunkilaistenkin sieni |
+| ei arvioitavissa | 838 | paikannettu kilometriä karkeammin, tai ei päivämäärää |
+
+Kaksi eroa matsutakeen. **Pisteet eivät kasaudu**: 2 747 tietuetta on 2 567 eri
+koordinaatissa, kun matsutakella 105 tietuetta 445:stä jakaa 29 koordinaattia. Kartan tiheys
+on siis aitoa levinneisyyttä eikä kuntakeskipistekasoja. Ja **satokausi on eri muotoinen**:
+matsutakella kausi on kapea ja pohjoinen huipentuu ensin, kanttarellilla etelän kausi venyy
+selvästi pidemmälle eikä pohjoinen käy edellä. Satokausikaavio piirtyy valitulle lajille, joten
+saman kuvan saa kummallekin.
+
+Hakkuutieto tulee näihinkin verdikteihin `data/matsutake/cut_*.tif`:stä. Se ei ole
+matsutake-aineistoa vaan Metsäkeskuksen valtakunnallinen hakkuutilanne samalle ruudukolle
+poltettuna, ja se on tuon nimen alla vain koska se julkaistiin matsutake-mallin rinnalla —
+ks. kommentti `ml/dataset/observation_status.py`:ssä.
+
 ## Toistaminen
 
 Mittausskriptit eivät ole repossa: ne ovat kertaluonteinen analyysi, eivät osa julkaisuputkea,

@@ -203,12 +203,15 @@ aikaa kapeaksi ja rehelliseksi.
 - 🔎 **Napauta karttaa** → paikan kasvupaikka, maapohja, valitun lajin
   mittarit, rinteen jyrkkyys ja suunta, alue-arvio sekä kokonaisarvio +
   navigointilinkki.
-- 🍄 **Sienihavainnot**: 445 GBIF/Lajitietokeskus-löytöä omana tasonaan, luokiteltuna
+- 🍄 **Sienihavainnot**: GBIF/Lajitietokeskus-löydöt omana tasonaan, luokiteltuna
   sen mukaan kuinka tarkasti ne on paikannettu ja onko metsä niiden jälkeen vaihtunut
-  — ks. alla.
+  — 445 matsutakelle ja 2 747 kanttarellille, ks. alla.
 - 📊 **Satokausikaavio** ℹ️-sivulla: samat havainnot viikoittaisena pylväskuvana kolmelta
   leveyspiirivyöhykkeeltä (Lappi, Kainuu ja Pohjois-Pohjanmaa, Itä- ja Etelä-Suomi) — näkee
-  yhdellä silmäyksellä että pohjoinen huipentuu ensin, ja missä kohtaa kautta juuri nyt ollaan.
+  yhdellä silmäyksellä missä kohtaa kautta juuri nyt ollaan. Kuva piirtyy sille lajille joka
+  on valittuna, ja lajit näyttävät eri asiaa: matsutakella kausi on kapea ja pohjoinen
+  huipentuu ensin, kanttarellilla etelän kausi on selvästi pitkäjaksoisempi eikä
+  pohjoinen käy edellä.
 - 🗺️ Taustakartat: OpenStreetMap, OpenTopoMap (korkeuskäyrät) ja Esri-satelliitti.
 - 📲 PWA-manifesti → "Lisää aloitusnäytölle" toimii sovelluksen tavoin.
 
@@ -317,10 +320,19 @@ Aineisto siihen haetaan OpenStreetMapista (`ml/plan/fetch_osm.py`).
 
 ## Sienihavainnot (🍄) — mikä niistä on yhä vihje
 
-Kartalla on 445 GBIF:n ja Lajitietokeskuksen matsutake-havaintoa. Ne eivät ole
-samanarvoisia, eikä piste voi näyttää siltä että olisivat: kolmannes on
+Kartalla on GBIF:n ja Lajitietokeskuksen havaintoja kahdelle lajille: **445
+matsutake-havaintoa ja 2 747 kanttarellihavaintoa**. Ne eivät ole samanarvoisia,
+eikä piste voi näyttää siltä että olisivat: matsutakella kolmannes on
 kuntakeskipiste sieni päällä, ja aineisto ulottuu vuoteen 1866, joten moni kuvaa
 metsää joka kaadettiin vuosikymmeniä sitten.
+
+Kanttarellilla sama luokittelu on ajettu erikseen: 2 747 havainnosta 1 911 on
+paikannettu tarkemmin kuin kilometriin, ja niistä 1 168 seisoo metsässä joka on
+kuviotiedon mukaan yhä pystyssä, 310 on epävarmoja, 59 hakattuja ja 372
+metsätalousmaan ulkopuolella (pihoja, puistoja, tienvarsia — kanttarelli on
+kaupunkilaistenkin sieni). Toisin kuin matsutakella, pisteet eivät juuri kasaudu
+päällekkäin: 2 747 tietuetta on 2 567 eri koordinaatissa, joten kartan tiheys on
+aitoa levinneisyyttä eikä kuntakeskipistekasoja.
 
 Merkki kertoo kaksi eri asiaa, eikä niitä lasketa yhteen. **Geometria** kertoo
 paikannuksen: umpinainen piste on paikannettu tarkemmin kuin 250 m, summittaisen
@@ -389,8 +401,10 @@ kohta 9b.
 - Korkeustiedot: Maanmittauslaitoksen 10 m korkeusmalli (CC BY 4.0) valmiiksi
   leivottuna; jos sitä ei ole julkaistu, rinne haetaan
   [Open-Meteosta](https://open-meteo.com/) (Copernicus GLO-90 DEM)
-- Suodattimien virittämiseen käytetty havaintoaineisto: [GBIF](https://www.gbif.org/)
-  / Suomen Lajitietokeskus (ei osa sovellusta — käytetty vain oletusrajojen tarkistukseen)
+- Havaintoaineisto: [GBIF](https://www.gbif.org/) / Suomen Lajitietokeskus. Matsutakella ja
+  kanttarellilla se on myös osa sovellusta (🍄-taso ja satokausikaavio, `data/*/observations.json`);
+  muilla lajeilla sitä on käytetty vain oletusrajojen tarkistukseen. Tietuekohtaiset
+  lisenssit ja aineistokohtainen attribuutio: [DATA_LICENSES.md](DATA_LICENSES.md)
 - Taustakartat: © OpenStreetMap-tekijät, © OpenTopoMap (CC-BY-SA), © Esri
 - Paikkahaku: [Nominatim](https://nominatim.openstreetmap.org/) / OpenStreetMap (ODbL)
 - Retkisuunnittelun rajaukset (suojelualueet, rakennukset, tiet): OpenStreetMap (ODbL)

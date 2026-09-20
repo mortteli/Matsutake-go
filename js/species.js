@@ -227,6 +227,10 @@ export const SPECIES = [
     { label: "Runsaspuustoiset (≥ " + KANT_MIN_VOL + " m³/ha)", make: () => helperLayer(LAYER.vol, maskMin(LAYER.vol, rasterVol(KANT_MIN_VOL), "#2e86ff")) },
     { label: "Kuusivaltaiset (kuusta ≥ " + KANT_SPRUCE_DOM + " m³/ha)", make: () => helperLayer(LAYER.spruce, maskMin(LAYER.spruce, KANT_SPRUCE_DOM, "#2e86ff")) },
   ],
+  // GBIF finds plotted as their own layer, same as matsutake's. Six times as many records, and
+  // unlike matsutake's they are barely stacked (2 567 distinct coordinates for 2 747 records),
+  // so what the map shows is real spread rather than piles on municipality centroids.
+  findings: "data/kanttarelli/observations.json",
   slopeGood: s => s.deg >= 2, // loivat rinteet ja notkelmat pysyvät kosteina
   region: lat => lat >= 68 ? "pohjoisin Lappi — harvempi" :
                  lat >= 65 ? "pohjoinen — hyvä alue" :
