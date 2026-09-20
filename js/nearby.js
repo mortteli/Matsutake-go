@@ -217,13 +217,19 @@ export async function findNearbySpots(fix) {
   // has since been cut, and two forests can still be bridged through a clearcut between them.
   // What it does guarantee is that the place you are sent to still has trees on it.
   const picked = [];
-  let looked = 0;
+  let looked = 0, cutOut = 0;
   for (const s of spots) {
     if (picked.length === NEARBY_N || looked >= NEARBY_CUT_CHECKS) break;
     if (!picked.every(p => Math.hypot(s.tm.x - p.tm.x, s.tm.y - p.tm.y) > NEARBY_SEP_M)) continue;
-    if (state.hideCut) { looked++; if (await spotIsCut(s)) continue; }
+    if (state.hideCut) { looked++; if (await spotIsCut(s)) { cutOut++; continue; } }
     picked.push(s);
   }
+  // Fragmented regions (Tampere is the extreme case, see NEARBY_CLOSE above) can turn up only a
+  // handful of candidates to begin with, so losing even one or two to recent logging is enough to
+  // empty the list — a fate a "loosen your filters" message describes wrongly. Carried on the
+  // array itself so the empty-list branch in renderNearby can tell the two apart without a second
+  // return value threading through the cache (`nearby.spots` has to stay a plain spot array).
+  picked.cutOut = cutOut;
   return picked;
 }
 
@@ -280,6 +286,18 @@ export const HINT_LONG = "Esim. ”Ylöjärvi Teivo”, ”Hämeenkatu 1 Tampere
 
 export function paintNearby(lead) { showSearchResults([], lead ? HINT_SHORT : HINT_LONG, lead); }
 
+// Shared by the cache hit and the fresh scan: an empty result is a real answer, not the absence
+// of one, and needs the same explanatory row every time it is shown — including on a cached
+// empty array, which is truthy in JS and was otherwise painting as a silent blank list.
+export function spotNodes(spots, at) {
+  if (spots.length) return spots.map(s => nearbyRow(s, at));
+  return [nearbyNotice(spots.cutOut
+    ? "Sopivia kuvioita löytyi " + (NEARBY_RADIUS_M / 1000) + " km säteeltä, mutta ne on hakattu " +
+      "äskettäin — kokeile poistaa ”Piilota hakatut kuviot” asetuksista."
+    : "Ei yli " + MIN_SPOT_HA + " ha:n yhtenäisiä alueita " +
+      (NEARBY_RADIUS_M / 1000) + " km säteellä — löysää suodattimia asetuksista.")];
+}
+
 export async function renderNearby() {
   const seq = ++nearby.seq;
   const species = sp();
@@ -309,7 +327,7 @@ export async function renderNearby() {
   if (nearby.key === key && nearby.spots) {
     // distance and bearing are recomputed from the current anchor, so a cached list never shows
     // stale kilometres to someone who has walked, or panned, since
-    paint(nearby.spots.map(s => nearbyRow(s, at)));
+    paint(spotNodes(nearby.spots, at));
     return geocodeNearby(nearby.spots);   // rows still without a name are owed one
   }
   paint([nearbyNotice("Etsitään lähimpiä metsiä…")]);
@@ -339,10 +357,7 @@ export async function renderNearby() {
   if (!nearbyWaiting()) return;
   // from here on the repaint is `nearby.paint`, not this render's: a scan outlives the repaint
   // that started it, and the heading and distances belong to whichever anchor is current now
-  if (!spots.length)
-    return nearby.paint([nearbyNotice("Ei yli " + MIN_SPOT_HA + " ha:n yhtenäisiä alueita " +
-      (NEARBY_RADIUS_M / 1000) + " km säteellä — löysää suodattimia asetuksista.")]);
-  nearby.paint(spots.map(s => nearbyRow(s, nearby.anchor)));
+  nearby.paint(spotNodes(spots, nearby.anchor));
   geocodeNearby(spots);
 }
 
