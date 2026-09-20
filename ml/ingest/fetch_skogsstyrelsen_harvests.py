@@ -14,11 +14,15 @@ Skogsstyrelsen's own page says only currently-valid notifications (<=5 years old
 are published, so there is no expiry filter to add on top -- unlike Finland's 3-year-validity
 metsankayttoilmoitukset, which stay in the feed after they lapse.
 
-Completed-fact layer (sksUtfordAvverk, 2.7 GB zip) was NOT inspected -- too large to fetch and
-read in one sitting -- so FACT_FIELD_CANDIDATES below is a guess based on the declared layer's
-naming convention, not a verified schema. rasterize_layer() logs the real column list and raises
-before writing anything if none of the candidates match, rather than silently producing an empty
-raster (the exact silent-failure mode fetch_harvests.py's own comments warn about).
+Completed-fact layer (sksUtfordAvverk, 2.7 GB zip, 7.5 GB gpkg) was later downloaded in full and
+inspected directly: layer `UtfordAvverkningYta`, 1 381 787 features, EPSG:3006, same `Avverktyp`
+field and `Föryngringsavverkning` value as the declared layer (94 % of records). It is built from
+Sentinel-2 change detection (`KallaDatum`='Bildanalys', with `Forebild`/`Efterbild` before/after
+image IDs) rather than machine telemetry the way Finland's stand register is, and its felling date
+field is `Avvdatum`, not `Inkomdatum`. rasterize_layer() still logs the real column list and raises
+before writing anything if a future schema change breaks the field guess, rather than silently
+producing an empty raster (the exact silent-failure mode fetch_harvests.py's own comments warn
+about).
 
 Output (not committed, rebuilt on demand): ml/data/rasters_se/cut_declared_12m5.tif,
 ml/data/rasters_se/cut_fact_12m5.tif -- uint8, aligned to grid_se.GridSE.
@@ -34,8 +38,9 @@ RASTERS = os.path.join(ML, "data", "rasters_se")
 BASE = "https://geodpags.skogsstyrelsen.se/geodataport/data"
 
 DECLARED_FELLING_TYPE = "Föryngringsavverkning"     # regeneration felling, confirmed value
-FACT_FIELD_CANDIDATES = ["Avverktyp", "AVVERKTYP", "Skogstyp"]   # unverified, see module docstring
-FACT_FELLING_TYPE = "Föryngringsavverkning"
+FACT_LAYER = "UtfordAvverkningYta"                  # confirmed against the real 7.5 GB gpkg
+FACT_FIELD_CANDIDATES = ["Avverktyp", "AVVERKTYP", "Skogstyp"]   # Avverktyp confirmed correct
+FACT_FELLING_TYPE = "Föryngringsavverkning"         # confirmed: 94% of records
 
 
 def log(*a):
@@ -127,8 +132,8 @@ def main():
                         "Inkomdatum", 1, "cut_declared_12m5.tif")
     if a.which in ("fact", "all"):
         gpkg = download("UtfordAvverk")
-        rasterize_layer(gpkg, "UtfordAvverkYta", FACT_FIELD_CANDIDATES, FACT_FELLING_TYPE,
-                        None, 2, "cut_fact_12m5.tif")
+        rasterize_layer(gpkg, FACT_LAYER, FACT_FIELD_CANDIDATES, FACT_FELLING_TYPE,
+                        "Avvdatum", 2, "cut_fact_12m5.tif")
     log("DONE")
 
 
