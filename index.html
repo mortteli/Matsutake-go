@@ -188,7 +188,12 @@
     max-height: 82dvh; overflow-y: auto;
   }
   .sheet.open { transform: translateY(0); }
-  .sheet .grab { width: 42px; height: 4px; border-radius: 2px; background: #3d5c48; margin: 2px auto 12px; }
+  .sheet.dragging { transition: none; }
+  .sheet .grab {
+    position: relative; width: 42px; height: 4px; border-radius: 2px; background: #3d5c48;
+    margin: 2px auto 12px; touch-action: none; cursor: grab;
+  }
+  .sheet .grab::after { content: ""; position: absolute; inset: -14px -30px; } /* bigger touch target, same look */
   .sheet h2 { font-size: 17px; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
   .sheet h3 { font-size: 13px; margin: 18px 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
   .sheet p { font-size: 13.5px; line-height: 1.5; color: var(--muted); margin: 6px 0; }

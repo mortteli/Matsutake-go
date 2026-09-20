@@ -29,6 +29,48 @@ export function closeOverlays() {
   if (search.panel) search.panel.classList.remove("open");
   clearFocus();          // the uncertainty circle a finding modal drew belongs to that modal
 }
+/* ---- drag-to-dismiss for bottom sheets, via the grab handle ----
+   Transform-only updates batched through rAF keep this on the compositor thread — no
+   layout/paint work per pointer move, so it stays smooth regardless of sheet content. */
+function setupSheetDrag(sheet) {
+  const grab = sheet.querySelector(".grab");
+  if (!grab) return;
+  let startY = 0, startTime = 0, offset = 0, dragging = false, raf = null;
+
+  const paint = () => {
+    raf = null;
+    sheet.style.transform = "translateY(" + offset + "px)";
+  };
+  const onMove = e => {
+    offset = Math.max(0, e.clientY - startY);
+    if (raf === null) raf = requestAnimationFrame(paint);
+  };
+  const onUp = e => {
+    document.removeEventListener("pointermove", onMove);
+    document.removeEventListener("pointerup", onUp);
+    if (raf !== null) { cancelAnimationFrame(raf); raf = null; }
+    dragging = false;
+    sheet.classList.remove("dragging");
+    const elapsed = performance.now() - startTime;
+    const velocity = offset / Math.max(elapsed, 1); // px/ms
+    const dismiss = offset > sheet.getBoundingClientRect().height * 0.3 || velocity > 0.6;
+    if (dismiss) closeOverlays();
+    sheet.style.transform = "";
+    offset = 0;
+  };
+  grab.addEventListener("pointerdown", e => {
+    if (!sheet.classList.contains("open") || dragging) return;
+    dragging = true;
+    startY = e.clientY;
+    startTime = performance.now();
+    offset = 0;
+    sheet.classList.add("dragging");
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+  });
+}
+sheets.forEach(id => setupSheetDrag(document.getElementById(id)));
+
 backdrop.addEventListener("click", closeOverlays);
 document.getElementById("btnLayers").addEventListener("click", () => openSheet("sheetSettings"));
 document.getElementById("btnInfo").addEventListener("click", () => openSheet("sheetInfo"));
