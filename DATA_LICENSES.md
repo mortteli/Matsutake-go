@@ -79,3 +79,11 @@ GBIF asks that data use is cited; the records here came through the GBIF occurre
 To publish the derived layers under plain CC BY 4.0, re-run the pipeline with the CC BY-NC records removed (`ml/ingest/fetch_observations.py` — filter on the `license` column).
 
 Software licences: see `LICENSE` (MIT) and `THIRD_PARTY_LICENSES.md`.
+
+## Sweden — not yet used
+
+Nothing Swedish is ingested or trained on yet. A source-by-source audit of
+Sweden's open-data equivalents to the table above (forest attributes, DEM,
+soil, climate, harvest layers, occurrence records) — including where they
+line up, where they don't, and what a Swedish model would need — is in
+[docs/SWEDEN_DATA.md](docs/SWEDEN_DATA.md).
