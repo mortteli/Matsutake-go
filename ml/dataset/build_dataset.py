@@ -89,6 +89,9 @@ def _init(cycle):
     _SRC = Sources(Grid(), cycle)
 
 
+_WARNED = []
+
+
 def _work(item):
     row, col, samples = item
     vecs = []
@@ -96,6 +99,14 @@ def _work(item):
         try:
             v, ok = _SRC.point_features(r, c)
         except Exception as e:
+            # A None here is indistinguishable from "this cell is not forestry land", so a
+            # systematic failure -- a missing raster, an unbound _SRC -- used to produce a
+            # complete run that quietly wrote an empty dataset. Say it out loud the first few
+            # times; the rest stay quiet so a genuinely edge-of-raster point cannot spam.
+            if len(_WARNED) < 5:
+                _WARNED.append(1)
+                print(f"point_features failed at row {r} col {c}: {type(e).__name__}: {e}",
+                      file=sys.stderr, flush=True)
             return None
         if ok:
             vecs.append(v)

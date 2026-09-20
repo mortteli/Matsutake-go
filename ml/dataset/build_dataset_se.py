@@ -62,12 +62,17 @@ GBIF_FUNGI_KINGDOM = 5
 MATSUTAKE_TAXON = 5241820
 VINTAGE = 2010
 
-_SRC = None
-
-
 def _init_se(_vintage):
-    global _SRC
-    _SRC = SourcesSE(GridSE(), VINTAGE)
+    """Bind each pool worker to a Swedish Sources handle.
+
+    The handle has to be installed in build_dataset's namespace, not this one: run_all()
+    dispatches build_dataset._work, which reads build_dataset._SRC. Setting a module global
+    here instead leaves that one None, every _work call raises, and _work's except clause
+    turns each into a None result -- so the run completes, reports no errors, and writes an
+    empty dataset. It did exactly that once before this comment existed.
+    """
+    import build_dataset
+    build_dataset._SRC = SourcesSE(GridSE(), VINTAGE)
 
 
 def fetch_fungi_background(n, dataset_key, seed):
