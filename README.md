@@ -394,6 +394,73 @@ kertoa (harvennusta ei näe mikään, kuviorekisteri kattaa vain yksityismetsät
 ei tarkista lajinmääritystä): [docs/HABITAT_MODEL_PLAN.md](docs/HABITAT_MODEL_PLAN.md),
 kohta 9b.
 
+## Ruotsi — sama malli, toinen maa
+
+Ruotsissa on **5 501 matsutake-havaintoa** GBIF:ssä Artportalenin kautta, kun Suomessa on
+455. Niistä **4 795 on paikannettu 25 metrin tarkkuudella**; Suomen aineistossa alle 250
+metrin tarkkuudella on 114. Sama metsätyyppi, kymmenkertainen aineisto — ja siksi Ruotsi
+kertoo lajista asioita, joita Suomen havainnoista ei voi mitata.
+
+Havainnot ovat kartalla samassa 🍄-tasossa suomalaisten kanssa ja **samalla luokittelulla**:
+`js/findings.js` lukee tarkkuuden (`tarkka` / `summittainen` / `alueellinen` / `tuntematon`)
+ja metsän tilan (`ennallaan` / `epävarma` / `muuttunut` / `ulkopuolella` / `ei_tietoa`) samoista
+tunnisteista molemmille maille. Jokainen tietue kantaa `country`-kentän.
+
+| Ruotsin 5 501 havaintoa | |
+|---|---|
+| tarkka / summittainen / alueellinen / tuntematon | 5 215 / 176 / 98 / 12 |
+| metsä ennallaan | 4 365 |
+| **hakattu havainnon jälkeen** | **288** (5,2 %) |
+| hakkuuilmoitus voimassa | 102 |
+
+Ruotsissa hakkuutieto on **päivätty** — Skogsstyrelsenin Sentinel-2-muutostulkinta kertoo
+vuoden — joten sääntö on "hakattu *havainnon jälkeen*", ei Suomen päiväämätön "hakattu joskus".
+Yhtä asiaa Ruotsista taas ei saa: SLU julkaisee yhden nodata-arvon sekä "ei metsämaata" että
+"ei arviota" -tapaukseen, joten `ulkopuolella` ei voi esiintyä lainkaan.
+
+### Mitä Ruotsi kertoo, mitä Suomi ei
+
+README sanoo yllä, että tärkein vielä puuttuva tekijä on hiekkainen harjumaaperä. Se on nyt
+mitattu 4 795 tarkasti paikannetusta löydöstä SGU:n maaperäaineistoa vasten:
+
+| Maalaji | Löydöistä | Maa-alasta | Suhde |
+|---|---:|---:|---:|
+| **Isälvssediment** (harjuainekset) | 47,1 % | 6,8 % | **7,0×** |
+| Postglasiaalinen hiekka–sora | 9,6 % | 3,6 % | 2,7× |
+| Moreeni | 29,9 % | 52,5 % | 0,6× |
+| Kallio | 8,9 % | 16,8 % | 0,5× |
+| Turve | 3,1 % | 8,5 % | 0,4× |
+
+Lähes puolet Ruotsin matsutakesta kasvaa harjuaineksella, jota on alle seitsemän prosenttia
+maasta. Ablaatiossa sama näkyy painona: maaperälohkon poisto pudottaa recall@2:n 0,469 →
+0,267, nelinkertaisesti enemmän kuin mikään muu lohko. Maasto ei tuo mitään (+0,006) — mikä
+on odotettua, koska korkeusmalli on Copernicus GLO-30, pintamalli eikä maanpintamalli.
+
+Malli itse, 750 spatiaalista lohkoa, 69 piirrettä, LightGBM:
+AUC 0,906 · recall@2 % 0,469 · **recall@2 % kilometriruuduittain 0,401** · Boyce 1,0.
+Se jälkimmäinen on rehellinen luku: 5 501 ilmoitusta osuu 1 576 eri kilometriruutuun, joten
+tavallinen recall mittaa osin sitä, osuuko kartta muutamaan ahkerasti kierrettyyn rinteeseen.
+Sijaintikokeet menevät läpi puhtaina: rivi ja sarake tai pelkkä pohjoiskoordinaatti lisättynä
+muuttavat tulosta alle sadasosan, eli malli ei ole leveyspiirikaista koristeineen.
+
+### Mitä vielä puuttuu
+
+Ruotsissa ei ole avointa vastinetta `kasvupaikka`-luokitukselle, eikä sellaista ole tulossa.
+Ruotsalainen ståndortsbonitering johtaa ståndortsindexin maastossa kirjatuista tekijöistä,
+joista `vegetationstyp` (lavtyp → fattigristyp → lingontyp → blåbärstyp → örttyp) vastaisi
+kasvupaikkaa lähes yksi yhteen — mutta sen kirjaa Riksskogstaxeringen koealoillaan, joiden
+tarkkoja koordinaatteja ei julkaista. Latvuspeitto ja päätyyppi sen sijaan löytyivät:
+Naturvårdsverketin NMD 2023 antaa latvuspeiton prosentteina ja erottaa kangasmetsän,
+korven/rämeen ja avosuon. Koko vertailu: [docs/SWEDEN_DATA.md](docs/SWEDEN_DATA.md).
+
+Löytäjien omat maastokuvaukset (411 havaintoa) testattiin mallia vastaan
+([docs/HABITAT_WORDS_SE.md](docs/HABITAT_WORDS_SE.md)). Odotus oli, että **palo** olisi
+puuttuva taso — se ei ole: palokuvaukset eivät erotu piirteistä eivätkä saa mallilta
+huonompia pisteitä. Sen sijaan **hällmark** (kalliomännikkö) erottuu piirteistä hyvin
+(AUC 0,869) ja saa silti selvästi matalammat pisteet (−0,211, p < 0,0001). Malli siis *näkee*
+kalliomännikön ja pisteyttää sen silti alas — se ei ole puuttuva taso vaan mallin erimielisyys
+niiden kanssa, jotka seisoivat paikan päällä.
+
 ## Aineistot ja lisenssit
 
 - Metsävaratiedot: Luonnonvarakeskus (Luke), monilähteisen valtakunnan metsien

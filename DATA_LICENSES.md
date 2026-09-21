@@ -120,14 +120,36 @@ To publish the derived layers under plain CC BY 4.0, re-run the pipeline with th
 
 Software licences: see `LICENSE` (MIT) and `THIRD_PARTY_LICENSES.md`.
 
-## Sweden — ingest pipeline in progress, not yet trained on
+## Sweden — trained model
 
 `ml/data/matsutake_se/observations.csv` — 5501 *Tricholoma matsutake* records for Sweden, GBIF
 (fed by Artportalen), fetched 2026-09-20. Licence mix: CC0 1.0: 5479, CC BY 4.0: 14, CC BY-NC 4.0:
-8 (none dropped as all-rights-reserved or share-alike). Unlike the
-Finnish set, only 33 records (0.6 %) carry a validated identification — the rest are unreviewed
-citizen sightings — and the great majority date from 2024–2026. See
-[docs/SWEDEN_DATA.md](docs/SWEDEN_DATA.md) for what that means for training, plus the full
-source-by-source audit of forest-attribute, soil, harvest and climate sources (what's been
-verified against real data vs. what's still an educated guess) and what's still missing before a
-model could be trained (elevation, canopy cover, a feature-extraction step).
+8 (none dropped as all-rights-reserved or share-alike). Unlike the Finnish set, only 33 records
+(0.6 %) carry a validated identification — the rest are unreviewed citizen sightings. 2023 is the
+single biggest year (1676), with 2020–2023 contributing 2693 of the 5501.
+
+Sources the Swedish model is built from, all open, none needing an account:
+
+| Source | Producer | What it gives | Licence |
+|---|---|---|---|
+| SLU forest map, 2010 vintage, 25 m, EPSG:3021 | SLU + Skogsstyrelsen | age, height, total/pine/spruce/birch/deciduous/contorta volume | Open data |
+| Nationella Marktäckedata (NMD) 2023, 10 m | Naturvårdsverket | canopy coverage %, understory coverage %, land-cover base layer, forest productivity | CC0 |
+| Jordarter 1:25 000–1:100 000 (`ytlager`) and 1:1 000 000 (`grundlager`) | SGU | soil texture, parent material | Open data |
+| Utförda avverkningar / Avverkningsanmälan | Skogsstyrelsen | completed and declared fellings, **with dates** | CC0 |
+| PTHBV climate normals 1991–2020 | SMHI | thermal sum, annual precipitation | CC BY 4.0 SE |
+| Copernicus DEM GLO-30 | ESA / Copernicus | elevation, slope, aspect, TPI | Free, open |
+
+Copernicus DEM GLO-30 is a **surface** model, not a terrain model; see the note in
+`ml/core/features_se.py` for what that costs and how it is mitigated.
+
+Two layers that would improve the model are open but were not reachable from the build
+environment: Lantmäteriet's 1 m elevation grid (CC0, free account required) and SLU
+Markfuktighetskarta (2 m soil moisture, CC0, served over FTPS and an authenticated ArcGIS
+endpoint).
+
+`vegetationstyp`, the Swedish equivalent of Finland's `kasvupaikka`, is recorded by
+Riksskogstaxeringen but its plot coordinates are withheld for privacy, so it is not available at
+any price short of a data agreement with SLU. See
+[docs/SWEDEN_DATA.md](docs/SWEDEN_DATA.md) for the full source-by-source audit and
+[docs/MODEL_REPORT_matsutake_se.md](docs/MODEL_REPORT_matsutake_se.md) for what the model does
+and does not measure.
