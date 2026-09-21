@@ -88,6 +88,14 @@ function stats(data) {
   AREAS.forEach(a => { perArea[a.key] = { n: 0, weeks: [] }; });
   let dated = 0, nodate = 0, year0 = Infinity, year1 = -Infinity;
 
+  // area() splits Finland along two straight lines fitted between lon 24 and 28.6, so a
+  // Swedish find at lon 11-24 would be filed as "Lappi" or "Ita- ja Etela-Suomi" and this
+  // chart would silently become wrong. The finds layer draws both countries -- it plots
+  // plain lat/lon markers, so it needed no projection work -- but the season chart is
+  // Finnish until it has Swedish areas of its own. Records with no country predate the
+  // field and are Finnish.
+  data = data.filter(f => !f.country || f.country === "FI");
+
   data.forEach(f => {
     const y = +String(f.date || "").slice(0, 4);
     if (y) { year0 = Math.min(year0, y); year1 = Math.max(year1, y); }

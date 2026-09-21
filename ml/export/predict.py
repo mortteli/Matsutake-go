@@ -19,6 +19,12 @@ sys.path.insert(0, os.path.join(ML, "core"))
 sys.path.insert(0, os.path.join(ML, "train"))
 from grid import Grid, env
 from features import Sources, FEATURES, RASTERS
+
+# One predict.py for both countries; see ml/core/registry.py. The Finnish names above stay
+# as the module-level default so nothing that imports them changes, and the Swedish ones are
+# bound per worker from the model's own config.
+from registry import features as _features_for, grid_class, sources_class
+import grid_se as _grid_se
 from train import MLP, Prep
 
 
@@ -44,7 +50,10 @@ def load_model(species):
     if "lgbm" in head:
         import lightgbm as lgb
         gbms = [lgb.Booster(model_file=os.path.join(mdir, f"lgbm_fold{f}.txt")) for f in range(cfg["n_members"])]
-    idx = [FEATURES.index(c) for c in cfg["features"]]
+    # The model records the feature list it was trained on, so the country follows from the
+    # model rather than from a flag that could disagree with it.
+    country = cfg.get("country", "fi")
+    idx = [_features_for(country).index(c) for c in cfg["features"]]
     return cfg, prep, (head, mlps, gbms), idx
 
 
@@ -53,11 +62,20 @@ _W = {}
 
 def _init(species, cycle):
     """One Sources handle and one model copy per worker process."""
+    # torch was already pinned to one thread; LightGBM was not, and it reads OMP_NUM_THREADS
+    # at import. Without this each of N workers opens a thread per core and they fight: three
+    # workers on four cores ran at roughly a twentieth of the throughput two workers managed,
+    # all of it at 99.9 % CPU with nothing to show for it. Set before lightgbm is imported.
+    os.environ.setdefault("OMP_NUM_THREADS", "1")
+    os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+    os.environ.setdefault("MKL_NUM_THREADS", "1")
     import torch as _t
     _t.set_num_threads(1)
     cfg, prep, members, idx = load_model(species)
-    _W.update(grid=Grid(), cfg=cfg, prep=prep, members=members, idx=idx)
-    _W["src"] = Sources(_W["grid"], cycle)
+    country = cfg.get("country", "fi")
+    g = grid_class(country)()
+    _W.update(grid=g, cfg=cfg, prep=prep, members=members, idx=idx)
+    _W["src"] = sources_class(country)(g, cycle)
 
 
 def _block(args):
@@ -97,8 +115,11 @@ def main():
     ap.add_argument("--overviews", action="store_true",
                     help="build overviews on the full raster (slow; the app parts get their own)")
     a = ap.parse_args()
-    out = a.out or os.path.join(RASTERS, f"prob_{a.species}_16m.tif")
-    grid = Grid()
+    country = json.load(open(os.path.join(ML, "models", a.species, "model.json"))).get("country", "fi")
+    px = "16m" if country == "fi" else "12m5"
+    rasters = RASTERS if country == "fi" else os.path.join(ML, "data", "rasters_se")
+    out = a.out or os.path.join(rasters, f"prob_{a.species}_{px}.tif")
+    grid = grid_class(country)()
     prog = out + ".progress"
     done = set(open(prog).read().split()) if os.path.exists(prog) else set()
     prof = grid.profile("uint8", nodata=255)
@@ -107,8 +128,22 @@ def main():
     # Skip blocks with no forestry land at all (sea, open water, built-up) before dispatching.
     with env():
         todo = []
-        with rasterio.open(os.path.join(RASTERS, "mvmi2023", "kasvupaikka_vmi1x_1923.tif")) as site:
+        # Blocks with no forestry land are skipped before dispatch. Finland tests the site
+        # class; Sweden has none, so it tests the SLU 2010 standing volume -- the same thing
+        # block_features uses for `valid`. It is a 25 m RT90 raster, so the window has to be
+        # taken in its own grid rather than the analysis one.
+        site_path = (os.path.join(RASTERS, "mvmi2023", "kasvupaikka_vmi1x_1923.tif") if country == "fi"
+                     else _grid_se.rt90_path("vol_total", 2010,
+                                             os.path.join(ML, "data", "rasters_se", "slu_forest_map")))
+        with rasterio.open(site_path) as site:
             nod = site.nodata
+            site_vrt = None
+            if country != "fi":
+                from rasterio.vrt import WarpedVRT
+                from rasterio.enums import Resampling as _R
+                site_vrt = WarpedVRT(site, crs=grid.crs, transform=grid.transform,
+                                     width=grid.width, height=grid.height,
+                                     resampling=_R.nearest, src_nodata=nod, nodata=nod)
             if a.bbox:
                 x0, y0, x1, y1 = a.bbox
                 r0, c0 = grid.xy_to_rowcol(x0, y1); r1, c1 = grid.xy_to_rowcol(x1, y0)
@@ -119,7 +154,7 @@ def main():
                 if a.bbox and (w.row_off > r1 or w.row_off + w.height < r0 or
                                w.col_off > c1 or w.col_off + w.width < c0):
                     continue                      # outside the requested region: leave it nodata
-                s = site.read(1, window=w)
+                s = (site_vrt or site).read(1, window=w)
                 if not ((s != nod) & (s >= 1)).any():
                     done.add(key); todo.append((w, False))
                 else:
@@ -140,7 +175,13 @@ def main():
         # GeoTIFF only gets its tile index written when the dataset is closed, so a run that
         # is interrupted without closing leaves the tiles on disk but unreadable.
         FLUSH_EVERY = 100
-        with ctx.Pool(a.workers, initializer=_init, initargs=(a.species, 2023),
+        # Finland's newest MVMI cycle is 2023; Sweden's newest usable SLU vintage is 2010.
+        # This used to be a hard-coded 2023 for both, which sent SourcesSE looking for a
+        # vintage that does not exist -- and because rt90_path falls back to a remote URL
+        # when the local file is absent, the workers spent minutes retrying 404s from
+        # gis.slu.se instead of failing.
+        vintage = 2023 if country == "fi" else 2010
+        with ctx.Pool(a.workers, initializer=_init, initargs=(a.species, vintage),
                       maxtasksperchild=8) as pool:
             results = pool.imap_unordered(_block, work, chunksize=1)
             i, exhausted = 0, False

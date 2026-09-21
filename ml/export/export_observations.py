@@ -57,38 +57,85 @@ def load_status(species):
     return out
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--species", default="matsutake")
-    a = ap.parse_args()
-    src = os.path.join(ML, "data", a.species, "observations.csv")
-    out = os.path.join(ROOT, "data", a.species, "observations.json")
-    status = load_status(a.species)
+MAX_TEXT = 140          # locality/remarks/habitat are popup-only; the full text is in the CSV
 
+
+def clip(s):
+    """Trim a free-text field for the payload.
+
+    Merging Sweden in takes the file from 455 records to ~5950, and the Swedish localities
+    and habitat notes are long ("aldre renbetad fattigris- och lavtallskog pa torr
+    moranmark, torrbacke mot myr"). The popup is the only thing that reads them, so the
+    untruncated text stays in observations.csv where analysis happens.
+    """
+    s = (s or "").strip()
+    if not s:
+        return None
+    return s if len(s) <= MAX_TEXT else s[:MAX_TEXT - 1].rstrip() + "…"
+
+
+def read_species(species, country):
+    src = os.path.join(ML, "data", species, "observations.csv")
+    status = load_status(species)
     rows = []
     with open(src, newline="") as f:
         for r in csv.DictReader(f):
+            if not r["lat"]:
+                continue
             rows.append(dict(
-                id=r["id"], source=r["source"],
+                id=r["id"], source=r["source"], country=country,
                 lat=round(float(r["lat"]), 5), lon=round(float(r["lon"]), 5),
                 date=r["date"] or None,
                 unc_m=round(float(r["unc_m"])) if r["unc_m"] else None,
                 basis=r["basis"] or None,
                 dataset=r["dataset"] or None,
                 license=r["license"] or None,
-                locality=r["locality"] or None,
-                remarks=r.get("remarks") or None,
-                event_remarks=r.get("event_remarks") or None,
-                habitat=r.get("habitat") or None,
+                locality=clip(r.get("locality")),
+                remarks=clip(r.get("remarks")),
+                event_remarks=clip(r.get("event_remarks")),
+                habitat=clip(r.get("habitat")),
                 link=link(r["source"], r["id"]),
                 **status.get(r["id"], {}),
             ))
+    return rows, bool(status)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--species", default="matsutake")
+    ap.add_argument("--merge", action="append", metavar="SPECIES:CC", default=None,
+                    help="also include ml/data/<SPECIES>/observations.csv, tagged with country "
+                         "code CC (e.g. --merge matsutake_se:SE). Each source is joined to its "
+                         "own observation_status.csv.")
+    ap.add_argument("--country", default="FI", help="country code for --species")
+    a = ap.parse_args()
+    out = os.path.join(ROOT, "data", a.species, "observations.json")
+
+    # Every record carries a country. The map draws both under one toggle -- js/findings.js
+    # plots plain lat/lon markers, so it needs no projection work to reach Sweden -- but the
+    # two sets are not interchangeable and anything that reasons about them has to be able to
+    # tell them apart. js/seasonality.js is the immediate case: its area() function encodes
+    # Finnish province borders as straight lines fitted between lon 24 and 28.6, so Swedish
+    # points at lon 11-24 would be filed under "Lappi" and "Ita- ja Etela-Suomi" and the
+    # season chart would quietly become wrong.
+    rows, classified = read_species(a.species, a.country)
+    per_country = {a.country: len(rows)}
+    for spec in (a.merge or []):
+        name, _, cc = spec.partition(":")
+        extra, extra_classified = read_species(name, cc or "??")
+        seen = {r["id"] for r in rows}
+        extra = [r for r in extra if r["id"] not in seen]   # GBIF ids are globally unique
+        rows += extra
+        per_country[cc or "??"] = len(extra)
+        classified = classified or extra_classified
 
     os.makedirs(os.path.dirname(out), exist_ok=True)
     with open(out, "w") as fh:
         json.dump(rows, fh, ensure_ascii=False, separators=(",", ":"))
-    print("wrote", out, len(rows), "records",
-          f"({sum(1 for r in rows if 'hab' in r)} luokiteltu)" if status else "(ei luokittelua)")
+    size = os.path.getsize(out)
+    print("wrote", out, len(rows), "records", per_country,
+          f"({sum(1 for r in rows if 'hab' in r)} luokiteltu)" if classified else "(ei luokittelua)",
+          f"{size / 1048576:.1f} MB")
 
 
 if __name__ == "__main__":

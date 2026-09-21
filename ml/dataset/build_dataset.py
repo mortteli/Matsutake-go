@@ -89,6 +89,9 @@ def _init(cycle):
     _SRC = Sources(Grid(), cycle)
 
 
+_WARNED = []
+
+
 def _work(item):
     row, col, samples = item
     vecs = []
@@ -96,6 +99,14 @@ def _work(item):
         try:
             v, ok = _SRC.point_features(r, c)
         except Exception as e:
+            # A None here is indistinguishable from "this cell is not forestry land", so a
+            # systematic failure -- a missing raster, an unbound _SRC -- used to produce a
+            # complete run that quietly wrote an empty dataset. Say it out loud the first few
+            # times; the rest stay quiet so a genuinely edge-of-raster point cannot spam.
+            if len(_WARNED) < 5:
+                _WARNED.append(1)
+                print(f"point_features failed at row {r} col {c}: {type(e).__name__}: {e}",
+                      file=sys.stderr, flush=True)
             return None
         if ok:
             vecs.append(v)
@@ -108,10 +119,17 @@ def _key(p):
     return f"{p['cycle']}:{p['row']}:{p['col']}:{p['samples'] or ''}"
 
 
-def run_all(pts, workers, chunk=100, chunk_timeout=900, item_timeout=180):
+def run_all(pts, workers, chunk=100, chunk_timeout=900, item_timeout=180,
+            initializer=None, cache_name="feature_cache.jsonl"):
     """Feature vectors for all points, cycle by cycle, with a JSONL cache so a restart resumes,
-    and chunk/item timeouts so a hung or crashed worker cannot stall the pool forever."""
-    cache_path = os.path.join(ML, "data", "raw", "feature_cache.jsonl")
+    and chunk/item timeouts so a hung or crashed worker cannot stall the pool forever.
+
+    `initializer` and `cache_name` exist so build_dataset_se.py can reuse this pool -- the
+    timeout and restart handling below is the part worth not having two copies of -- while
+    binding its workers to SourcesSE and keeping its vectors in a separate cache file. They
+    default to the Finnish behaviour, so nothing changes for Finland."""
+    initializer = initializer or _init
+    cache_path = os.path.join(ML, "data", "raw", cache_name)
     os.makedirs(os.path.dirname(cache_path), exist_ok=True)
     cache = {}
     if os.path.exists(cache_path):
@@ -134,7 +152,7 @@ def run_all(pts, workers, chunk=100, chunk_timeout=900, item_timeout=180):
             if not todo:
                 continue
             nw = workers if cycle == 2023 else min(workers, 4)
-            pool = ctx.Pool(nw, initializer=_init, initargs=(cycle,))
+            pool = ctx.Pool(nw, initializer=initializer, initargs=(cycle,))
             done_n = 0
             try:
                 for c0 in range(0, len(todo), chunk):
@@ -145,7 +163,7 @@ def run_all(pts, workers, chunk=100, chunk_timeout=900, item_timeout=180):
                     except mp.TimeoutError:
                         log("chunk timed out — restarting pool and retrying items one by one")
                         pool.terminate(); pool.join()
-                        pool = ctx.Pool(nw, initializer=_init, initargs=(cycle,))
+                        pool = ctx.Pool(nw, initializer=initializer, initargs=(cycle,))
                         res = []
                         for arg in args:
                             try:
@@ -153,7 +171,7 @@ def run_all(pts, workers, chunk=100, chunk_timeout=900, item_timeout=180):
                             except mp.TimeoutError:
                                 log("item timed out", arg[:2]); res.append(None)
                                 pool.terminate(); pool.join()
-                                pool = ctx.Pool(nw, initializer=_init, initargs=(cycle,))
+                                pool = ctx.Pool(nw, initializer=initializer, initargs=(cycle,))
                     for i, v in zip(ids, res):
                         vv = None if v is None else [float(x) for x in v]
                         out[i] = vv; cache[_key(pts[i])] = vv

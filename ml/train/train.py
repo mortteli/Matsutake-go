@@ -42,24 +42,51 @@ GROUPS = {   # for ablations
 }
 
 
+class SkipModel(Exception):
+    """This model family is not installed; report the others rather than failing the run."""
+
+
 def log(*a):
     print(time.strftime("%H:%M:%S"), *a, flush=True)
 
 
 # ----------------------------------------------------------------------------- data
 def load(path):
-    d = pd.read_csv(path)
+    # `id` must be read as text. Left to pandas it becomes float64 whenever the column mixes
+    # numeric occurrence ids with the empty ids of the random background, and then
+    # str(6489953418.0) never matches "6489953418" in observations.csv -- so the governance
+    # filter below silently drops every presence and training proceeds on background alone.
+    # That is exactly what happened on the first Swedish run: 4046 presences in the file, 0
+    # after load(), five folds of pure background, and a one-class crash three models later.
+    d = pd.read_csv(path, dtype={"id": str, "verification_status": str}, low_memory=False)
     # data governance: a presence whose record is no longer in observations.csv (e.g. dropped
     # for its licence) must not train the model either
     obs = os.path.join(os.path.dirname(path), "observations.csv")
     if os.path.exists(obs) and "id" in d.columns:
         keep = set(pd.read_csv(obs, dtype=str)["id"])
+        before_p = int((d.group == "presence").sum())
         before = len(d)
         d = d[(d.group != "presence") | d["id"].astype(str).isin(keep)].reset_index(drop=True)
+        after_p = int((d.group == "presence").sum())
         if len(d) != before:
             log("dropped", before - len(d), "presence rows not in observations.csv")
+        if before_p and not after_p:
+            raise SystemExit(
+                f"every one of {before_p} presences was dropped as 'not in observations.csv'. "
+                f"That is a join failure, not a governance result -- check that the id columns "
+                f"in {os.path.basename(path)} and observations.csv are the same type.")
+    # The dataset's own northing column is called "y", and so is the label, so the label has
+    # to be parked somewhere before it overwrites the coordinate. It did not used to be:
+    # d["y"] became 0/1 and then block was computed as (x // 25000) * 100000 + (y // 25000)
+    # with y already the label, so the second term was always 0. The "25 km squares" in this
+    # module's docstring were in fact 25 km-wide strips running the full length of the
+    # country -- 27 of them across Finland where there should be 601 -- which is a much
+    # coarser spatial split than the reported one, and would be far worse for Sweden, where
+    # the grid is 1540 km tall and the presences are strongly latitudinal.
+    d["northing"] = d["y"].astype(float)
+    d["easting"] = d["x"].astype(float)
     d["y"] = (d.group == "presence").astype(int)
-    d["block"] = (d.x // BLOCK_M).astype(int) * 100000 + (d.y // BLOCK_M).astype(int)
+    d["block"] = (d.easting // BLOCK_M).astype(int) * 100000 + (d.northing // BLOCK_M).astype(int)
     return d
 
 
@@ -67,7 +94,7 @@ def assign_folds(d, k=5, seed=0):
     """Blocks with presences are sorted by northing and dealt round-robin in shuffled chunks
     (so each fold spans the latitude range); the remaining blocks are dealt randomly."""
     rnd = random.Random(seed)
-    north = d[d.y == 1].groupby("block")["row"].mean()      # smaller row = further north
+    north = d[d.y == 1].groupby("block")["row"].mean()      # y == 1 is a presence; smaller row = further north
     order = list(north.sort_values().index)
     fold_of = {}
     for i in range(0, len(order), k):
@@ -99,6 +126,29 @@ def recall_at_area(score, d, frac):
     bg = score[(d.group == "bg_random").values]
     thr = np.quantile(bg, 1 - frac)
     return float((score[(d.y == 1).values] >= thr).mean())
+
+
+def recall_at_area_clustered(score, d, frac, key="n_1km"):
+    """recall@k over distinct neighbourhoods instead of over records.
+
+    Sweden has 5501 reports on 1741 distinct 1 km cells, and the ten busiest 25 km blocks
+    hold over a quarter of them. Plain recall@2% is then dominated by whether the map happens
+    to cover a handful of thoroughly worked hillsides, which flatters it. Counting each 1 km
+    cell once asks the question the map is actually for: how many PLACES does it find, not
+    how many reports. Expect it to come out lower; that gap is the honest number.
+
+    Falls back to plain recall when the dataset carries no cluster column (Finland's does
+    not), so summarize() can call it unconditionally.
+    """
+    if key not in d.columns:
+        return recall_at_area(score, d, frac)
+    m = eval_mask(d); score, d = score[m], d[m]
+    bg = score[(d.group == "bg_random").values]
+    thr = np.quantile(bg, 1 - frac)
+    pres = d[(d.y == 1).values]
+    hit = pd.Series(score[(d.y == 1).values] >= thr, index=pres.index)
+    per_cell = hit.groupby(pres[key].values).max()
+    return float(per_cell.mean())
 
 
 def boyce(score, d, nbins=10):
@@ -135,6 +185,8 @@ def precision_vs_fungi(score, d, frac):
 
 
 def summarize(score, d):
+    clustered = dict(recall_at_2_1km=recall_at_area_clustered(score, d, 0.02),
+                     recall_at_5_1km=recall_at_area_clustered(score, d, 0.05))
     m = eval_mask(d)
     score, d = score[m], d[m]
     y = d.y.values
@@ -147,7 +199,7 @@ def summarize(score, d):
         recall_at_20=recall_at_area(score, d, 0.20),
         prec_fungi_at_1=precision_vs_fungi(score, d, 0.01), prec_fungi_at_2=precision_vs_fungi(score, d, 0.02),
         prec_fungi_at_5=precision_vs_fungi(score, d, 0.05),
-        boyce=boyce(score, d))
+        boyce=boyce(score, d), **clustered)
     return {k: round(float(v), 3) for k, v in out.items()}
 
 
@@ -279,7 +331,13 @@ def fit_predict_other(model, Xtr, ytr, wtr, Xte, cfg, seed=0):
         m = lgb.LGBMClassifier(**cfg, verbose=-1, random_state=seed).fit(Xtr, ytr, sample_weight=wtr)
         return m.predict_proba(Xte)[:, 1]
     if model == "xgb":
-        import xgboost as xgb
+        try:
+            import xgboost as xgb
+        except ImportError as e:
+            # xgboost's manylinux wheel is ~300 MB of bundled CUDA that is useless on a CPU
+            # box, and LightGBM already covers the gradient-boosting family. Report the
+            # other families rather than losing the whole run to an optional dependency.
+            raise SkipModel("xgboost is not installed") from e
         m = xgb.XGBClassifier(**cfg, random_state=seed, n_jobs=4, verbosity=0).fit(Xtr, ytr, sample_weight=wtr)
         return m.predict_proba(Xte)[:, 1]
     raise ValueError(model)
@@ -335,6 +393,8 @@ def tune_mlp(d, cols, folds, seed=0, n_trials=12, select="prauc"):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--species", default="matsutake")
+    ap.add_argument("--country", default="fi", choices=["fi", "se"],
+                    help="which feature stack, rule baselines and ablation blocks to use")
     ap.add_argument("--dataset", default=None)
     ap.add_argument("--trials", type=int, default=12)
     ap.add_argument("--seed", type=int, default=0)
@@ -345,19 +405,26 @@ def main():
     ap.add_argument("--select", default="prauc", choices=["prauc", "sure"],
                     help="what hyper-parameters are chosen for: overall PR-AUC, or precision in the best 2 %%")
     a = ap.parse_args()
+    # Late-bound so one train.py serves both countries; see ml/core/registry.py for why a
+    # copied train_se.py was not the answer.
+    from registry import for_country
+    FEATURES_C, RULES_C, GROUPS_C = for_country(a.country)
+    FEATURES_C = list(FEATURES_C)
+    RULES_C = RULES if RULES_C is None else RULES_C
+    GROUPS_C = GROUPS if GROUPS_C is None else GROUPS_C
     path = a.dataset or os.path.join(ML, "data", a.species, "dataset.csv")
     d = load(path)
     if a.fine_only:
         d = d[eval_mask(d)].reset_index(drop=True)
     n_coarse = int((~eval_mask(d)).sum())
-    cols = [c for c in FEATURES if c in d.columns]
+    cols = [c for c in FEATURES_C if c in d.columns]
     folds = assign_folds(d, seed=a.seed)
     log("rows", len(d), "presences", int(d.y.sum()), "features", len(cols), "blocks", d.block.nunique())
     report = {"n": int(len(d)), "n_presence": int(d.y.sum()) - n_coarse, "n_presence_coarse": n_coarse,
               "n_bg_random": int((d.group == "bg_random").sum()),
               "n_bg_fungi": int((d.group == "bg_fungi").sum()), "n_features": len(cols), "results": {}}
 
-    for name, fn in RULES.items():
+    for name, fn in RULES_C.items():
         s = fn(d).astype(float).values + 1e-3 * np.random.default_rng(0).random(len(d))   # tiny jitter breaks ties
         report["results"][name] = summarize(s, d)
         log(name, report["results"][name])
@@ -373,7 +440,11 @@ def main():
     def best_of(model, grid):
         best = None
         for cfg in grid:
-            s = run_cv(d, cols, folds, cfg, model=model, lgb_params=cfg)
+            try:
+                s = run_cv(d, cols, folds, cfg, model=model, lgb_params=cfg)
+            except SkipModel as e:
+                log("skipping", model, "--", e)
+                return None
             met = summarize(s, d)
             log(f"  {model} {cfg} -> prauc_fungi {met['prauc_vs_fungi']} prec_fungi@2 {met['prec_fungi_at_2']} recall@5 {met['recall_at_5']}")
             if best is None or key(met) > key(best[0]):
@@ -443,7 +514,7 @@ def main():
 
     if not a.no_ablation:
         report["ablation"] = {}
-        for g, drop in GROUPS.items():
+        for g, drop in GROUPS_C.items():
             sub = [c for c in cols if c not in drop]
             s = np.mean([run_cv(d, sub, folds, best_cfg, seed=s) for s in range(2)], axis=0)
             report["ablation"]["without_" + g] = summarize(s, d)
@@ -453,6 +524,13 @@ def main():
         s = np.mean([run_cv(d, sub, folds, best_cfg, seed=s) for s in range(2)], axis=0)
         report["ablation"]["with_location"] = summarize(s, d)
         log("ablation with location", report["ablation"]["with_location"])
+        # Sweden's presences are strongly latitudinal, so "the model is a latitude band with
+        # decorations" is a live risk that with_location does not isolate: row and col
+        # together can stand in for a lot more than latitude. One extra column answers it.
+        sub = cols + ["northing"]
+        s = np.mean([run_cv(d, sub, folds, best_cfg, seed=s) for s in range(2)], axis=0)
+        report["ablation"]["with_latitude_only"] = summarize(s, d)
+        log("ablation with latitude only", report["ablation"]["with_latitude_only"])
 
     # final: fold models trained on the full 5-fold splits (each sees 80 %), ensemble at inference
     outdir = os.path.join(ML, "models", a.species); os.makedirs(outdir, exist_ok=True)
@@ -478,29 +556,59 @@ def main():
                           for f in sorted(set(folds))], axis=0)
         ens = lg_ens if a.head == "lgbm" else (ens + lg_ens) / 2
     bgq = np.quantile(ens[(d.group == "bg_random").values], np.linspace(0, 1, 101))
-    json.dump(dict(species=a.species, features=cols, head=a.head, select=a.select,
+    json.dump(dict(species=a.species, country=a.country, features=cols, head=a.head, select=a.select,
                    prep=prep.to_json(), mlp=dict(best_cfg, n_in=len(cols)), lgbm=lgb_cfg,
                    n_members=len(members), bg_random_quantiles=bgq.tolist(),
                    trained=time.strftime("%Y-%m-%d"), dataset=os.path.relpath(path, ML)),
               open(os.path.join(outdir, "model.json"), "w"), indent=1)
     json.dump(report, open(os.path.join(outdir, "report.json"), "w"), indent=1)
-    d[["group", "lat", "lon", "year", "cycle", "score_mlp"]].to_csv(os.path.join(outdir, "oof_scores.csv"), index=False)
-    write_report(report, a.species)
+    oof_cols = [c for c in ["id", "group", "lat", "lon", "year", "cycle", "score_mlp"] if c in d.columns]
+    d[oof_cols].to_csv(os.path.join(outdir, "oof_scores.csv"), index=False)
+    write_report(report, a.species, a.country)
     log("DONE")
 
 
-def write_report(r, species):
+SE_PREAMBLE = [
+    "## Read this before the numbers", "",
+    "**Do not compare PR-AUC or prec@k with the Finnish report.** Both move with prevalence,",
+    "and the two datasets are not comparable on that axis: Sweden has 4046 presences against",
+    "5774 target-group background records, Finland 250 against 2587. AUC, recall@k and Boyce",
+    "are the rows that carry across.", "",
+    "**recall@k_1km is the honest recall.** 5501 Swedish reports sit on 1576 distinct",
+    "kilometre cells, and the busiest 25 km blocks hold a large share of them, so plain",
+    "recall@k partly measures whether the map covers a few thoroughly worked hillsides.",
+    "Counting each kilometre cell once asks what the map is for — how many PLACES it finds.",
+    "", "**The site-fertility block is missing, not proxied well.** Finland's model rests on",
+    "`kasvupaikka`, an 8-step fertility ladder. Sweden's equivalent, `vegetationstyp`, is",
+    "recorded per plot by Riksskogstaxeringen, which withholds the exact plot coordinates, so",
+    "neither the layer nor the data to rebuild it is open. What stands in its place here is",
+    "engineered from soil texture, canopy cover and NMD's three-class productivity. See",
+    "docs/SWEDEN_DATA.md.", "",
+    "**99.4 % of the presences are `Unvalidated` Artportalen records.** Filtering to validated",
+    "identifications leaves 33 of 5501, so no weighting scheme fixes this. The 411 presences",
+    "carrying a finder-written habitat description are the closest thing to a quality check;",
+    "docs/HABITAT_WORDS_SE.md reports on them.", "",
+    "**The structural rasters are the SLU 2010 vintage and the finds are 2015-2026.** Points",
+    "whose cell was felled in between are dropped, from the background as well as the",
+    "presences. Terrain comes from Copernicus GLO-30, a surface model rather than a terrain",
+    "model, which is why Finland's short-range relief feature is absent here.", "",
+]
+
+
+def write_report(r, species, country="fi"):
     L = [f"# Habitat model report — {species}", "",
          f"Rows: {r['n']} (presences {r['n_presence']}, random-forest background {r['n_bg_random']}, "
          f"other-fungi background {r['n_bg_fungi']}); {r['n_features']} features; 5-fold spatial block CV (25 km blocks).", "",
          f"Map head: **{r.get('head', 'mlp')}** (hyper-parameters chosen for "
          f"{'precision in the best 2 %' if r.get('select') == 'sure' else 'overall PR-AUC'}).", "",
+         *(SE_PREAMBLE if country == "se" else []),
          "## Models (pooled out-of-fold)", "",
-         "| Model | AUC vs fungi | PR-AUC vs fungi | recall@2 % | prec@2 % | recall@5 % | prec@5 % | recall@10 % | Boyce |",
+         "| Model | AUC vs fungi | PR-AUC vs fungi | recall@2 % | **recall@2 % per 1 km** | prec@2 % | recall@5 % | prec@5 % | Boyce |",
          "|---|---|---|---|---|---|---|---|---|"]
     for k, m in r["results"].items():
-        L.append(f"| {k} | {m['auc_vs_fungi']} | {m['prauc_vs_fungi']} | {m['recall_at_2']} | {m['prec_fungi_at_2']} "
-                 f"| {m['recall_at_5']} | {m['prec_fungi_at_5']} | {m['recall_at_10']} | {m['boyce']} |")
+        L.append(f"| {k} | {m['auc_vs_fungi']} | {m['prauc_vs_fungi']} | {m['recall_at_2']} "
+                 f"| **{m.get('recall_at_2_1km', '—')}** | {m['prec_fungi_at_2']} "
+                 f"| {m['recall_at_5']} | {m['prec_fungi_at_5']} | {m['boyce']} |")
     L += ["", "recall@k %: share of held-out finds scoring above the top-k % of random forest cells "
           "(i.e. if the map is coloured over k % of forest land). prec@k %: of the fungus-reporting "
           "sites inside that coloured area, the share that are matsutake finds — what a visit to a "

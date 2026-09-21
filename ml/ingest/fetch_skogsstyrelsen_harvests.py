@@ -69,6 +69,24 @@ def download(name):
     return gpkg
 
 
+def felling_year(raw):
+    """A felling date -> year-2000 as a uint8, or 0 when it cannot be read.
+
+    Fiona hands these back as a date, a datetime or an ISO-ish string depending on how the
+    geopackage column is typed, so all three are accepted. Anything outside 2000-2255 is
+    treated as unknown rather than wrapped into a plausible-looking wrong year.
+    """
+    if raw is None:
+        return 0
+    year = getattr(raw, "year", None)
+    if year is None:
+        text = str(raw).strip()[:4]
+        if not text.isdigit():
+            return 0
+        year = int(text)
+    return year - 2000 if 2000 <= year <= 2255 else 0
+
+
 def rasterize_layer(gpkg, layer, field_candidates, match_value, date_field, value, out_name):
     import fiona, rasterio, shapely
     from rasterio.features import rasterize as rio_rasterize
@@ -88,9 +106,14 @@ def rasterize_layer(gpkg, layer, field_candidates, match_value, date_field, valu
         if field is None:
             raise RuntimeError(f"none of {field_candidates} found in {layer}; has: {sorted(props)}. "
                                "Update the field candidates in fetch_skogsstyrelsen_harvests.py.")
-        log("using field", field, "on", layer, "(", len(props), "columns total )")
-        geoms = []
+        if date_field not in props:
+            raise RuntimeError(f"date field {date_field!r} not in {layer}; has: {sorted(props)}. "
+                               "The felling year is not optional -- see the note in main().")
+        log("using field", field, "date", date_field, "on", layer,
+            "(", len(props), "columns total )")
+        geoms, years, total = [], [], 0
         for feat in src:
+            total += 1
             p = feat["properties"]
             if p.get(field) != match_value:
                 continue
@@ -98,7 +121,8 @@ def rasterize_layer(gpkg, layer, field_candidates, match_value, date_field, valu
             if g is None:
                 continue
             geoms.append(shapely.geometry.shape(g))
-    log(layer, "kept", len(geoms), "of", "?", "features")
+            years.append(felling_year(p.get(date_field)))
+    log(layer, "kept", len(geoms), "of", total, "features")
     if not geoms:
         raise RuntimeError(f"no features matched {field}={match_value!r} in {layer} -- check the value")
 
@@ -107,17 +131,29 @@ def rasterize_layer(gpkg, layer, field_candidates, match_value, date_field, valu
     os.makedirs(RASTERS, exist_ok=True)
     out = os.path.join(RASTERS, out_name)
     with env():
-        with rasterio.open(out, "w", **grid.profile("uint8", nodata=0)) as dst:
+        with rasterio.open(out, "w", **grid.profile("uint8", nodata=0, count=2)) as dst:
             for k, w in enumerate(grid.blocks(4096)):
                 x0, y0 = grid.transform * (w.col_off, w.row_off + w.height)
                 x1, y1 = grid.transform * (w.col_off + w.width, w.row_off)
                 hits = tree.query(shapely.box(x0, y0, x1, y1))
                 if len(hits) == 0:
                     continue
-                shapes = [(geoms[i], value) for i in hits]
-                arr = rio_rasterize(shapes, out_shape=(w.height, w.width),
-                                    transform=win_transform(w, grid.transform), fill=0, dtype="uint8")
+                shape = (w.height, w.width)
+                tf = win_transform(w, grid.transform)
+                arr = rio_rasterize([(geoms[i], value) for i in hits], out_shape=shape,
+                                    transform=tf, fill=0, dtype="uint8")
                 dst.write(arr, 1, window=w)
+                # Band 2 is the felling year as year-2000, 0 where unknown. Finland's cut
+                # layer is undated, so observation_status.py can only ever say "cut, at some
+                # point"; Skogsstyrelsen dates every record, which lets the Swedish rule be
+                # the stronger "cut AFTER this find was made". Later fellings are burned last
+                # so an overlapping pair leaves the most recent year standing.
+                order = sorted(hits, key=lambda i: years[i] or 0)
+                yr = rio_rasterize([(geoms[i], years[i]) for i in order if years[i]],
+                                   out_shape=shape, transform=tf, fill=0, dtype="uint8") \
+                    if any(years[i] for i in hits) else None
+                if yr is not None:
+                    dst.write(yr, 2, window=w)
                 if k % 20 == 0: log(out_name, "block", k)
     log("raster written", out)
 

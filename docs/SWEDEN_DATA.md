@@ -113,17 +113,164 @@ document is both the audit and the record of what was verified while building it
   Skogsstyrelsen-branded live-tile WMS does), unlike what Skogsstyrelsen's own documentation pages
   suggest at first read.
 
+## Corrections, after building the pipeline
+
+Three conclusions in the sections above turned out to be wrong once the data was actually
+read rather than inspected. They are left in place so the reasoning is visible, and corrected
+here.
+
+### The 2015 "leaf" set covers only about 73 % of Sweden
+
+`GridSE` was derived from `VolTot_leaf.tif`, which is 52400 × 97400 at 12.5 m from
+(267500, 7350000). Its top northing is 7 350 000 — roughly 66.3 °N on the central meridian,
+and lower further east, because SLU clipped it to the laser coverage of the day. The ESRI
+sidecar names `SLU_Skogskarta_clipMaskNOGotland.shp`, so Gotland is cut out too.
+
+Reprojecting all 5501 observations onto it: **1508 of them, 27.4 %, fall outside** — 939 fine
+presences in Lule lappmark, 271 in Torne lappmark, 216 in Norrbotten. That is the densest
+matsutake ground in the country. The analysis grid is now the 2018 footprint, which covers
+Sweden to 7 672 500 (≈69.2 °N), and the 2015 raster tiles into it exactly at
+`Window(200, 25800, 52400, 97400)`. `ml/ingest/check_grid_se.py` asserts both, and reports
+0 of 5501 outside the new grid.
+
+### The 2010 RT90 vintage is a full national structural set, not just an age raster
+
+The audit recorded 2010 as "the only vintage with an age raster". It also carries TOTALVOL,
+PINEVOL, SPRUCEVOL, **BIRCHVOL**, DECIDUOUSVOL, CONTORTAVOL, HEIGHT, BIOMASS, OAKVOL and
+BEECHVOL — 27360 × 60101 at 25 m, tiled 128×128, covering the whole country to 7 636 500.
+It is the feature spine now. It costs resolution and fifteen years of currency, but it has
+data where the finer set has none, and it gives birch volume separately, which the 2015 set
+cannot.
+
+The 2018 "andel" set is nationally complete but **unusable**: strip-compressed at 52 600 px
+per strip, 3.5 GB per file, 24 GB for the seven, and one point read costs about a megabyte.
+Only its geometry is used.
+
+### Sweden does have a canopy-cover layer, and a main-class layer
+
+"No direct site-fertility-class layer" is right. "No canopy-cover layer either" is not.
+Naturvårdsverket's **Nationella Marktäckedata 2023** publishes, CC0, at 10 m, in SWEREF99 TM,
+over plain HTTPS with no account:
+
+| product | what it is | fills |
+|---|---|---|
+| `objekttackning`, 5–45 m band | canopy coverage in **percent**, binned 5/10/20/…/100 (11 values, read out of the product's own `.vat.dbf`) | `latvuspeitto` |
+| `objekttackning`, 0.5–5 m band | understory coverage, same units | **no Finnish equivalent** |
+| `basskikt` | 53 classes coding main type *and* dominant species: 111–118 forest on fastmark, 121–128 on vatmark, 200–224 open mire graded mager/frodig | `paatyyppi` — 121 tallskog på våtmark is räme, 122 granskog på våtmark is korpi |
+| `produktivitet` | **three** classes: ej skogsmark / produktiv / improduktiv | a land class, *not* a fertility ladder |
+
+`basskikt` 118 "temporärt ej skog på fastmark" is a free 2023 clear-cut signal that owes
+nothing to Skogsstyrelsen.
+
+`ml/ingest/fetch_nmd.py` reads each archive's ZIP64 central directory over a range request
+and inflates only the members it needs (3.1 GB instead of 7.5 GB), then compacts each raster
+onto the analysis grid as deflated uint8 — `basskikt` goes from 10.85 GB to 749 MB.
+
+### How Sweden actually classifies site fertility, and why we still cannot have it
+
+Swedish forestry uses *ståndortsbonitering* (Hägglund & Lundmark, 1981). It has no single
+fertility class; it derives **ståndortsindex** from site factors a forester records on the
+ground: climate, **markfuktighet** (torr/frisk/frisk-fuktig/fuktig/blöt), rörligt markvatten,
+**jordart and textur**, jorddjup, **vegetationstyp**, lutning, ytstruktur.
+
+**`vegetationstyp` is the true `kasvupaikka` analogue** — an ordered nutrient ladder used by
+Riksskogstaxeringen: *lavtyp → lavrik typ → fattigristyp → kråkbär-ljungtyp → lingontyp →
+blåbärstyp → smalbladig grästyp → bredbladig grästyp → lågörttyp → högörttyp*. Its dry,
+lichen-rich bottom is exactly matsutake ground, and exactly what the Swedish observers write
+in their own habitat notes ("lavtallskog", "tallhed").
+
+It is not obtainable, and the reason is structural rather than an oversight:
+Riksskogstaxeringen records vegetationstyp on ~12 000 plots a year and publishes the
+temporary-plot data openly, **but withholds the exact plot coordinates for privacy**,
+releasing them only under a signed confidentiality agreement. So neither the layer nor the
+training data to reproduce it is open. Ståndortsindex is likewise not published as a national
+raster. The fertility axis in `features_se.py` is therefore engineered from soil texture,
+canopy cover and the mire grading, and the model report should not imply parity with Finland
+on this point. If it turns out to cost real skill, the route is a data request to SLU, not
+more engineering.
+
+The best soil-moisture layer, **SLU Markfuktighetskarta** (2 m, CC0), is open but *not
+reachable from this container*: it is served over `ftps://ftpsks.skogsstyrelsen.se` and via
+an ArcGIS ImageServer that returned a sign-in page to an anonymous request. NMD's 10 m
+markfuktighetsindex is the substitute. Worth revisiting — 2 m soil moisture would be the best
+site-type layer available in either country.
+
+### What the finds themselves say about parent material
+
+Sampling the coarse SGU `grundlager` at the 4795 finds located to ≤25 m, against the same
+raster's national land distribution:
+
+| parent material | of finds | of land | ratio |
+|---|---:|---:|---:|
+| **Isälvssediment** (glaciofluvial) | 47.1 % | 6.8 % | **7.0×** |
+| Postglacial sand–grus | 9.6 % | 3.6 % | 2.7× |
+| Morän (till) | 29.9 % | 52.5 % | 0.6× |
+| Berg (bedrock) | 8.9 % | 16.8 % | 0.5× |
+| Torv (peat) | 3.1 % | 8.5 % | 0.4× |
+
+Nearly half of Swedish matsutake sits on esker and glaciofluvial material covering under
+7 % of the country. That is the "hiekkainen/harjumaaperä" factor README.md names as the most
+important one still missing from the Finnish model, measured on 4795 points.
+
+NMD produktivitet at the same points: 86.2 % on produktiv skogsmark against a 39.3 % national
+baseline, and improduktiv enriched 1.5× — the hällmark and lavhed the observers describe.
+
+## The pilot raster
+
+`ml/export/predict.py --species matsutake_se --block 1024 --workers 3 --bbox 650000 7050000
+800000 7200000` — 150 × 150 km of inland Västerbotten and Lule lappmark, the densest
+matsutake ground in Sweden, chosen by sliding a 150 km window over the 5215 finely located
+finds. 149 blocks at 14.1 s each, about 35 minutes on four cores.
+
+| | |
+|---|---|
+| cells scored | 100.9 M of 144 M (70 %; the rest is not forestry land in the SLU 2010 model) |
+| score across the box | median 31, p90 70, p98 87 |
+| known finds inside | 1396, of which 1250 on scored ground |
+| their scores | median **88**, quartiles 77–93 |
+| top 1 % of scored land | holds 40 % of the finds |
+| **top 2 %** | **56 %** |
+| top 5 % | 72 % |
+| top 10 % | 86 % |
+
+**These are in-sample numbers and are not the model's score.** Those finds trained the
+model; the honest figures are the out-of-fold ones in
+[docs/MODEL_REPORT_matsutake_se.md](MODEL_REPORT_matsutake_se.md), where the top 2 % holds
+47 % of held-out finds and 40 % of held-out kilometre cells. What the pilot establishes is
+that the pipeline runs end to end at national resolution and that the raster behaves the way
+the cross-validation said it would.
+
+The 146 finds that land on unscored cells are the honest cost of using the SLU 2010 model as
+the forestry-land mask: a find on a roadside, a cabin plot or a cell the k-NN model left
+blank has no features to score.
+
+**Full-country cost**, from this measured rate: 6.48e9 cells is 6172 blocks at 1024, so
+roughly 24 hours on four cores — restartable through `<out>.progress`. The output would be
+1.5–2.5 GB compressed, which `export_app.py` would need to split into more than Finland's
+nine parts to stay under GitHub's 100 MB file limit.
+
+Drawing it in the app is a separate piece of work and is not done: `js/geo.js` hard-codes
+the TM35FIN projection parameters that `problayer.js`, `rasterread.js` and `hillshade.js`
+all use to sample a raster at a point. SWEREF99 TM is the same transverse-Mercator family
+with a different central meridian, so that is a parameterisation rather than a rewrite — but
+it is a change to every raster-reading path in the frontend, and the observation layer needed
+none of it because it plots plain lat/lon markers.
+
 ## Next steps
 
-1. `ytlager` and `oversta_ytlager` are rasterized and ready to use (`ml/data/sgu_classes.json` has
-   all three layers now). `grundlager` at fine scale still needs `fetch_sgu.py`'s rasterizer sped
-   up or tiled by county before a full run is practical — 2.96 M polygons is too many for the
-   current per-block STRtree approach (the 45k-polygon coarse run alone took >10 minutes).
-2. Register a Lantmäteriet open-data account for the elevation grid.
-3. Run `download_slu_forestmap.sh` and the full `fetch_smhi_climate.py` country pass.
-4. Build `ml/core/features_se.py` alongside `features.py`, and a `dataset_se.csv` builder — treat
-   Sweden as a second, parallel model rather than pooling training rows with Finland's, since the
-   feature sets aren't the same shape yet (proxy canopy cover, no native site class, a stale
-   reprojected age layer).
-5. Decide how to handle `verification_status` in training — at minimum, check whether restricting
-   to validated-only records changes anything before trusting the full 5501.
+Items 1, 3 and 4 are done; see the corrections above.
+
+1. Fine-scale `grundlager` (2.96 M polygons) is still impractical for `fetch_sgu.py`'s
+   per-block STRtree rasterizer. The coarse 1:1 M layer is the parent-material stand-in.
+   `ml/experiments/habitat_words_se.py` is what decides whether fixing it is worth it: if the
+   `hällmark` label is not predictable from `soil_rock` and `rock_frac160`, the 1:1 M layer is
+   too coarse for outcrops and that is the concrete justification.
+2. Register a Lantmäteriet open-data account for the 1 m elevation grid. Until then the terrain
+   block is Copernicus GLO-30, which is a **surface** model — see the DSM note in
+   `features_se.py` for why the short-range relief feature Finland has is dropped here.
+3. Chase SLU Markfuktighetskarta (2 m) through a route that is not FTPS.
+4. `verification_status`: 5395 of 5501 records are `Unvalidated` and filtering to validated
+   leaves 33, so it is carried as a meta column with a `--unvalidated-weight` sensitivity run
+   rather than used as a filter. No weighting scheme fixes a 99.4 % unvalidated corpus; the
+   639 records that carry a human-written habitat description are the closest thing to a
+   quality check, and `habitat_words_se.py` reports on them.

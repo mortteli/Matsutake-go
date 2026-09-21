@@ -64,13 +64,22 @@ def log(*a):
     print(time.strftime("%H:%M:%S"), *a, flush=True)
 
 
+def gpkg_path(coarse):
+    """One file per product. The two used to share a name, which meant that after a coarse
+    run the fine download was skipped as "already downloaded" and the fine layers were then
+    rasterized out of the 1:1M geopackage -- silently, since grundlager carries the same
+    jg2/jg2_tx fields at both scales. The pipeline needs both products (coarse grundlager for
+    parent material, fine ytlager for surface texture), so they cannot share a path."""
+    return os.path.join(RAW, f"sgu_jordarter_{'coarse' if coarse else 'fine'}.gpkg")
+
+
 def download(coarse):
     os.makedirs(RAW, exist_ok=True)
     url = URLS["coarse"] if coarse else URLS["fine"]
     zpath = os.path.join(RAW, os.path.basename(url))
-    gpkg = os.path.join(RAW, "sgu_jordarter.gpkg")
+    gpkg = gpkg_path(coarse)
     if os.path.exists(gpkg):
-        log("already downloaded"); return gpkg
+        log("already downloaded", os.path.basename(gpkg)); return gpkg
     import subprocess
     subprocess.run(["curl", "-sS", "-C", "-", "--retry", "5", "--retry-delay", "3",
                     "--max-time", "7200", "-o", zpath, url], check=True)
@@ -85,7 +94,7 @@ def download(coarse):
     return gpkg
 
 
-def rasterize(layer):
+def rasterize(layer, coarse):
     import fiona, rasterio, shapely
     from rasterio.features import rasterize as rio_rasterize
     from rasterio.windows import transform as win_transform
@@ -94,7 +103,7 @@ def rasterize(layer):
     from grid_se import GridSE, env
 
     code_f, name_f = LAYERS[layer]
-    gpkg = os.path.join(RAW, "sgu_jordarter.gpkg")
+    gpkg = gpkg_path(coarse)
     with fiona.open(gpkg, layer=layer) as src:
         props = src.schema["properties"]
         if code_f not in props:
@@ -116,14 +125,14 @@ def rasterize(layer):
     index = {c: i + 1 for i, c in enumerate(uniq)}          # 0 = no polygon
     classes_path = os.path.join(ML, "data", "sgu_classes.json")
     allc = json.load(open(classes_path)) if os.path.exists(classes_path) else {}
-    allc[layer] = {str(i): {"code": c, "name": names.get(c)} for c, i in index.items()}
+    allc[f"{layer}_{'1m' if coarse else '25k'}"] = {str(i): {"code": c, "name": names.get(c)} for c, i in index.items()}
     json.dump(allc, open(classes_path, "w"), ensure_ascii=False, indent=1)
-    log("wrote", classes_path, len(index), "classes for", layer)
+    log("wrote", classes_path, len(index), "classes for", layer, "1m" if coarse else "25k")
 
     tree = STRtree(geoms)
     grid = GridSE()
     os.makedirs(RASTERS, exist_ok=True)
-    out = os.path.join(RASTERS, f"sgu_{layer}_12m5.tif")
+    out = os.path.join(RASTERS, f"sgu_{layer}_{'1m' if coarse else '25k'}_12m5.tif")
     with env():
         with rasterio.open(out, "w", **grid.profile("uint8", nodata=0)) as dst:
             for k, w in enumerate(grid.blocks(4096)):
@@ -148,6 +157,9 @@ if __name__ == "__main__":
     # so the layer names are validated by hand below instead.
     ap.add_argument("layers", nargs="*", help="defaults to grundlager (--coarse) or ytlager (fine)")
     ap.add_argument("--coarse", action="store_true", help="1:1 000 000 overview instead of 1:25k-100k")
+    ap.add_argument("--keep-gpkg", action="store_true",
+                    help="keep the extracted geopackage; by default the fine one (8.7 GB) is "
+                         "deleted once rasterized, because the Swedish pipeline runs on a 29 GB disk")
     a = ap.parse_args()
     layers = a.layers or (["grundlager"] if a.coarse else ["ytlager"])
     if bad := set(layers) - set(LAYERS):
@@ -158,5 +170,10 @@ if __name__ == "__main__":
         download(a.coarse)
     if a.mode in ("rasterize", "all"):
         for layer in layers:
-            rasterize(layer)
+            rasterize(layer, a.coarse)
+        if a.mode == "all" and not a.keep_gpkg and not a.coarse:
+            g = gpkg_path(a.coarse)
+            if os.path.exists(g):
+                log("removing", os.path.basename(g), f"({os.path.getsize(g) / 2**30:.1f} GB)")
+                os.remove(g)
     log("DONE")

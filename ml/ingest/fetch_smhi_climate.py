@@ -27,16 +27,31 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ML = os.path.dirname(HERE)
 OUT = os.path.join(ML, "data", "climate_se")
 API = "https://opendata-download-metanalys.smhi.se/api/category/pthbv1g/version/1/geotype/multipoint"
-CELL_M = 4000
-BATCH = 50            # points per request; unverified upper bound, kept conservative
+# 10 km, matching the FMI grid climate.py samples for Finland. The earlier 4 km lattice was
+# PTHBV's own resolution, but it puts 63525 points over the national bounding box, and at the
+# throughput measured below that is a six-hour run to resolve two fields that vary smoothly
+# over tens of kilometres. features_se.py resamples bilinearly at extraction time either way.
+CELL_M = 10000
+# 100 verified live: one request returned 100 point_values x 360 monthly dates. The previous
+# value of 50 was a guess, and the comment said so. Batch size is not what the server objects
+# to -- see get_json's note on 503s.
+BATCH = 100
 YEARS = (1991, 2020)  # normal period, matching climate.py's FMI window
 
 
-def get_json(url, tries=5):
+def get_json(url, tries=8):
+    """GET with retries.
+
+    The API answers 503 "Backend fetch failed" in well under a second, intermittently, for
+    requests it will serve perfectly on the next attempt -- measured here: 10 points failed,
+    30 failed, 50 failed once then succeeded, 100 succeeded. So a 503 is a transient gateway
+    state and not a statement about the request, and the only wrong response to it is to give
+    up. A successful request takes 3-40 s, so the backoff is generous rather than tight.
+    """
     req = urllib.request.Request(url, headers={"Accept-Encoding": "gzip"})
     for i in range(tries):
         try:
-            time.sleep(0.3)
+            time.sleep(0.5)
             with urllib.request.urlopen(req, timeout=120) as r:
                 import gzip
                 raw = r.read()
@@ -44,7 +59,7 @@ def get_json(url, tries=5):
                     raw = gzip.decompress(raw)
                 return json.loads(raw)
         except Exception as e:
-            print("retry", i, e, file=sys.stderr); time.sleep(4 * (i + 1))
+            print("retry", i, e, file=sys.stderr); time.sleep(min(5 * (i + 1), 30))
     raise RuntimeError(url[:150])
 
 
@@ -59,8 +74,39 @@ def lattice_points():
     xs = range(int(g.bounds.left), int(g.bounds.right), CELL_M)
     ys = range(int(g.bounds.bottom), int(g.bounds.top), CELL_M)
     pts = [(x + CELL_M / 2, y + CELL_M / 2) for y in ys for x in xs]
+    pts = [p for p in pts if on_land(p)]
     lons, lats = tr.transform([p[0] for p in pts], [p[1] for p in pts])
     return pts, list(zip(lons, lats))
+
+
+_LAND = {}
+
+
+def on_land(xy):
+    """Drop lattice points over sea, Norway and Finland before spending a request on them.
+
+    The analysis grid is a rectangle around Sweden, so well over half of a lattice laid on it
+    is water or another country, and PTHBV answers null for all of it. The SGU 1:1M parent
+    material raster is already on disk and is mapped for Swedish land only, so a nonzero value
+    that is not "Vatten" is a cheap and exact land test. If that raster has not been built yet
+    the filter is skipped rather than guessed at.
+    """
+    if "ds" not in _LAND:
+        import rasterio
+        path = os.path.join(ML, "data", "rasters_se", "sgu_grundlager_1m_12m5.tif")
+        _LAND["ds"] = rasterio.open(path) if os.path.exists(path) else None
+        if _LAND["ds"] is None:
+            print("no SGU raster yet -- keeping every lattice point", file=sys.stderr)
+        else:
+            import json
+            cls = json.load(open(os.path.join(ML, "data", "sgu_classes.json")))["grundlager_1m"]
+            _LAND["water"] = {int(i) for i, r in cls.items()
+                              if (r["name"] or "").lower() in ("vatten", "glaciär")}
+    ds = _LAND["ds"]
+    if ds is None:
+        return True
+    v = next(ds.sample([xy]))[0]
+    return v != 0 and int(v) not in _LAND["water"]
 
 
 def fetch_batch(lonlat_batch):
