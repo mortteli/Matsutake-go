@@ -406,6 +406,14 @@ Havainnot ovat kartalla samassa 🍄-tasossa suomalaisten kanssa ja **samalla lu
 ja metsän tilan (`ennallaan` / `epävarma` / `muuttunut` / `ulkopuolella` / `ei_tietoa`) samoista
 tunnisteista molemmille maille. Jokainen tietue kantaa `country`-kentän.
 
+Myös **mallikartta piirtyy** samalla *Näytä malli* -kytkimellä: Ruotsista kartalla on
+150 × 150 km:n pilottialue Västerbottenissa omalla mallillaan (12,5 m, SWEREF99 TM), Suomen
+16 metrin rasterin rinnalla. `js/geo.js` rakentaa poikittaisen Mercatorin parametreistaan,
+eikä enää naulaa TM35FIN:iä kiinni — SWEREF99 TM on sama projektio samalla GRS80-pallonmuodolla,
+vain keskimeridiaani on eri (15° vastaan 27°). Kumpikin alue kantaa omat kvantiilinsa, joten
+liukusäätimen "parhaat 2 %" tarkoittaa Suomessa Suomen metsämaan parhainta kahta prosenttia ja
+Ruotsissa Ruotsin. Yksityiskohdat: [docs/SWEDEN_DATA.md](docs/SWEDEN_DATA.md).
+
 | Ruotsin 5 501 havaintoa | |
 |---|---|
 | tarkka / summittainen / alueellinen / tuntematon | 5 215 / 176 / 98 / 12 |

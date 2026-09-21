@@ -1,15 +1,38 @@
 import { CUT_GREY } from "./constants.js";
-import { tm35Row } from "./geo.js";
+import { projectionFor } from "./geo.js";
 import { map, spots } from "./maplayer.js";
 import { save, sp, state } from "./state.js";
 import { toast } from "./ui.js";
 
 /* ================= probability layer =================
-   A GeoTIFF (EPSG:3067, 16 m, value 0–100 = P × 100, 255 = no data) produced by ml/predict.py
-   and read straight from the static site with HTTP range requests (georaster). The slider
-   picks "the best X % of forest land": the threshold comes from the score quantiles of
-   random forest cells that ml/train.py stores in prob_meta.json. */
-export const prob = { meta: null, metaFor: null, rasters: [], cut: [], layers: [], loading: null };
+   A GeoTIFF (value 0–100 = P × 100, 255 = no data) produced by ml/export/predict.py and read
+   straight from the static site with HTTP range requests (georaster). The slider picks "the best
+   X % of forest land": the threshold comes from the score quantiles of random forest cells that
+   ml/export/export_app.py stores in prob_meta.json.
+
+   A species' model is not one raster but a list of *regions*, because a model is trained per
+   country on that country's forest inventory: Finland at 16 m in EPSG:3067 from Luke's MVMI,
+   Sweden at 12.5 m in EPSG:3006 from SLU's forest map. A region is one prob_meta.json and
+   everything it describes — its own projection, its own nodata, its own floor and its own
+   quantile table — so the two never have to agree on anything except the meaning of the slider,
+   which is "the best X % of forestry land" in each. Nothing above this layer branches per
+   country: `species.model` is a URL or a list of them, and each file says what it is.
+
+   The one number that is genuinely shared is the slider position. Each region turns it into its
+   own threshold through its own quantiles, so "best 2 %" is the best 2 % of Finnish forest land
+   in Finland and of Swedish forest land in Sweden — which is what a picker means by it on either
+   side of the border. */
+export const prob = { meta: null, metaFor: null, builtFor: null, regions: [],
+                      rasters: [], cut: [], layers: [], loading: null };
+
+// The flat views the rest of the app reads: every region's rasters, cut bands and layers in one
+// list each. Kept in step with the regions by hand rather than computed on access, because
+// ui.js's opacity loop and hideProb() run on every frame of a drag.
+function reindex() {
+  prob.rasters = prob.regions.flatMap(r => r.rasters);
+  prob.cut = prob.regions.flatMap(r => r.cut);
+  prob.layers = prob.regions.flatMap(r => r.layers);
+}
 
 export function loadScript(src) {
   return new Promise((res, rej) => {
@@ -25,22 +48,63 @@ export function ensureGeoraster() {
       .then(() => loadScript("vendor/georaster/georaster-layer-for-leaflet.min.js"));
   return prob.loading;
 }
+// A species' model is one metadata URL or several; the first is the primary, the one the panel
+// text and the slider's stop list are read from.
+export const modelUrls = s => !s.model ? [] : Array.isArray(s.model) ? s.model : [s.model];
+
+async function fetchMeta(url) {
+  const r = await fetch(url, { cache: "no-cache" });
+  if (!r.ok) throw new Error("meta");
+  return r.json();
+}
+/* Load every region's metadata and pair each with the projection its CRS names.
+   Two failures are handled differently on purpose. The primary region failing is the model
+   failing, and propagates. An additional region failing — missing file, or a CRS this build has
+   no projection for — drops that region and leaves the rest of the map working: a Swedish pilot
+   that will not load must not take the Finnish map down with it. A region is never drawn on a
+   guess: an unknown CRS means "not drawn", because drawing it in the wrong place is worse than
+   not drawing it. */
 export async function loadProbMeta(species) {
   if (!species.model) return null;
   if (prob.metaFor === species.key) return prob.meta;
-  const r = await fetch(species.model, { cache: "no-cache" });
-  if (!r.ok) throw new Error("meta");
-  prob.meta = await r.json(); prob.metaFor = species.key;
+  const urls = modelUrls(species);
+  const metas = [await fetchMeta(urls[0])].concat(
+    await Promise.all(urls.slice(1).map(u => fetchMeta(u).catch(e => {
+      console.warn("model region", u, e); return null;
+    }))));
+  // the regions being replaced belong to the species being left; take their layers off the map
+  // before the list that holds them is thrown away
+  prob.layers.forEach(l => map.removeLayer(l));
+  prob.regions = [];
+  metas.forEach((m, i) => {
+    if (!m) return;
+    const proj = projectionFor(m.crs);
+    if (!proj) { console.warn("model region", urls[i], "has no projection for", m.crs); return; }
+    prob.regions.push({ meta: m, proj, rasters: [], cut: [], layers: [] });
+  });
+  prob.meta = prob.regions[0].meta; prob.metaFor = species.key; prob.builtFor = null;
+  reindex();
   return prob.meta;
 }
-// value (0–100) -> share of forest cells scoring below it, from the stored quantiles
-export function probRank(v) {
-  const q = prob.meta.quantiles;
+// Is this the region the app's Finnish readouts — Luke's themes, Metsäkeskus, the baked DEM —
+// are about? Identity, not a country code: the regions hold their own metadata objects.
+export const isPrimaryRegion = meta => !!prob.regions.length && meta === prob.regions[0].meta;
+
+// value (0–100) -> share of that region's forest cells scoring below it, from its stored quantiles
+export function probRank(v, meta) {
+  const q = (meta || prob.meta).quantiles;
   let lo = 0, hi = q.length - 1;
   while (lo < hi) { const m = (lo + hi) >> 1; if (q[m] < v) lo = m + 1; else hi = m; }
   return lo / (q.length - 1);
 }
-export function probMaxPct() { return (prob.meta && prob.meta.max_pct) || 25; }
+/* The widest share of forest land the slider may offer: the *narrowest* of the regions, so the
+   legend's "parhaat X %" is true wherever the layer draws. A region whose raster stops at the
+   best 15 % cannot honour a 25 % setting — it would keep painting its own best 15 % under a
+   label promising more — and the smallest common ceiling is the only number that avoids that. */
+export function probMaxPct() {
+  const v = prob.regions.map(r => r.meta.max_pct).filter(x => typeof x === "number");
+  return v.length ? Math.min(...v) : (prob.meta && prob.meta.max_pct) || 25;
+}
 /* The slider stops, not a plain 1–25 range: the whole point of the model layer is the very top of
    it, and the difference between "best 2 %" and "best 0,5 %" is the difference between a day of
    walking and one hillside. The stored raster is quantised finely enough to resolve these. */
@@ -53,14 +117,15 @@ export function probStopIndex(pct) {
   st.forEach((v, i) => { if (Math.abs(v - pct) < Math.abs(st[best] - pct)) best = i; });
   return best;
 }
-export function probThreshold() {
+export function probThreshold(meta) {
+  const m = meta || prob.meta;
   // interpolated, because the stops go below the spacing of the stored quantile grid
-  const q = prob.meta.quantiles;
+  const q = m.quantiles;
   const pos = Math.min(q.length - 1, Math.max(0, (1 - state.prob.pct / 100) * (q.length - 1)));
   const i = Math.floor(pos), f = pos - i;
   const thr = i >= q.length - 1 ? q[q.length - 1] : q[i] + (q[i + 1] - q[i]) * f;
   // cells below the stored floor are kept as 0 ("not in the mapped range"), never as a score
-  return Math.max(thr, (prob.meta.floor || 0));
+  return Math.max(thr, (m.floor || 0));
 }
 /* The model score, corrected for forest that has been cut since the inventory. When the baked
    cut layer is loaded it rides along as a second band (values[1]), so one pixel carries both
@@ -74,14 +139,15 @@ export function probThreshold() {
 
    With `hideCut` off, or where no cut layer is published, values[1] is undefined and this
    behaves exactly as it did before. */
-export function probColorFn() {
-  const thr = probThreshold(), pct = state.prob.pct / 100, nod = prob.meta.nodata;
+export function probColorFn(meta) {
+  const m = meta || prob.meta;
+  const thr = probThreshold(m), pct = state.prob.pct / 100, nod = m.nodata;
   const useCut = state.hideCut;
   return values => {
     const v = values[0], cut = values.length > 1 ? values[1] : 0;
     if (v == null || v === nod || v < thr) return null;
     if (useCut && cut === 2) return CUT_GREY;
-    const t = Math.min(1, Math.max(0, (probRank(v) - (1 - pct)) / pct));   // 0 at threshold … 1 at the very best
+    const t = Math.min(1, Math.max(0, (probRank(v, m) - (1 - pct)) / pct));   // 0 at threshold … 1 at the very best
     const r = Math.round(255), g = Math.round(209 - 164 * t), b = Math.round(102 + 18 * t);
     if (useCut && cut === 1)
       return "rgba(" + r + "," + Math.round(g + (235 - g) * 0.45) + "," +
@@ -89,9 +155,9 @@ export function probColorFn() {
     return "rgba(" + r + "," + g + "," + b + ",0.85)";
   };
 }
-/* Every part of the baked model raster is a rectangle in ETRS-TM35FIN, and a TM35 rectangle is a
-   trapezoid in lat/lon: at the western edge of the country grid north tilts nearly 4° off true
-   north, so the part's corners do not line up along meridians. georaster-layer-for-leaflet builds
+/* Every part of the baked model raster is a rectangle in its own national grid, and such a
+   rectangle is a trapezoid in lat/lon: at the western edge of the Finnish grid north tilts nearly
+   4° off true north, so the part's corners do not line up along meridians. georaster-layer-for-leaflet builds
    the layer's lat/lon box from the SW and NE corners alone, which is the box *inscribed* in that
    trapezoid — it throws away the eastern wedge of every western part and the northern wedge of
    every eastern one, both from the tile grid (options.bounds) and from the drawing itself
@@ -101,19 +167,24 @@ export function probColorFn() {
    Measure the box along the part's edges instead of across its corners and hand it back. The
    sample-to-pixel mapping does not go through these numbers — it inverse-projects each sample and
    divides by the raster's own origin and pixel size — so widening them only lifts the clip, and
-   a neighbouring part still draws nothing where it has no data. */
+   a neighbouring part still draws nothing where it has no data.
+
+   Measured with the layer's own projection rather than georaster-layer-for-leaflet's proj4
+   projector, which is what the samples are taken with a few lines below: one description of where
+   a part is, not two that could disagree, and no dependence on whether the bundled proj4 happens
+   to carry a definition for the country's EPSG code. */
 export function widenToProjection(layer, gr) {
-  const proj = layer.getProjector && layer.getProjector();
-  if (!proj) return;                       // lat/lon or Web Mercator raster: no trapezoid, no clip
+  const proj = layer._proj;
+  if (!proj) return;                       // no projection: leave the library's own bounds alone
   let w = 180, e = -180, s = 90, n = -90;
   const STEPS = 64;
   for (let i = 0; i <= STEPS; i++) {
     const x = gr.xmin + (gr.xmax - gr.xmin) * i / STEPS;
     const y = gr.ymin + (gr.ymax - gr.ymin) * i / STEPS;
     [[x, gr.ymin], [x, gr.ymax], [gr.xmin, y], [gr.xmax, y]].forEach(pt => {
-      const ll = proj.forward({ x: pt[0], y: pt[1] });
-      w = Math.min(w, ll.x); e = Math.max(e, ll.x);
-      s = Math.min(s, ll.y); n = Math.max(n, ll.y);
+      const ll = proj.inverse(pt[0], pt[1]);
+      w = Math.min(w, ll[1]); e = Math.max(e, ll[1]);
+      s = Math.min(s, ll[0]); n = Math.max(n, ll[0]);
     });
   }
   const b = L.latLngBounds([s, w], [n, e]);
@@ -135,9 +206,12 @@ export function widenToProjection(layer, gr) {
    reset at every seam. Shapes broke along the seams and broke differently at the next zoom
    level. docs/MODEL_LAYER_SEAMS.md has the measurements.
 
-   So the samples are taken here instead. Every sample centre is carried to TM35 with the same
-   toTM35 the tap probe uses, which names the raster pixel actually under it; nothing depends on
-   the tile it happens to fall in, so neighbouring tiles agree by construction. Drawn twice with
+   So the samples are taken here instead. Every sample centre is carried into the raster's own
+   grid with the same projection the tap probe uses, which names the raster pixel actually under
+   it; nothing depends on the tile it happens to fall in, so neighbouring tiles agree by
+   construction. The projection comes off the layer, put there when the region was built, so a
+   Swedish part is sampled through SWEREF99 TM and a Finnish one through TM35FIN with no branch
+   here at all — the two are the same series with a different central meridian (js/geo.js). Drawn twice with
    the seams moved (256 px tiles against 512 px ones), the model layer now comes out the same
    picture — 0 % of pixels differ at z12 against 32 % before. The library's own drawTile then
    paints the grid we hand back, which is what it believes it is painting anyway. */
@@ -179,6 +253,7 @@ export async function readAtLevel(gr, k, win) {
 
 export async function sampleOnRasterGrid(layer, o) {
   const m = layer.getMap(), grs = layer.georasters, gr = grs[0];
+  const gridRow = layer._proj.row;                       // WGS84 -> this raster's grid, per row
   const across = o.numberOfSamplesAcross, down = o.numberOfSamplesDown;
   const nw = o.innerTileTopLeftPoint;
   const lngAt = x => m.unproject(L.point(x, nw.y), o.zoom).lng;
@@ -193,7 +268,7 @@ export async function sampleOnRasterGrid(layer, o) {
   const col = new Int32Array(across * down), row = new Int32Array(across * down);
   let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity;
   for (let r = 0; r < down; r++) {
-    const tm = tm35Row(lat[r]);                          // the series' latitude half, once a row
+    const tm = gridRow(lat[r]);                         // the series' latitude half, once a row
     for (let c = 0; c < across; c++) {
       const p = tm(lon[c]), i = r * across + c;
       const x = Math.floor((p.x - gr.xmin) / gr.pixelWidth);
@@ -219,9 +294,9 @@ export async function sampleOnRasterGrid(layer, o) {
   if (!gr._levelFor) gr._levelFor = {};
   if (gr._levelFor[o.zoom] == null) {
     const px = layer.getTileSize().x / Math.max(1, layer.options.resolution || 32);   // screen px a sample covers
-    const at00 = tm35Row(latAt(nw.y))(lngAt(nw.x));
-    const stepX = px * Math.abs(tm35Row(latAt(nw.y))(lngAt(nw.x + 1)).x - at00.x) / gr.pixelWidth;
-    const stepY = px * Math.abs(tm35Row(latAt(nw.y + 1))(lngAt(nw.x)).y - at00.y) / gr.pixelHeight;
+    const at00 = gridRow(latAt(nw.y))(lngAt(nw.x));
+    const stepX = px * Math.abs(gridRow(latAt(nw.y))(lngAt(nw.x + 1)).x - at00.x) / gr.pixelWidth;
+    const stepY = px * Math.abs(gridRow(latAt(nw.y + 1))(lngAt(nw.x)).y - at00.y) / gr.pixelHeight;
     let k = Math.max(0, Math.floor(Math.log2(Math.max(stepX, stepY, 1))));
     while (k > 0 && !levels[k]) k--;
     gr._levelFor[o.zoom] = k;
@@ -274,36 +349,55 @@ export function syncRuleLayer() {
   document.getElementById("legendRule").hidden = showingProb;
 }
 
+// geotiff.js fetches inside a worker, where relative URLs cannot be resolved
+const asGeoraster = f => parseGeoraster(new URL(f.url, location.href).href);
+
+async function loadRegionRasters(r) {
+  r.rasters = await Promise.all(r.meta.files.map(asGeoraster));
+  // The cut layer is optional: a region may not have one, and a failed load must leave the
+  // probability map working rather than take it down with it.
+  r.cut = r.meta.cut ? await Promise.all(r.meta.cut.files.map(f => asGeoraster(f).catch(() => null)))
+                           .catch(() => []) : [];
+  if (r.cut.some(c => !c)) r.cut = [];
+}
+// Whose data a region is drawn from. Regions written after this key existed carry their own line;
+// the Finnish parts predate it and keep the one they have always shown.
+const attributionFor = r => r.meta.attribution ||
+  ("Malli: Matsutake GO ml (GBIF · Luke · MML · GTK · FMI)" +
+   (r.cut.length ? " · hakkuut © Suomen metsäkeskus" : ""));
+
 export async function showProb() {
   const species = sp();
   try {
     const meta = await loadProbMeta(species);
     if (!meta) return;
     await ensureGeoraster();
-    if (!prob.rasters.length || prob.rasters[0]._species !== species.key) {
+    if (prob.builtFor !== species.key) {
       hideProb(true);
-      // geotiff.js fetches inside a worker, where relative URLs cannot be resolved
-      prob.rasters = await Promise.all(meta.files.map(f => parseGeoraster(new URL(f.url, location.href).href)));
-      prob.rasters.forEach(r => { r._species = species.key; });
-      // The cut layer is optional: a species may not have one, and a failed load must leave the
-      // probability map working rather than take it down with it.
-      prob.cut = meta.cut ? await Promise.all(
-        meta.cut.files.map(f => parseGeoraster(new URL(f.url, location.href).href)
-          .catch(() => null))).catch(() => []) : [];
-      if (prob.cut.some(c => !c)) prob.cut = [];
-    }
-    if (!prob.layers.length) {
-      prob.layers = prob.rasters.map((gr, i) => {
-        const layer = new GeoRasterLayer({
-          georasters: prob.cut[i] ? [gr, prob.cut[i]] : [gr],
-          opacity: state.opacity, resolution: 128, pixelValuesToColorFn: probColorFn(),
-          attribution: "Malli: Matsutake GO ml (GBIF · Luke · MML · GTK · FMI)" +
-            (prob.cut.length ? " · hakkuut © Suomen metsäkeskus" : ""),
+      const ok = [];
+      for (const r of prob.regions) {
+        try { await loadRegionRasters(r); ok.push(r); }
+        catch (e) {
+          if (r === prob.regions[0]) throw e;      // the primary failing is the model failing
+          console.warn("model region", r.meta.species, e);
+        }
+      }
+      prob.regions = ok;
+      prob.regions.forEach(r => {
+        r.layers = r.rasters.map((gr, i) => {
+          const layer = new GeoRasterLayer({
+            georasters: r.cut[i] ? [gr, r.cut[i]] : [gr],
+            opacity: state.opacity, resolution: 128, pixelValuesToColorFn: probColorFn(r.meta),
+            attribution: attributionFor(r),
+          });
+          layer._proj = r.proj;              // read by widenToProjection and sampleOnRasterGrid
+          widenToProjection(layer, gr);
+          sampleExactly(layer);
+          return layer;
         });
-        widenToProjection(layer, gr);
-        sampleExactly(layer);
-        return layer;
       });
+      prob.builtFor = species.key;
+      reindex();
     }
     prob.layers.forEach(l => { if (!map.hasLayer(l)) l.addTo(map); });
     updateProbLegend();
@@ -316,14 +410,19 @@ export async function showProb() {
 }
 export function hideProb(drop) {
   prob.layers.forEach(l => map.removeLayer(l));
-  if (drop) { prob.layers = []; prob.rasters = []; prob.cut = []; }
+  if (drop) {
+    prob.regions.forEach(r => { r.rasters = []; r.cut = []; r.layers = []; });
+    prob.builtFor = null;
+    reindex();
+  }
   document.getElementById("legendProb").hidden = true;
   syncRuleLayer();
 }
-// Recolour in place — the rasters stay loaded, only the colour function changes.
+// Recolour in place — the rasters stay loaded, only the colour function changes. Per region,
+// because one slider position is a different score in each of them.
 export function repaintProb() {
   if (!prob.meta || !prob.layers.length) return;
-  prob.layers.forEach(l => l.updateColors(probColorFn()));
+  prob.regions.forEach(r => r.layers.forEach(l => l.updateColors(probColorFn(r.meta))));
   updateProbLegend();
 }
 
@@ -361,7 +460,7 @@ export function renderProb() {
   rng.addEventListener("input", () => {
     state.prob.pct = probStops()[+rng.value]; val.textContent = fmtPct(state.prob.pct); save();
     clearTimeout(t);
-    t = setTimeout(() => { if (prob.meta) { prob.layers.forEach(l => l.updateColors(probColorFn())); updateProbLegend(); } }, 150);
+    t = setTimeout(repaintProb, 150);
   });
   loadProbMeta(s).then(m => {
     if (!m) return;
@@ -375,5 +474,11 @@ export function renderProb() {
     if (note && m.trained) note.insertAdjacentHTML("beforeend",
       " Opetettu " + m.trained + (m.n_presence ? " · " + m.n_presence + " havaintoa" : "") +
       ". Kartta kattaa metsämaan parhaan " + fmtPct(probMaxPct()) + "; muualla malli ei piirrä mitään.");
+    // Each additional region says in its own metadata what it covers, so a pilot that maps one
+    // corner of a country cannot be mistaken for the country. The app does not know the sentence;
+    // the file that put the raster there does.
+    prob.regions.slice(1).forEach(r => {
+      if (note && r.meta.app_note) note.insertAdjacentHTML("beforeend", " " + r.meta.app_note);
+    });
   }).catch(() => {});
 }

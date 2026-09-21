@@ -142,6 +142,11 @@ Sources the Swedish model is built from, all open, none needing an account:
 Copernicus DEM GLO-30 is a **surface** model, not a terrain model; see the note in
 `ml/core/features_se.py` for what that costs and how it is mitigated.
 
+These six are credited in the app itself: the Swedish pilot raster is on the map, and its layer
+carries its own attribution line ("Malli: Matsutake GO ml (GBIF/Artportalen · SLU ·
+Naturvårdsverket · SGU · Skogsstyrelsen · SMHI · Copernicus)"), stored in
+`data/matsutake_se/prob_meta.json` rather than written into the frontend.
+
 Two layers that would improve the model are open but were not reachable from the build
 environment: Lantmäteriet's 1 m elevation grid (CC0, free account required) and SLU
 Markfuktighetskarta (2 m soil moisture, CC0, served over FTPS and an authenticated ArcGIS
