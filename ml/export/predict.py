@@ -62,6 +62,13 @@ _W = {}
 
 def _init(species, cycle):
     """One Sources handle and one model copy per worker process."""
+    # torch was already pinned to one thread; LightGBM was not, and it reads OMP_NUM_THREADS
+    # at import. Without this each of N workers opens a thread per core and they fight: three
+    # workers on four cores ran at roughly a twentieth of the throughput two workers managed,
+    # all of it at 99.9 % CPU with nothing to show for it. Set before lightgbm is imported.
+    os.environ.setdefault("OMP_NUM_THREADS", "1")
+    os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+    os.environ.setdefault("MKL_NUM_THREADS", "1")
     import torch as _t
     _t.set_num_threads(1)
     cfg, prep, members, idx = load_model(species)
