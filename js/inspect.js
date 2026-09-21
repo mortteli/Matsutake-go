@@ -1,6 +1,6 @@
 import { LAYER, MAIN_CANDIDATES, MAIN_NAMES, SITE_CANDIDATES, SITE_NAMES } from "./constants.js";
 import { map } from "./maplayer.js";
-import { fmtPct, prob, probRank, probThreshold } from "./problayer.js";
+import { fmtPct, isPrimaryRegion, probRank, probThreshold } from "./problayer.js";
 import { harvestHTML, readHarvest, readProb } from "./rasterread.js";
 import { cfg, sp, state } from "./state.js";
 import { readSlope } from "./terrain.js";
@@ -94,6 +94,22 @@ export async function readMetric(m, latlng) {
   }));
   return { m, alts, ok: alts.some(a => a.pass === true) };
 }
+/* The model's own line: the score, and where it sits in the score distribution of forestry land.
+   Read through the region the score came from (`pv.meta`), never through the primary one — the
+   Finnish and Swedish models are two models with two quantile tables, and "parhaat 2 %" is the
+   best 2 % of the forest the score was measured against. */
+export function modelRow(pv) {
+  const floor = pv.meta.floor || 0;
+  if (pv.value < floor) return checkRow("no", "Malli", "alle kartan rajan");
+  const top = (1 - probRank(pv.value, pv.meta)) * 100;
+  return checkRow(pv.value >= probThreshold(pv.meta) ? "ok" : "meh", "Malli",
+    pv.value + " · parhaat " +
+    fmtPct(top < 1 ? Math.max(0.05, Math.round(top * 100) / 100) : Math.round(top)) + " metsästä");
+}
+export const navLink = ll =>
+  '<a class="navlink" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=' +
+  ll.lat.toFixed(6) + "," + ll.lng.toFixed(6) + '&travelmode=driving">🧭 Navigoi tänne</a>';
+
 export async function inspect(latlng) {
   const species = sp(), c = cfg();
   probeMemo = new Map();          // a new point: nothing the last tap learned applies here
@@ -112,6 +128,28 @@ export async function inspect(latlng) {
     state.prob.on ? readProb(latlng).catch(() => null) : Promise.resolve(null),
     readHarvest(latlng).catch(() => null),
   ]);
+
+  /* A score from a region other than the primary one means the point is outside Finland — the
+     Swedish pilot is the case this exists for — so the answer is the model's alone, with no
+     pretence of a Finnish stand behind it. Everything below this line is built out of Luke's
+     themes and Metsäkeskus's register, neither of which has anything to say here; asked over
+     Sweden they answer "transparent", which reads as "alle 20 v" rather than as silence.
+
+     The branch is on which region the score came from, not on the Finnish probes coming back
+     empty: empty is also what a Luke outage looks like, and answering that with "Luken
+     metsävaratietoa ei ole täältä" would turn a connection error into a claim about the forest. */
+  if (pv != null && !isPrimaryRegion(pv.meta)) {
+    const good = pv.value >= probThreshold(pv.meta);
+    body.innerHTML = '<div class="result-head"><span class="big">' + (good ? species.emoji : "🌍") +
+      '</span><div><div class="verdict">' +
+      (good ? "Lupaava paikka mallin mukaan" : "Mallin mukaan heikko paikka") + '</div>' +
+      '<div class="sub">' + latlng.lat.toFixed(5) + "° N, " + latlng.lng.toFixed(5) + "° E · " +
+      (pv.meta.app_name || "oma mallialue") + '</div></div></div>' +
+      '<div class="checks">' + modelRow(pv) + '</div>' +
+      '<p class="note">Tämä on Suomen metsävaratietojen ulkopuolella, joten kasvupaikka-, puusto- ' +
+      'ja hakkuurivit puuttuvat — jäljellä on pelkkä mallin arvio.</p>' + navLink(latlng);
+    return;
+  }
 
   if (site == null && results.every(r => r.alts.every(a => a.val == null))) {
     // Metsäkeskus may still have something to say — a fresh clear-cut is exactly the kind of
@@ -177,20 +215,10 @@ export async function inspect(latlng) {
 
   html += checkRow(slope ? (slopeOk ? "ok" : "meh") : "meh", "Rinne",
     slope ? (slope.deg < 1 ? "tasainen" : slope.deg.toFixed(1) + "° " + slope.dir) : "ei tietoa");
-  if (pv != null) {
-    const floor = (prob.meta && prob.meta.floor) || 0;
-    if (pv < floor) {
-      html += checkRow("no", "Malli", "alle kartan rajan");
-    } else {
-      const top = (1 - probRank(pv)) * 100;
-      html += checkRow(pv >= probThreshold() ? "ok" : "meh", "Malli",
-        pv + " · parhaat " + fmtPct(top < 1 ? Math.max(0.05, Math.round(top * 100) / 100) : Math.round(top)) + " metsästä");
-    }
-  }
+  if (pv != null) html += modelRow(pv);
   html += "</div>";
 
-  html += '<a class="navlink" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=' +
-    latlng.lat.toFixed(6) + "," + latlng.lng.toFixed(6) + '&travelmode=driving">🧭 Navigoi tänne</a>';
+  html += navLink(latlng);
 
   body.innerHTML = html;
 }

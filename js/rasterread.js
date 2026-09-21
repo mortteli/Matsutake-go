@@ -3,12 +3,13 @@ import { inFeature, toTM35 } from "./geo.js";
 import { mkAt } from "./metsakeskus.js";
 import { prob } from "./problayer.js";
 
-/* ---- reading a baked EPSG:3067 COG at a point ----
-   The score, the cut layer and the terrain layer are three products on the same grid in the same
-   format, split into parts the same way, so they are read by the same two functions rather than
-   by three copies of this loop. `pad` widens the read to the (2·pad+1)² block around the point —
-   one range request either way, since a COG tile holds far more than nine pixels — and is clamped
-   to the part, so a point on a seam still returns a full block rather than throwing. */
+/* ---- reading a baked COG at a point ----
+   The score, the cut layer and the terrain layer are three products in the same format, split into
+   parts the same way, so they are read by the same two functions rather than by three copies of
+   this loop. `x`/`y` are in whatever grid the parts are on — the caller has already projected the
+   point into it. `pad` widens the read to the (2·pad+1)² block around the point — one range
+   request either way, since a COG tile holds far more than nine pixels — and is clamped to the
+   part, so a point on a seam still returns a full block rather than throwing. */
 export async function readBlockAt(rasters, x, y, pad) {
   const p = pad || 0, n = 2 * p + 1;
   for (const gr of rasters) {
@@ -28,12 +29,18 @@ export async function readValueAt(rasters, x, y) {
   return b ? b[0][0] : null;
 }
 
-// model score at a point (null if the layer is not loaded or the point is outside the rasters)
+/* Model score at a point, and the region it was read from — the score alone would not say which
+   quantile table turns it into "the best X %", and the two countries' tables are different. Each
+   region is asked in its own projection; null when none of them has a score here, which covers
+   both "the layer is not loaded" and "this is outside every mapped area". */
 export async function readProb(latlng) {
-  if (!prob.rasters.length || !prob.meta) return null;
-  const { x, y } = toTM35(latlng.lat, latlng.lng);
-  const val = await readValueAt(prob.rasters, x, y);
-  return (val == null || val === prob.meta.nodata) ? null : val;
+  for (const r of prob.regions) {
+    if (!r.rasters.length) continue;
+    const { x, y } = r.proj.forward(latlng.lat, latlng.lng);
+    const val = await readValueAt(r.rasters, x, y);
+    if (val != null && val !== r.meta.nodata) return { value: val, meta: r.meta };
+  }
+  return null;
 }
 
 /* What Metsäkeskus knows about the stand under a point, in the two flavours the map has to keep
@@ -53,10 +60,14 @@ export const fiDate = s => {
 // The same answer read off the baked layer: no stand details and no dates, but it works with no
 // network at all. Only ever a fallback — the live register is newer than any published raster.
 export async function readCutBaked(latlng) {
-  if (!prob.cut.length) return null;
-  const { x, y } = toTM35(latlng.lat, latlng.lng);
-  const val = await readValueAt(prob.cut, x, y);
-  return val === 2 ? "cut" : val === 1 ? "declared" : null;
+  for (const r of prob.regions) {
+    if (!r.cut.length) continue;
+    const { x, y } = r.proj.forward(latlng.lat, latlng.lng);
+    const val = await readValueAt(r.cut, x, y);
+    if (val === 2) return "cut";
+    if (val === 1) return "declared";
+  }
+  return null;
 }
 
 export async function readHarvest(latlng) {

@@ -63,8 +63,13 @@ export const SPECIES = [
     { label: "Vanha metsä (kaikki tyypit)", make: () => helperLayer(LAYER.age, maskMin(LAYER.age, 60, "#2e86ff")) },
     { label: "Harva puusto (latvuspeitto ≤ " + MATSU_MAX_COVER + " %)", make: () => helperLayer(LAYER.cover, maskRange(LAYER.cover, -1, MATSU_MAX_COVER, "#2e86ff")) },
   ],
-  // observation-trained probability layer (ml/), see docs/HABITAT_MODEL_PLAN.md
-  model: "data/matsutake/prob_meta.json",
+  /* Observation-trained probability layer (ml/), see docs/HABITAT_MODEL_PLAN.md. A list, because
+     the model is trained per country on that country's forest inventory and the two rasters are
+     in two national grids: the Finnish one first — it is the primary, the one the panel text and
+     the slider's stops come from — then the Swedish pilot over Västerbotten
+     (docs/MODEL_REPORT_matsutake_se.md). Each file says which grid it is in and carries its own
+     quantiles, so adding a country here is adding a line here. */
+  model: ["data/matsutake/prob_meta.json", "data/matsutake_se/prob_meta.json"],
   // the GBIF/FinBIF finds that train it, plotted as their own map layer
   findings: "data/matsutake/observations.json",
   slopeGood: s => s.deg >= 2,

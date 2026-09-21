@@ -233,6 +233,13 @@ finds. 149 blocks at 14.1 s each, about 35 minutes on four cores.
 | top 5 % | 72 % |
 | top 10 % | 86 % |
 
+The raster itself is committed at `data/matsutake_se/prob_matsutake_se_pilot_12m5.tif`
+(41.5 MB COG, 12000 × 12000 at 12.5 m, EPSG:3006) with `prob_meta.json` beside it carrying
+the bounds, the floor, the 101-point quantile table and the out-of-fold metrics. Scores below
+the top 15 % of forestry land are stored as 0, the convention `export_app.py` uses for the
+Finnish parts. 86 % of the 1396 finds in the box fall on ground the file keeps, at a median
+score of 89.
+
 **These are in-sample numbers and are not the model's score.** Those finds trained the
 model; the honest figures are the out-of-fold ones in
 [docs/MODEL_REPORT_matsutake_se.md](MODEL_REPORT_matsutake_se.md), where the top 2 % holds
@@ -244,17 +251,96 @@ The 146 finds that land on unscored cells are the honest cost of using the SLU 2
 the forestry-land mask: a find on a roadside, a cabin plot or a cell the k-NN model left
 blank has no features to score.
 
+### What it looks like
+
+Coloured with `js/problayer.js`'s own ramp — yellow at the threshold running to pink at the
+very best cells — over the scored ground (dark grey) and everything the SLU 2010 model does
+not call forestry land (black). Cyan rings are the known finds located to 250 m or better.
+`pct` is the app's slider: the share of forestry land the map covers.
+
+![The whole pilot box](img/se_pilot_overview.png)
+
+*The full 150 × 150 km box at `pct = 0.05`, downscaled 8× (1 px ≈ 100 m). The Gulf of
+Bothnia is the black wedge bottom-right. The scoring picks out a set of parallel
+ribbons running NW–SE — glaciofluvial eskers, laid down along the ice-flow direction — and
+the finds sit on them. This is the 7× isälvssediment enrichment as geometry rather than as
+a table. 1396 finds are drawn; at this scale dense clusters merge.*
+
+![The densest 20 km, at five per cent](img/se_pilot_detail_5pct.png)
+
+*The densest 20 × 20 km of the box at full 12.5 m resolution, `pct = 0.05`, holding 186
+finds. One esker runs corner to corner with a second entering from the right, and the finds
+track both. The thin dark lines through the coloured ground are streams and the mires beside
+them, which the model scores down.*
+
+![The same ground, at two per cent](img/se_pilot_detail_2pct.png)
+
+*The same ground at `pct = 0.02` — the "few sure shots" setting. The colour retreats to the
+esker crests and the finds stay with it, which is what recall@2 % measures.*
+
+Rendered by the snippet in this section's commit; the ramp, the quantile lookup and the
+threshold are read from `ml/models/matsutake_se/model.json`, so the pictures use the same
+numbers the app would.
+
 **Full-country cost**, from this measured rate: 6.48e9 cells is 6172 blocks at 1024, so
 roughly 24 hours on four cores — restartable through `<out>.progress`. The output would be
 1.5–2.5 GB compressed, which `export_app.py` would need to split into more than Finland's
 nine parts to stay under GitHub's 100 MB file limit.
 
-Drawing it in the app is a separate piece of work and is not done: `js/geo.js` hard-codes
-the TM35FIN projection parameters that `problayer.js`, `rasterread.js` and `hillshade.js`
-all use to sample a raster at a point. SWEREF99 TM is the same transverse-Mercator family
-with a different central meridian, so that is a parameterisation rather than a rewrite — but
-it is a change to every raster-reading path in the frontend, and the observation layer needed
-none of it because it plots plain lat/lon markers.
+### Drawing it in the app
+
+Done. The pilot is on the map under the existing **Näytä malli** toggle, beside the Finnish
+raster.
+
+![The Swedish pilot in the app](img/se_pilot_in_app.png)
+
+*The app at `pct = 2` over the densest 20 km of the pilot, findings on. Yellow dots are
+Artportalen finds, plotted as plain WGS84 markers by a layer that knows nothing about either
+grid — so their landing on the painted esker is an independent check that the raster is where
+it claims to be. The legend, the ramp and the slider are the Finnish layer's, unchanged.*
+
+`js/geo.js` used to hard-code TM35FIN. It now builds a transverse Mercator from its
+parameters — `tmProjection({ lon0, k0, x0, y0, a, f })` — and names two instances,
+`TM35FIN` (EPSG:3067) and `SWEREF99TM` (EPSG:3006). Checked against pyproj, they are the
+same projection on the same GRS80 ellipsoid at the same scale and false easting, differing
+only in the central meridian, 27° E against 15° E; the generalisation is one number, not a
+second copy of Snyder's series. The Finnish names `toTM35`/`fromTM35`/`tm35Row`/`bboxToTM35`
+survive as aliases, so the Finland-only callers — Metsäkeskus queries, the baked DEM, the
+coordinate search, the hillshade — were not touched at all.
+
+Above that, `js/problayer.js` turns a species' model into a list of **regions**. A region is
+one `prob_meta.json` and everything it describes: its own CRS and projection, nodata, floor,
+quantile table and files. `species.model` is a URL or a list of them, so adding a country is
+adding a line in `js/species.js`. The two models never have to agree on anything but the
+meaning of the slider — each turns "best 2 %" into a threshold through its own quantiles, so
+it is the best 2 % of Finnish forestry land in Finland and of Swedish forestry land in
+Sweden, which is what a picker means by it on either side of the border. The slider's
+ceiling is the *narrowest* region's `max_pct`, so the legend is true wherever the layer
+draws. A region whose CRS has no projection in this build is dropped with a warning rather
+than drawn on a guess.
+
+`ml/export/export_app_se.py` writes the Swedish metadata, importing `forest_quantiles` and
+`NQ` from `export_app.py` so "the best X % of forestry land" has one definition and not two.
+It reports 15.7 % of the pilot's forestry-land cells at or above the stored floor of 51,
+which is the top-15 % convention holding.
+
+Tapping a Swedish pixel gives the model's own readout and says plainly that the
+kasvupaikka, puusto and hakkuu rows are missing because the point is outside Finland's forest
+inventory. That branch turns on *which region the score came from*, not on Luke's probes
+coming back empty — empty is also what a Luke outage looks like, and answering that with
+"there is no forest data here" would turn a connection error into a claim about the forest.
+
+Verified in a headless browser against `serve.py`: the Finnish map body is **bit-identical**
+before and after, 0 differing pixels across three views (only the attribution bar changes,
+because the Swedish sources are now credited); the model score at 24 points read through the
+app matches `rasterio` exactly on both grids, which is an end-to-end registration check since
+the two paths share nothing but the GeoTIFF; and the Finnish tap panel still returns its full
+readout.
+
+Two things this did **not** do. `js/hillshade.js` and `js/terrain.js` still read the Finnish
+DEM only — there is no Swedish elevation layer baked, so there is nothing for them to read —
+and the "harmaa = hakattu" legend key is shown whenever Finland's cut layer is loaded, though
+no Swedish part has one.
 
 ## Next steps
 
