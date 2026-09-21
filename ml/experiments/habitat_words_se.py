@@ -145,9 +145,15 @@ def main():
     oof = None
     if os.path.exists(oof_path):
         o = pd.read_csv(oof_path, dtype={"id": str})
-        col = next((c for c in o.columns if c not in ("id", "group")), None)
-        oof = dict(zip(o["id"], o[col])) if col else None
-        print(f"model scores from {oof_path} ({col})")
+        # Name the score column rather than taking "the first one that is not id or group" --
+        # that picked `lat`, and the experiment then reported latitude differences between
+        # word groups as if they were model-score differences, with deltas of -3.6 on a score
+        # that lives in [0, 1].
+        col = next((c for c in o.columns if c.startswith("score")), None)
+        if col is None:
+            raise SystemExit(f"no score column in {oof_path}; has {list(o.columns)}")
+        oof = dict(zip(o["id"], o[col]))
+        print(f"model scores from {os.path.basename(oof_path)} column {col!r}")
     else:
         print("no oof_scores.csv yet -- run train.py --country se first; "
               "the score-delta column will be blank")
@@ -175,19 +181,38 @@ def main():
     write_report(rows, a, len(pres))
 
 
+MIN_N = 20              # below this the probe is noise, whatever it returns
+
+
 def verdict(r):
-    if not np.isfinite(r["auc"]):
-        return "too few labelled records to test"
-    if r["word"] == "renbet" and np.isfinite(r["lat_auc"]) and r["lat_auc"] > r["auc"] - 0.03:
-        return "**latitude confound** — northing and elevation alone explain it"
+    if not np.isfinite(r["auc"]) or r["n"] < MIN_N:
+        return f"too few labelled records to test (n={r['n']})"
+    # An out-of-fold AUC well BELOW 0.5 is not inverse predictive power. With labels this
+    # clustered -- one observer describing a whole hillside the same way -- it means the
+    # probe learned a within-block association that does not survive being asked about a
+    # block it has not seen. Read as "no generalizable signal", same as 0.5.
     if r["auc"] >= 0.70:
-        return "already covered — the current features predict this word well"
-    if r["auc"] <= 0.58:
+        if np.isfinite(r["p"]) and r["p"] < 0.05 and r["delta"] < 0:
+            # The interesting case, and the one the original design did not anticipate: the
+            # features CAN identify this habitat, and the model still scores it down. That is
+            # not a missing layer, it is the model disagreeing with the people who found the
+            # mushrooms -- and the people were there.
+            return ("**seen but penalised** — the features predict this word well, yet the "
+                    "model scores these finds significantly lower")
+        base = "already covered — the current features predict this word well"
+    elif 0.42 <= r["auc"] <= 0.58:
         base = "**not encoded** — no current layer sees this"
+    elif r["auc"] < 0.42:
+        base = "**not encoded** — the probe does not generalize across blocks at all"
+    else:
+        base = "partly covered"
+    if r["word"] == "renbet" and np.isfinite(r["lat_auc"]) and r["lat_auc"] >= r["auc"] - 0.03:
+        return base + "; **latitude confound** — northing and elevation alone do as well"
+    if base.startswith("**not encoded**"):
         if np.isfinite(r["p"]) and r["p"] < 0.05 and r["delta"] < 0:
             return base + ", and the model scores these finds lower: **a new layer is justified**"
         return base + ", but the model does not visibly suffer on these finds"
-    return "partly covered"
+    return base
 
 
 def write_report(rows, a, n_pres):
@@ -214,6 +239,19 @@ def write_report(rows, a, n_pres):
           "through other features. The reason to build one is a low AUC **together with** a",
           "negative score delta: the model cannot see the habitat, and it is visibly failing on",
           "the finds that have it.", "",
+          "An AUC well **below** 0.5 is not inverse predictive power. With labels this clustered —",
+          "one observer describing a whole hillside the same way — it means the probe learned a",
+          "within-block association that does not survive being asked about an unseen block. Read",
+          "it as no generalizable signal, the same as 0.5.", "",
+          "**seen but penalised** is the row worth acting on first. The features identify the",
+          "habitat perfectly well and the model still scores it down, so the fix is not a new",
+          "raster — it is that the model is disagreeing with people who were standing on the",
+          "ground.", "",
+          "`n` counts distinct 12.5 m cells, not records: `build_dataset_se.py` collapses repeat",
+          "reports of the same cell, because a second report measures a picker's return visit",
+          "rather than a second habitat. That is why `renbet` falls from 79 records to 9 cells —",
+          "reindeer-grazed sites are exactly the ones people revisit — and why it cannot be",
+          "tested here at all.", "",
           "`renbet` carries a second AUC from northing and elevation alone. Reindeer husbandry",
           "occupies the northern half of Sweden, so a grazing signal and a latitude signal are",
           "easy to confuse; if the control is close to the full-feature AUC, a Sametinget",

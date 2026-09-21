@@ -42,22 +42,39 @@ GROUPS = {   # for ablations
 }
 
 
+class SkipModel(Exception):
+    """This model family is not installed; report the others rather than failing the run."""
+
+
 def log(*a):
     print(time.strftime("%H:%M:%S"), *a, flush=True)
 
 
 # ----------------------------------------------------------------------------- data
 def load(path):
-    d = pd.read_csv(path)
+    # `id` must be read as text. Left to pandas it becomes float64 whenever the column mixes
+    # numeric occurrence ids with the empty ids of the random background, and then
+    # str(6489953418.0) never matches "6489953418" in observations.csv -- so the governance
+    # filter below silently drops every presence and training proceeds on background alone.
+    # That is exactly what happened on the first Swedish run: 4046 presences in the file, 0
+    # after load(), five folds of pure background, and a one-class crash three models later.
+    d = pd.read_csv(path, dtype={"id": str, "verification_status": str}, low_memory=False)
     # data governance: a presence whose record is no longer in observations.csv (e.g. dropped
     # for its licence) must not train the model either
     obs = os.path.join(os.path.dirname(path), "observations.csv")
     if os.path.exists(obs) and "id" in d.columns:
         keep = set(pd.read_csv(obs, dtype=str)["id"])
+        before_p = int((d.group == "presence").sum())
         before = len(d)
         d = d[(d.group != "presence") | d["id"].astype(str).isin(keep)].reset_index(drop=True)
+        after_p = int((d.group == "presence").sum())
         if len(d) != before:
             log("dropped", before - len(d), "presence rows not in observations.csv")
+        if before_p and not after_p:
+            raise SystemExit(
+                f"every one of {before_p} presences was dropped as 'not in observations.csv'. "
+                f"That is a join failure, not a governance result -- check that the id columns "
+                f"in {os.path.basename(path)} and observations.csv are the same type.")
     # The dataset's own northing column is called "y", and so is the label, so the label has
     # to be parked somewhere before it overwrites the coordinate. It did not used to be:
     # d["y"] became 0/1 and then block was computed as (x // 25000) * 100000 + (y // 25000)
@@ -314,7 +331,13 @@ def fit_predict_other(model, Xtr, ytr, wtr, Xte, cfg, seed=0):
         m = lgb.LGBMClassifier(**cfg, verbose=-1, random_state=seed).fit(Xtr, ytr, sample_weight=wtr)
         return m.predict_proba(Xte)[:, 1]
     if model == "xgb":
-        import xgboost as xgb
+        try:
+            import xgboost as xgb
+        except ImportError as e:
+            # xgboost's manylinux wheel is ~300 MB of bundled CUDA that is useless on a CPU
+            # box, and LightGBM already covers the gradient-boosting family. Report the
+            # other families rather than losing the whole run to an optional dependency.
+            raise SkipModel("xgboost is not installed") from e
         m = xgb.XGBClassifier(**cfg, random_state=seed, n_jobs=4, verbosity=0).fit(Xtr, ytr, sample_weight=wtr)
         return m.predict_proba(Xte)[:, 1]
     raise ValueError(model)
@@ -417,7 +440,11 @@ def main():
     def best_of(model, grid):
         best = None
         for cfg in grid:
-            s = run_cv(d, cols, folds, cfg, model=model, lgb_params=cfg)
+            try:
+                s = run_cv(d, cols, folds, cfg, model=model, lgb_params=cfg)
+            except SkipModel as e:
+                log("skipping", model, "--", e)
+                return None
             met = summarize(s, d)
             log(f"  {model} {cfg} -> prauc_fungi {met['prauc_vs_fungi']} prec_fungi@2 {met['prec_fungi_at_2']} recall@5 {met['recall_at_5']}")
             if best is None or key(met) > key(best[0]):

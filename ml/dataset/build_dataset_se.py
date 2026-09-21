@@ -115,20 +115,42 @@ def fetch_fungi_background(n, dataset_key, seed):
     if dataset_key:
         base["datasetKey"] = dataset_key
 
-    rows, seen = [], set()
-    per_band = max(300, n // len(LAT_BANDS) + 300)
+    # Band quotas are PROPORTIONAL to how many records each band actually holds. An equal
+    # quota per band would be a different and wrong thing: the background would then describe
+    # a Sweden where fungus reporting is uniform with latitude, when in reality it is heavily
+    # southern (222k records at 59-60 N against 1.7k at 68-69 N) while the matsutake
+    # presences are heavily northern. Latitude alone would separate presence from background
+    # almost perfectly, and auc_vs_fungi would be measuring that artefact rather than
+    # habitat. Measured on the first build, which did use equal quotas: prec_fungi@2 came out
+    # at 0.973, which is not a believable number for this problem.
+    counts = {}
     for lo, hi in LAT_BANDS:
         try:
-            count = get_json(GBIF_SEARCH + urllib.parse.urlencode(
+            counts[(lo, hi)] = get_json(GBIF_SEARCH + urllib.parse.urlencode(
                 dict(base, decimalLatitude=f"{lo},{hi}", limit=0))).get("count", 0)
         except Exception as e:                                   # noqa: BLE001
             log("band", lo, "count failed:", e)
-            continue
+            counts[(lo, hi)] = 0
+    total = sum(counts.values()) or 1
+    log(f"{total} background records available across {len(LAT_BANDS)} latitude bands")
+
+    rows, seen = [], set()
+    for lo, hi in LAT_BANDS:
+        count = counts[(lo, hi)]
         if not count:
             continue
+        want = min(count, round(n * count / total))
+        if want < 150:                      # below half a page, this band's share is noise
+            continue
         cap = min(count, SHALLOW_MAX)
-        offsets = sorted({rnd.randrange(0, max(cap - 300, 1) + 1, 300)
-                          for _ in range(per_band // 300 + 2)})
+        # Exactly as many pages as the quota asks for. An earlier version floored the quota at
+        # 300 and asked for two extra pages on top, which quietly undid the proportionality it
+        # was supposed to enforce: the 68-69 N band holds 1740 records and would contribute
+        # 900 of them, 52 % of the band, while 59-60 N holds 222000 and would contribute 1799,
+        # under 1 %. The background would again have been far more northern than Swedish
+        # fungus reporting actually is, in the same direction as the presences.
+        pages = max(1, round(want / 300))
+        offsets = sorted({rnd.randrange(0, max(cap - 300, 1) + 1, 300) for _ in range(pages)})
         got = 0
         for off in offsets:
             try:
@@ -147,7 +169,8 @@ def fetch_fungi_background(n, dataset_key, seed):
                 rows.append(dict(id=r["gbifID"], lat=r["decimalLatitude"],
                                  lon=r["decimalLongitude"], year=r.get("year"),
                                  species=r.get("species", "")))
-        log(f"fungi background  lat {lo}-{hi}: {count} available, took {got}, total {len(rows)}")
+        log(f"fungi background  lat {lo}-{hi}: {count} available, wanted {want}, "
+            f"took {got}, total {len(rows)}")
 
     os.makedirs(DATA, exist_ok=True)
     with open(path, "w", newline="") as f:
