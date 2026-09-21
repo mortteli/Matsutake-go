@@ -168,7 +168,13 @@ def main():
         # GeoTIFF only gets its tile index written when the dataset is closed, so a run that
         # is interrupted without closing leaves the tiles on disk but unreadable.
         FLUSH_EVERY = 100
-        with ctx.Pool(a.workers, initializer=_init, initargs=(a.species, 2023),
+        # Finland's newest MVMI cycle is 2023; Sweden's newest usable SLU vintage is 2010.
+        # This used to be a hard-coded 2023 for both, which sent SourcesSE looking for a
+        # vintage that does not exist -- and because rt90_path falls back to a remote URL
+        # when the local file is absent, the workers spent minutes retrying 404s from
+        # gis.slu.se instead of failing.
+        vintage = 2023 if country == "fi" else 2010
+        with ctx.Pool(a.workers, initializer=_init, initargs=(a.species, vintage),
                       maxtasksperchild=8) as pool:
             results = pool.imap_unordered(_block, work, chunksize=1)
             i, exhausted = 0, False

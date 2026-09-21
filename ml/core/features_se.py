@@ -319,6 +319,12 @@ class SourcesSE:
     """Opens every Swedish input once; reads any window as float32/NaN on the 12.5 m grid."""
 
     def __init__(self, grid: GridSE = None, vintage=2010, slu_dir=SLU_DIR, require_soil=True):
+        if vintage not in (2010, 2005):
+            # Silently treating an unknown vintage as 2005 sent rt90_path to a remote URL for
+            # a file that has never existed, and GDAL retried the 404 five times per raster
+            # per worker before anything surfaced.
+            raise ValueError(f"vintage must be 2010 or 2005, got {vintage!r}. 2010 is the "
+                             f"feature spine; 2005 exists only for observation_status_se.")
         assert_rt90_transform()              # a null datum shift would displace every read
         self.grid = grid or GridSE()
         self.vintage = vintage

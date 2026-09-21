@@ -564,22 +564,51 @@ def main():
     json.dump(report, open(os.path.join(outdir, "report.json"), "w"), indent=1)
     oof_cols = [c for c in ["id", "group", "lat", "lon", "year", "cycle", "score_mlp"] if c in d.columns]
     d[oof_cols].to_csv(os.path.join(outdir, "oof_scores.csv"), index=False)
-    write_report(report, a.species)
+    write_report(report, a.species, a.country)
     log("DONE")
 
 
-def write_report(r, species):
+SE_PREAMBLE = [
+    "## Read this before the numbers", "",
+    "**Do not compare PR-AUC or prec@k with the Finnish report.** Both move with prevalence,",
+    "and the two datasets are not comparable on that axis: Sweden has 4046 presences against",
+    "5774 target-group background records, Finland 250 against 2587. AUC, recall@k and Boyce",
+    "are the rows that carry across.", "",
+    "**recall@k_1km is the honest recall.** 5501 Swedish reports sit on 1576 distinct",
+    "kilometre cells, and the busiest 25 km blocks hold a large share of them, so plain",
+    "recall@k partly measures whether the map covers a few thoroughly worked hillsides.",
+    "Counting each kilometre cell once asks what the map is for — how many PLACES it finds.",
+    "", "**The site-fertility block is missing, not proxied well.** Finland's model rests on",
+    "`kasvupaikka`, an 8-step fertility ladder. Sweden's equivalent, `vegetationstyp`, is",
+    "recorded per plot by Riksskogstaxeringen, which withholds the exact plot coordinates, so",
+    "neither the layer nor the data to rebuild it is open. What stands in its place here is",
+    "engineered from soil texture, canopy cover and NMD's three-class productivity. See",
+    "docs/SWEDEN_DATA.md.", "",
+    "**99.4 % of the presences are `Unvalidated` Artportalen records.** Filtering to validated",
+    "identifications leaves 33 of 5501, so no weighting scheme fixes this. The 411 presences",
+    "carrying a finder-written habitat description are the closest thing to a quality check;",
+    "docs/HABITAT_WORDS_SE.md reports on them.", "",
+    "**The structural rasters are the SLU 2010 vintage and the finds are 2015-2026.** Points",
+    "whose cell was felled in between are dropped, from the background as well as the",
+    "presences. Terrain comes from Copernicus GLO-30, a surface model rather than a terrain",
+    "model, which is why Finland's short-range relief feature is absent here.", "",
+]
+
+
+def write_report(r, species, country="fi"):
     L = [f"# Habitat model report — {species}", "",
          f"Rows: {r['n']} (presences {r['n_presence']}, random-forest background {r['n_bg_random']}, "
          f"other-fungi background {r['n_bg_fungi']}); {r['n_features']} features; 5-fold spatial block CV (25 km blocks).", "",
          f"Map head: **{r.get('head', 'mlp')}** (hyper-parameters chosen for "
          f"{'precision in the best 2 %' if r.get('select') == 'sure' else 'overall PR-AUC'}).", "",
+         *(SE_PREAMBLE if country == "se" else []),
          "## Models (pooled out-of-fold)", "",
-         "| Model | AUC vs fungi | PR-AUC vs fungi | recall@2 % | prec@2 % | recall@5 % | prec@5 % | recall@10 % | Boyce |",
+         "| Model | AUC vs fungi | PR-AUC vs fungi | recall@2 % | **recall@2 % per 1 km** | prec@2 % | recall@5 % | prec@5 % | Boyce |",
          "|---|---|---|---|---|---|---|---|---|"]
     for k, m in r["results"].items():
-        L.append(f"| {k} | {m['auc_vs_fungi']} | {m['prauc_vs_fungi']} | {m['recall_at_2']} | {m['prec_fungi_at_2']} "
-                 f"| {m['recall_at_5']} | {m['prec_fungi_at_5']} | {m['recall_at_10']} | {m['boyce']} |")
+        L.append(f"| {k} | {m['auc_vs_fungi']} | {m['prauc_vs_fungi']} | {m['recall_at_2']} "
+                 f"| **{m.get('recall_at_2_1km', '—')}** | {m['prec_fungi_at_2']} "
+                 f"| {m['recall_at_5']} | {m['prec_fungi_at_5']} | {m['boyce']} |")
     L += ["", "recall@k %: share of held-out finds scoring above the top-k % of random forest cells "
           "(i.e. if the map is coloured over k % of forest land). prec@k %: of the fungus-reporting "
           "sites inside that coloured area, the share that are matsutake finds — what a visit to a "
