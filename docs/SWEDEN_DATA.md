@@ -215,6 +215,47 @@ important one still missing from the Finnish model, measured on 4795 points.
 NMD produktivitet at the same points: 86.2 % on produktiv skogsmark against a 39.3 % national
 baseline, and improduktiv enriched 1.5× — the hällmark and lavhed the observers describe.
 
+## The pilot raster
+
+`ml/export/predict.py --species matsutake_se --block 1024 --workers 3 --bbox 650000 7050000
+800000 7200000` — 150 × 150 km of inland Västerbotten and Lule lappmark, the densest
+matsutake ground in Sweden, chosen by sliding a 150 km window over the 5215 finely located
+finds. 149 blocks at 14.1 s each, about 35 minutes on four cores.
+
+| | |
+|---|---|
+| cells scored | 100.9 M of 144 M (70 %; the rest is not forestry land in the SLU 2010 model) |
+| score across the box | median 31, p90 70, p98 87 |
+| known finds inside | 1396, of which 1250 on scored ground |
+| their scores | median **88**, quartiles 77–93 |
+| top 1 % of scored land | holds 40 % of the finds |
+| **top 2 %** | **56 %** |
+| top 5 % | 72 % |
+| top 10 % | 86 % |
+
+**These are in-sample numbers and are not the model's score.** Those finds trained the
+model; the honest figures are the out-of-fold ones in
+[docs/MODEL_REPORT_matsutake_se.md](MODEL_REPORT_matsutake_se.md), where the top 2 % holds
+47 % of held-out finds and 40 % of held-out kilometre cells. What the pilot establishes is
+that the pipeline runs end to end at national resolution and that the raster behaves the way
+the cross-validation said it would.
+
+The 146 finds that land on unscored cells are the honest cost of using the SLU 2010 model as
+the forestry-land mask: a find on a roadside, a cabin plot or a cell the k-NN model left
+blank has no features to score.
+
+**Full-country cost**, from this measured rate: 6.48e9 cells is 6172 blocks at 1024, so
+roughly 24 hours on four cores — restartable through `<out>.progress`. The output would be
+1.5–2.5 GB compressed, which `export_app.py` would need to split into more than Finland's
+nine parts to stay under GitHub's 100 MB file limit.
+
+Drawing it in the app is a separate piece of work and is not done: `js/geo.js` hard-codes
+the TM35FIN projection parameters that `problayer.js`, `rasterread.js` and `hillshade.js`
+all use to sample a raster at a point. SWEREF99 TM is the same transverse-Mercator family
+with a different central meridian, so that is a parameterisation rather than a rewrite — but
+it is a change to every raster-reading path in the frontend, and the observation layer needed
+none of it because it plots plain lat/lon markers.
+
 ## Next steps
 
 Items 1, 3 and 4 are done; see the corrections above.
