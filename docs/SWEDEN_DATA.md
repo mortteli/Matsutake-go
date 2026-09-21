@@ -233,6 +233,13 @@ finds. 149 blocks at 14.1 s each, about 35 minutes on four cores.
 | top 5 % | 72 % |
 | top 10 % | 86 % |
 
+The raster itself is committed at `data/matsutake_se/prob_matsutake_se_pilot_12m5.tif`
+(41.5 MB COG, 12000 × 12000 at 12.5 m, EPSG:3006) with `prob_meta.json` beside it carrying
+the bounds, the floor, the 101-point quantile table and the out-of-fold metrics. Scores below
+the top 15 % of forestry land are stored as 0, the convention `export_app.py` uses for the
+Finnish parts. 86 % of the 1396 finds in the box fall on ground the file keeps, at a median
+score of 89.
+
 **These are in-sample numbers and are not the model's score.** Those finds trained the
 model; the honest figures are the out-of-fold ones in
 [docs/MODEL_REPORT_matsutake_se.md](MODEL_REPORT_matsutake_se.md), where the top 2 % holds
@@ -243,6 +250,37 @@ the cross-validation said it would.
 The 146 finds that land on unscored cells are the honest cost of using the SLU 2010 model as
 the forestry-land mask: a find on a roadside, a cabin plot or a cell the k-NN model left
 blank has no features to score.
+
+### What it looks like
+
+Coloured with `js/problayer.js`'s own ramp — yellow at the threshold running to pink at the
+very best cells — over the scored ground (dark grey) and everything the SLU 2010 model does
+not call forestry land (black). Cyan rings are the known finds located to 250 m or better.
+`pct` is the app's slider: the share of forestry land the map covers.
+
+![The whole pilot box](img/se_pilot_overview.png)
+
+*The full 150 × 150 km box at `pct = 0.05`, downscaled 8× (1 px ≈ 100 m). The Gulf of
+Bothnia is the black wedge bottom-right. The scoring picks out a set of parallel
+ribbons running NW–SE — glaciofluvial eskers, laid down along the ice-flow direction — and
+the finds sit on them. This is the 7× isälvssediment enrichment as geometry rather than as
+a table. 1396 finds are drawn; at this scale dense clusters merge.*
+
+![The densest 20 km, at five per cent](img/se_pilot_detail_5pct.png)
+
+*The densest 20 × 20 km of the box at full 12.5 m resolution, `pct = 0.05`, holding 186
+finds. One esker runs corner to corner with a second entering from the right, and the finds
+track both. The thin dark lines through the coloured ground are streams and the mires beside
+them, which the model scores down.*
+
+![The same ground, at two per cent](img/se_pilot_detail_2pct.png)
+
+*The same ground at `pct = 0.02` — the "few sure shots" setting. The colour retreats to the
+esker crests and the finds stay with it, which is what recall@2 % measures.*
+
+Rendered by the snippet in this section's commit; the ramp, the quantile lookup and the
+threshold are read from `ml/models/matsutake_se/model.json`, so the pictures use the same
+numbers the app would.
 
 **Full-country cost**, from this measured rate: 6.48e9 cells is 6172 blocks at 1024, so
 roughly 24 hours on four cores — restartable through `<out>.progress`. The output would be
