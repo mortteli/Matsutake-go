@@ -37,11 +37,26 @@ This split has a convenient property: the paid surface is exactly the **baked, s
 path** — the one SCALING.md §1 says scales. Every paid byte is a COG range read off object storage.
 The free surface is the live path, which is the one that costs Luke and Metsäkeskus (§6).
 
-**Recommendation on price shape: a season pass, not a subscription.** Matsutake is a six-to-eight
-week season (`js/seasonality.js` draws it). A monthly subscription either churns in October or
-bills people through the winter for a map they cannot use; both generate refund requests. One
-payment, valid until 31 December of the season it was bought in, matches how the app is used.
-Stripe Checkout handles this as a one-off `payment` session with no subscription machinery at all.
+### Price shape: monthly + yearly subscriptions, with codes
+
+Decided: **monthly and yearly subscriptions**, off-season discounts, and limited early-bird codes
+that give free access for a while. All of it is Stripe configuration, not code:
+
+| Offer | Stripe object | Notes |
+|---|---|---|
+| Monthly | `Price`, `recurring.interval = month` | Priced so the yearly is obviously better: expect people to subscribe in August and cancel in October — the season is 6–8 weeks (`js/seasonality.js`) |
+| Yearly | `Price`, `recurring.interval = year` | The one that earns. Once there are several countries the seasons stop lining up (Australia's autumn is March–May), which makes the yearly easier to sell |
+| Off-season discount | `Coupon` (e.g. 30 % off, `duration: once`) that the Worker attaches at checkout between set dates | Aimed at the yearly: "buy next season now, cheaper" |
+| Early bird, free for N months | `Coupon` 100 % off, `duration: repeating`, `duration_in_months: N`, exposed as a `PromotionCode` with `max_redemptions` and `expires_at` | Stripe counts the redemptions and enforces the limit and expiry — no table of our own |
+| Free trial (optional) | `subscription_data.trial_period_days` | |
+
+With `payment_method_collection: "if_required"` a zero-euro checkout (100 % code) does not ask for
+a card, so an early-bird user gets in with just an email. When the free months end without a card,
+the subscription lapses to `past_due`/`canceled` and access stops on its own — Stripe sends the
+"add a card" email if that is turned on.
+
+Cancelling, changing card, switching monthly → yearly and downloading receipts are all the
+**Stripe Customer Portal**, a hosted page one API call away. There is no billing UI to build.
 
 ---
 
@@ -100,17 +115,26 @@ Update that sentence in `DATA_LICENSES.md` / `ml/licenses.py:155` when the comme
 Once anything is sold, the whole site is a commercial service — including its free tier. These are
 needed regardless of how the paywall is built.
 
-### 3a. Basemaps and geocoding → MML
+### 3a. Basemaps and geocoding → one global commercial provider
+
+The app is going multi-country (Sweden now; Japan, Australia and others later), so a
+Finland-only provider like MML is the wrong base: one basemap per country means one API key,
+one attribution and one set of terms per country. Use one commercial provider that covers the
+world and has a topographic style, a satellite layer and geocoding under one key — MapTiler and
+Stadia Maps both do, on paid plans that permit commercial use.
 
 | Now | Problem | Replace with |
 |---|---|---|
-| `tile.openstreetmap.org` (`js/maplayer.js:11`) | tile policy: no heavy/commercial use | MML Maastokartta (WMTS, free API key, CC BY 4.0) |
-| `tile.opentopomap.org` (`js/maplayer.js:13`) | volunteer server, same concern | MML Maastokartta already has contours; drop the layer |
-| `server.arcgisonline.com` (`js/maplayer.js:15`) | keyless endpoint, not licensed for this | MML Ortokuva |
-| `nominatim.openstreetmap.org` (`js/search.js:76`, `js/nearby.js:424`) | 1 req/s app-wide, no commercial use | MML geocoding API, or self-hosted Photon on the Finland extract |
+| `tile.openstreetmap.org` (`js/maplayer.js:11`) | tile policy: no heavy/commercial use | provider's outdoor/topo raster tiles |
+| `tile.opentopomap.org` (`js/maplayer.js:13`) | volunteer server, same concern | same topo style (it has contours); drop the layer |
+| `server.arcgisonline.com` (`js/maplayer.js:15`) | keyless endpoint, not licensed for this | provider's satellite tiles |
+| `nominatim.openstreetmap.org` (`js/search.js:76`, `js/nearby.js:424`) | 1 req/s app-wide, no commercial use | provider's geocoding API; drop `countrycodes=fi` and use the active region's bbox instead |
 
-Sweden needs its own basemap for the pilot area (Lantmäteriet, free account) or a paid provider;
-MML does not cover it.
+MML Maastokartta can stay as an optional **extra** layer for Finland — it is better cartography
+there, free, CC BY 4.0 — but not as the base the app depends on.
+
+The API key is visible in the browser, as every tile key is; restrict it by HTTP referrer to the
+production domain in the provider's dashboard.
 
 ### 3b. Fix the silent probe failure
 
@@ -132,14 +156,16 @@ nothing — there is no per-record relicensing route at that scale.
 ## 4. Phase 2 — architecture
 
 ```
-            ┌─────────────── one site: matsutake.<domain> ───────────────┐
-browser ──▶ │ Cloudflare Pages   index.html, js/, vendor/, free data/    │
-            │ Worker route       /data/paid/*  → cookie check → R2 range │
-            │                    /api/checkout, /api/webhook, /api/login │
-            └────────────────────────────────────────────────────────────┘
-                     │                    │                    │
-                Cloudflare R2        Workers KV            Stripe
-             commercial COGs     email → paid_until      Checkout, one-off
+            ┌─────────────── one site: shroomify.com (or similar) ───────────────┐
+browser ──▶ │ Cloudflare Pages   index.html, js/, vendor/, free data/            │
+            │ Worker route       /data/paid/<region>/* → cookie check → R2 range │
+            │                    /api/checkout, /api/webhook, /api/login,        │
+            │                    /api/portal                                     │
+            └────────────────────────────────────────────────────────────────────┘
+                     │                    │                     │            │
+                Cloudflare R2        Workers KV              Stripe       mail sender
+             commercial COGs    sub:<email>, login     subscriptions,    magic links
+             per region          tokens (TTL)          codes, portal
 ```
 
 ### 4a. Same origin, so the cookie just works
@@ -163,21 +189,59 @@ means the commercial `prob_meta.json` lists `/data/paid/matsutake/prob_…tif` i
   *Voimassa 31.12.2027 asti*.
 - `js/state.js`: nothing. Entitlement lives in an HttpOnly cookie, never in `localStorage`.
 
-### 4c. Entitlement without passwords
+### 4c. Accounts without passwords: the email is the username
 
-1. **Buy.** `/api/checkout` creates a Stripe Checkout session (one-off, `customer_email`
-   collected). On success Stripe redirects to `/?paid={CHECKOUT_SESSION_ID}`.
-2. **Unlock this device.** The Worker retrieves the session from Stripe, confirms `paid`, writes
-   `email → paid_until` to KV, and sets a signed cookie (HS256 JWT, `exp = paid_until`,
-   `HttpOnly; Secure; SameSite=Lax`). The webhook (`checkout.session.completed`) writes the same KV
-   row, so a closed tab never loses a purchase.
-3. **Another device, or cleared cookies.** *Palauta ostos* → email → one-time magic link (needs a
-   transactional mail sender; Resend or Postmark) → same cookie.
-4. **Every paid range read.** Verify the JWT (≈1 ms, no KV lookup), then serve from the Cache API
-   if present, else `R2.get(key, { range })` → 206. Auth runs *before* the cache, so cached bytes
-   are never served to an unpaid request.
+**The account is the email address, and the proof of owning it is a link sent to it** — the same
+login many apps use ("magic link"). No password is ever stored, so there is no password reset,
+no hashing, and no leaked-password risk.
 
-State is one KV key per buyer. There is no database, no user table, no password.
+**Stripe is the database of who has paid.** A subscription's status (`active`, `trialing`,
+`past_due`, `canceled`) and `current_period_end` live in Stripe; Stripe also knows the customer's
+email. Our own storage is only a fast copy of that, kept in Workers KV:
+
+```
+KV  sub:<email>  →  { customer: "cus_…", status: "active", until: 1788220800 }
+```
+
+It is written only by the Stripe webhook (`customer.subscription.created/updated/deleted`), so it
+is never the source of truth and can be rebuilt from Stripe at any time. That is the whole
+"database": one small record per paying customer. (If you later want login history, per-country
+plans or referral counts, Cloudflare D1 — SQLite at the edge — is the next step; nothing here
+needs it yet.)
+
+**Two cookies**, both `HttpOnly; Secure; SameSite=Lax`, signed by the Worker:
+
+| Cookie | Lifetime | Holds | Checked |
+|---|---|---|---|
+| `session` | 90 days, renewed on use | the email | only when `access` has expired |
+| `access` | 24 hours | email + `until` | on every paid range read, signature only (≈1 ms, no KV) |
+
+The flows:
+
+1. **Subscribe.** `/api/checkout` → Stripe Checkout (email, card or a code). Stripe redirects to
+   `/?checkout={CHECKOUT_SESSION_ID}`; the Worker confirms it with Stripe and sets both cookies.
+   The user is logged in without ever having "registered".
+2. **Every paid request.** Valid `access` → serve. Expired `access` but valid `session` → the Worker
+   reads `sub:<email>` from KV once, and if the subscription is still active issues a new
+   `access` silently. The user never sees it. This is also what makes a **cancellation take
+   effect within a day** without us revoking anything: the next refresh finds `canceled`.
+3. **Cookie gone** (new phone, cleared browser, 90 days unused). The app shows **Kirjaudu** → the
+   user types their email → the Worker emails a one-time link (valid 15 min, single use, stored in
+   KV with a TTL) → clicking it sets both cookies. If that email has no active subscription, the
+   link still logs them in and the app offers the plans.
+4. **Manage.** *Tilaukseni* → `/api/portal` → Stripe Customer Portal for that customer.
+
+Needs one transactional mail sender for the links (Resend, Postmark or Amazon SES — cents per
+thousand at this volume). Passkeys can be added later on top of the same `session` cookie; they
+are nice, not needed.
+
+**Account sharing.** One login used on many phones is the cost of having no passwords. Cap it
+cheaply if it ever matters: keep the last few `session` ids per email in KV and drop the oldest
+when a new device logs in.
+
+**Every paid range read** verifies `access`, then serves from the Cache API if present, else
+`R2.get(key, { range })` → 206. Auth runs *before* the cache, so cached bytes are never served to an
+unpaid request.
 
 ### 4d. The free preview
 
@@ -204,12 +268,13 @@ repo, which buys little.
 
 Short list, not legal advice; each is a day or less.
 
-- **Business identity.** Stripe needs a Y-tunnus (a toiminimi is enough).
-- **VAT.** Digital services to EU consumers are taxed at the buyer's rate (OSS). Either register
-  for OSS and use Stripe Tax, or use a merchant of record (Paddle, Lemon Squeezy) that files it
-  instead. **Recommendation: merchant of record** for a seasonal side project — it removes the
-  quarterly filings entirely, at a few percent of revenue. The Worker flow in §4c is the same
-  either way; only the checkout and webhook calls change.
+- **Business identity and VAT.** Decided: sold through the existing company, which handles VAT.
+  Two things to confirm with whoever does its books: digital services to consumers in *other*
+  EU countries are taxed at the buyer's rate via **OSS** once EU cross-border sales pass €10 000 a
+  year; and selling to consumers outside the EU (Sweden is EU; Japan, Australia are not) can
+  require registering for their consumption tax on digital services. **Stripe Tax** calculates
+  the right rate per buyer and warns when a country's threshold is near — turn it on from day
+  one so prices are shown VAT-inclusive correctly everywhere.
 - **Withdrawal right.** Finnish/EU consumer law gives 14 days on digital content unless the buyer
   expressly consents to immediate delivery and acknowledges losing the right. One checkbox on the
   checkout page.
@@ -232,33 +297,86 @@ conditional on actually getting there.
 
 ---
 
-## 7. Order of work and timing
+## 7. More countries
+
+Sweden ships in the paid tier at launch — presented honestly as the Västerbotten pilot area, not as
+"Sweden", until the national raster exists. After that the plan is more countries (Japan,
+Australia, China and others). What that means for the paywall:
+
+- **One subscription covers every region.** Per-country plans multiply Stripe prices and confuse
+  the offer; the Worker only checks "is this subscription active", never "for which country".
+  A per-region `prob_meta.json` under `/data/paid/<region>/` already fits how
+  `js/problayer.js` loads regions (one `prob_meta.json` per region), so a new country is a new
+  folder in R2 plus an entry in the region list — no auth change.
+- **Each country repeats Phase 0.** Its observation records and environmental layers need the same
+  commercial-use check as §2a–2b before its map goes behind the paywall. That is the real cost of a
+  new country, not the hosting.
+- **The basemap is already global** (§3a), which is why MML is not the base any more.
+- **The free rule layer is Finland-only.** It is Luke's MVMI; other countries get the model layer
+  and findings, not the live sliders. Say so on the region's info page.
+- **China is a different kind of project.** Publishing maps of China is regulated (map review and
+  approval), coordinates there are offset (GCJ-02) so WGS84 overlays land in the wrong place on
+  Chinese basemaps, and foreign web services are often unreachable there. Treat it as its own
+  investigation, not a data pipeline run. Japan and Australia have no comparable obstacle.
+
+---
+
+## 8. Domain and hosting costs
+
+**Domain.** `shroomify.com` or similar is fine for a multi-country product — better than a
+Finnish-only name. Before buying, search for existing apps and trademarks with the same name; a
+name clash is far more expensive to fix after launch.
+
+What matters technically: **the domain's DNS must be on Cloudflare** for the Worker to run on a
+route of the same site (§4a). You can register the domain anywhere and point its nameservers to
+Cloudflare (free plan). Check what the Zoner price is for: if €5/month or €25/year is *web hosting*,
+it is not needed — Cloudflare Pages hosts the app. If it is the domain registration itself, it is
+fine; a `.com` usually renews for around €10–15 a year, and Cloudflare Registrar sells at cost if
+you would rather keep everything in one place. Check the **renewal** price, not the first-year one.
+
+**Running costs, early on.** Every paid range read is a Worker request, and panning makes dozens.
+The Workers free tier (100 000 requests a day) will run out with a few hundred active users; the
+Workers paid plan (about $5 a month, 10 million requests included) is the realistic baseline.
+R2 storage for a few GB is cents, egress is free. Add the map provider's plan and the mail sender.
+
+---
+
+## 9. Order of work and timing
 
 Today is late September 2026 — the season is ending. The realistic launch is **before the 2027
 season, i.e. by mid-July 2027**, which leaves the whole winter and makes Phase 0 unhurried.
+Early-bird codes can go out in spring for testing.
 
 | # | Phase | Size | Gate / done when |
 |---|---|---|---|
 | 0a | CC BY-only retrain, Finland (§2a) | 1–2 days | beats `rule_new_default` clearly on fold spread — **go / no-go** |
 | 0b | Drop 8 NC records, Sweden; read SLU/SGU terms (§2b) | ½ day | terms permit commercial use |
 | 0c | Relicense commercial output as proprietary (§2c) | ½ day | DATA_LICENSES.md updated |
-| 1 | MML basemaps + geocoder, probe fix, NC-free findings (§3) | 3–4 days | no OSM/Esri/Nominatim requests in devtools |
-| 2 | Cloudflare Pages + R2 + Worker, cookie check, free preview (§4) | 3–5 days | paid COG returns 401 without cookie, 206 with |
-| 3 | Checkout, webhook, magic-link restore, account row (§4c) | 3–4 days | test-mode purchase unlocks two devices |
-| 4 | ToS, privacy, VAT route, withdrawal checkbox (§5) | 1–2 days | pages live, checkout compliant |
+| 1 | Global basemap + geocoder, probe fix, NC-free findings (§3) | 3–4 days | no OSM/Esri/Nominatim requests in devtools |
+| 2 | Domain on Cloudflare, Pages + R2 + Worker, cookie check, free preview (§4, §8) | 3–5 days | paid COG returns 401 without cookie, 206 with |
+| 3 | Subscriptions, codes, webhook → KV, magic-link login, portal, account row (§1, §4c) | 4–5 days | test mode: subscribe, log in on a second device by email, cancel → access gone within a day; a 100 % code works without a card |
+| 4 | ToS, privacy, Stripe Tax, withdrawal checkbox (§5) | 1–2 days | pages live, checkout compliant |
 | 5 | Luke caching proxy (§6) | ~2 days | default-settings tiles served from cache |
 | — | **Launch** | | by mid-July 2027 |
 
-Phases 1 and 3b's probe fix are worth doing even if Phase 0 fails.
+Phase 1 is worth doing even if Phase 0 fails.
 
 ---
 
-## 8. Open decisions
+## 10. Decisions
 
-1. **Season pass vs subscription** — recommended: season pass (§1).
-2. **Stripe + OSS vs merchant of record** — recommended: merchant of record (§5).
-3. **Is Sweden in the paid tier at launch?** It is a 150 × 150 km pilot; selling it as a bonus is
-   fine, selling it as "Sweden" is not.
-4. **Price.** Not a technical question. Anchor against what a day's gas and a wasted drive cost,
-   not against app-store prices.
-5. **Domain.** Needed before Phase 2; the cookie scope (§4a) depends on it.
+Made:
+
+- **Monthly + yearly subscriptions**, off-season discount, limited early-bird codes (§1).
+- **Passwordless login by email**, Stripe as the record of who has paid (§4c).
+- **Sweden in the paid tier** at launch, labelled as the pilot area (§7).
+- **Global basemap provider**, not MML, because of the multi-country plan (§3a).
+- **Own company handles VAT**; Stripe Tax for per-country rates (§5).
+
+Still open:
+
+1. **Prices**, and the monthly/yearly ratio. Anchor against what a day's fuel and a wasted drive
+   cost, not against app-store prices.
+2. **Map provider** — MapTiler or Stadia; compare their commercial plans on tile volume.
+3. **Domain** — `shroomify.com` or similar, after a name/trademark search (§8).
+4. **Early-bird size** — how many codes, how many free months.
