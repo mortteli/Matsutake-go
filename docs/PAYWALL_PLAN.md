@@ -185,8 +185,8 @@ means the commercial `prob_meta.json` lists `/data/paid/matsutake/prob_…tif` i
 - `js/problayer.js:56` (`fetch` of the meta) and `:356` (`Promise.all` over the rasters): a 401 or
   403 must become an upsell sheet, not a generic failure.
 - `js/inspect.js:128`: `readProb` on a free session skips the request instead of catching a 401.
-- A small account row in the settings sheet (`js/ui.js`): *Tilaa* / *Kirjaudu* / *Tilaukseni* (valid until …,
-  from the `access` cookie's `until`).
+- A small account row in the settings sheet (`js/ui.js`): *Tilaa* / *Kirjaudu* / *Tilaukseni* (valid until …, from
+  a small `/api/me` call — the cookies are HttpOnly, so JS cannot read them).
 - `js/state.js`: nothing. Entitlement lives in an HttpOnly cookie, never in `localStorage`.
 
 ### 4c. Accounts without passwords: the email is the username
