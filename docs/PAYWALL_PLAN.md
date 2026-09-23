@@ -27,7 +27,7 @@ people's open data.
 |---|---|---|
 | Rule layer (Luke masks, live sliders) | ✅ | ✅ |
 | Tap sheet: site class, ground, metrics, slope, harvest | ✅ | ✅ |
-| Findings layer, seasonality chart | ✅ (commercially usable records only, §3c) | ✅ |
+| Findings layer, seasonality chart | ✅ (commercially usable records only, §3d) | ✅ |
 | Search, GPS, "lähellä sinua" | ✅ | ✅ |
 | **🧠 Model layer, Finland, 16 m** | coarse preview (§4d) | ✅ full resolution |
 | **Model score in the tap sheet** (`readProb`, `js/inspect.js:128`) | — | ✅ |
@@ -115,35 +115,87 @@ Update that sentence in `DATA_LICENSES.md` / `ml/licenses.py:155` when the comme
 Once anything is sold, the whole site is a commercial service — including its free tier. These are
 needed regardless of how the paywall is built.
 
-### 3a. Basemaps and geocoding → one global commercial provider
+### 3a. Licence status of every external service the app uses today
 
-The app is going multi-country (Sweden now; Japan, Australia and others later), so a
-Finland-only provider like MML is the wrong base: one basemap per country means one API key,
-one attribution and one set of terms per country. Use one commercial provider that covers the
-world and has a topographic style, a satellite layer and geocoding under one key — MapTiler and
-Stadia Maps both do, on paid plans that permit commercial use.
+Checked 2026-09-23 against each provider's published terms. "Data licence" and "service terms" are
+different questions: CC BY 4.0 data can be used commercially, but the *server* it comes from can
+still be a free public service with fair-use limits.
 
-| Now | Problem | Replace with |
-|---|---|---|
-| `tile.openstreetmap.org` (`js/maplayer.js:11`) | tile policy: no heavy/commercial use | provider's outdoor/topo raster tiles |
-| `tile.opentopomap.org` (`js/maplayer.js:13`) | volunteer server, same concern | same topo style (it has contours); drop the layer |
-| `server.arcgisonline.com` (`js/maplayer.js:15`) | keyless endpoint, not licensed for this | provider's satellite tiles |
-| `nominatim.openstreetmap.org` (`js/search.js:76`, `js/nearby.js:424`) | 1 req/s app-wide, no commercial use | provider's geocoding API; drop `countrycodes=fi` and use the active region's bbox instead |
+| Service | Where | Data licence | Commercial use of the service | Verdict |
+|---|---|---|---|---|
+| **Luke MVMI WMS** (`kartta.luke.fi`) | rule layer, tap probes | CC BY 4.0 | ✅ allowed, free, no key | **Keep.** Attribution already shown. Load is the risk, not the licence (§6) |
+| **Metsäkeskus WFS** (`avoin.metsakeskus.fi`) | harvests | CC BY 4.0 | ✅ allowed, free | **Keep.** Tap-only at scale (SCALING.md §3) |
+| **MML elevation** (baked into `data/terrain/`) | slope | CC BY 4.0 | ✅ | **Keep** |
+| **GBIF / FinBIF** | build time only | per record | ✅ for CC0 / CC BY records | **Keep**, with the NC filter (§2a, §3d) |
+| **Open-Meteo** (`api.open-meteo.com`) | slope fallback | CC BY 4.0 data | ❌ *"You may only use the free API services for non-commercial purposes."* Paid plans (API key, `customer-api.open-meteo.com`) allow it | **Remove the fallback** in the commercial build — Finland and Sweden have baked terrain. Bake terrain for each new country instead of paying |
+| **OSM tiles** (`tile.openstreetmap.org`) | basemap | ODbL | ⚠️ allowed, but no SLA: *"access may be withdrawn at any point: you may no longer be able to serve your paying customers"*; offline/bulk features forbidden | **Replace** |
+| **OpenTopoMap** | basemap | CC BY-SA 3.0 | ⚠️ allowed if the volunteer server is not loaded heavily; no uptime guarantee | **Replace** |
+| **Esri World Imagery** (`server.arcgisonline.com`) | satellite | Esri terms | ❌ legacy keyless endpoint is for licensed ArcGIS users; not for commercial use this way | **Replace** — the only one of the three basemaps that is a clear violation |
+| **Nominatim** (`nominatim.openstreetmap.org`) | search, nearby names | ODbL | ⚠️ allowed at max 1 req/s *for the whole app*, and *"you must not implement [auto-complete] on the client side"* — the 600 ms debounced search-while-typing is close to that line | **Replace** — 1 req/s total cannot serve a paying user base |
+| **GitHub Pages** | hosting | — | ⚠️ not meant for sites whose main purpose is commercial transactions or SaaS | **Move** to Cloudflare Pages (§4) |
+| Leaflet, georaster, georaster-layer-for-leaflet | `vendor/` | BSD-2 / Apache-2.0 / MIT | ✅ | **Keep** — permissive, just keep the licence files |
 
-MML Maastokartta can stay as an optional **extra** layer for Finland — it is better cartography
-there, free, CC BY 4.0 — but not as the base the app depends on.
+So the licence problems are concentrated in exactly two places: **the basemaps + geocoder** (§3b)
+and **the CC BY-NC observation records** (§2a, §3d). Every forest-data source is clean.
 
-The API key is visible in the browser, as every tile key is; restrict it by HTTP referrer to the
-production domain in the provider's dashboard.
+### 3b. Basemap and geocoding: MapTiler vs Stadia Maps
 
-### 3b. Fix the silent probe failure
+Both are global, both cover Japan and Australia, both need a paid plan for commercial use (neither
+free tier allows it). Prices from their pricing pages, 2026-09-23, in USD:
+
+| | **MapTiler Flex** | **Stadia Starter** | **Stadia Standard** |
+|---|---|---|---|
+| Price | $30/month | $20/month | $80/month |
+| Included | 25 000 map sessions, 500 000 API requests, 3 000 search sessions | 1 000 000 credits | 7 500 000 credits |
+| Overage | $2.50 / 1 000 sessions | $0.03 / 1 000 credits | $0.02 / 1 000 credits |
+| How a map is billed | **per session** with the Leaflet plugin: *"any user interactions like panning, zooming … are included within a single session"*; per tile (1 request each) with plain XYZ tiles | per tile, 1 credit each | per tile, 1 credit |
+| Satellite | ✅ on Flex | ❌ | ✅, 4 credits a tile |
+| Geocoding | included (search sessions) | 20 credits a request | 20 credits a request |
+| Outdoor/topo style with contours | ✅ Outdoor, Topo | ✅ Stadia Outdoors, Stamen Terrain | same |
+| Company | Swiss (Zurich) — EU-adequate for GDPR | US | US |
+
+**What that costs this app.** A session here is panning-heavy — call it ~200 basemap tiles
+(an estimate; measure it in devtools like SCALING.md says for bandwidth).
+
+| Sessions / month | MapTiler Flex (per session) | Stadia Starter (no satellite) | Stadia Standard (with satellite) |
+|---|---|---|---|
+| 5 000 | $30 | $20 | $80 |
+| 25 000 | $30 | ~$140 | $80 |
+| 100 000 | ~$220 | ~$590 | ~$330 |
+
+Basemap only; searches come on top — MapTiler's 3 000 included search sessions, then $2.50 per
+1 000, versus 20 credits a request on Stadia (the nearby list's three reverse lookups alone are 60
+credits a scan).
+
+Stadia is cheaper only while the app is small *and* without satellite. Per-tile billing punishes
+exactly what this app's users do — pan around a forest for ten minutes — whereas a MapTiler session
+costs the same however much they pan.
+
+**Recommendation: MapTiler**, via the `@maptiler/leaflet-maptilersdk` plugin so billing is per
+session. Satellite and geocoding are on the entry plan, costs are predictable, and it is a European
+company. Two things to prototype before committing:
+
+1. The plugin renders the basemap with MapLibre (vector) *inside* Leaflet. Check that
+   `SpotLayer`'s canvas composite and `GeoRasterLayer` still draw on top correctly, and that it
+   is not noticeably heavier on an old phone. If it is, plain raster tiles still work — billed
+   per request at $0.15 / 1 000 beyond the 500 000 included — and that is the fallback.
+2. Check the Outdoor style is readable under the orange/green overlays; the current OSM look is
+   what users know.
+
+The API key is visible in the browser, as every tile key is: restrict it by HTTP referrer to the
+production domain in MapTiler's dashboard.
+
+MML Maastokartta (free API key, CC BY 4.0) can stay as an optional **extra** layer for Finland —
+it is better cartography there — but not as the base the app depends on.
+
+### 3c. Fix the silent probe failure
 
 `js/inspect.js:36-40` still turns a throttled probe into `null`, which the sheet reads as "condition
 not met". A paying customer who is told *not a matsutake spot* because Luke was busy has a
 legitimate complaint. Distinguish *failed* from *false* and let the sheet say "tietoa ei saatu".
 Small, and SCALING.md §2c already says do it before there is load.
 
-### 3c. Findings layer: drop CC BY-NC records from the commercial build
+### 3d. Findings layer: drop CC BY-NC records from the commercial build
 
 `data/*/observations.json` carries NC records: 49 of 455 matsutake, **794 of 2747 kanttarelli**
 (mostly iNaturalist). Displaying them on a commercial site is commercial use. Filter them in
@@ -311,7 +363,7 @@ Australia, China and others). What that means for the paywall:
 - **Each country repeats Phase 0.** Its observation records and environmental layers need the same
   commercial-use check as §2a–2b before its map goes behind the paywall. That is the real cost of a
   new country, not the hosting.
-- **The basemap is already global** (§3a), which is why MML is not the base any more.
+- **The basemap is already global** (§3b), which is why MML is not the base any more.
 - **The free rule layer is Finland-only.** It is Luke's MVMI; other countries get the model layer
   and findings, not the live sliders. Say so on the region's info page.
 - **China is a different kind of project.** Publishing maps of China is regulated (map review and
@@ -352,7 +404,7 @@ Early-bird codes can go out in spring for testing.
 | 0a | CC BY-only retrain, Finland (§2a) | 1–2 days | beats `rule_new_default` clearly on fold spread — **go / no-go** |
 | 0b | Drop 8 NC records, Sweden; read SLU/SGU terms (§2b) | ½ day | terms permit commercial use |
 | 0c | Relicense commercial output as proprietary (§2c) | ½ day | DATA_LICENSES.md updated |
-| 1 | Global basemap + geocoder, probe fix, NC-free findings (§3) | 3–4 days | no OSM/Esri/Nominatim requests in devtools |
+| 1 | MapTiler basemap + geocoder, drop Open-Meteo fallback, probe fix, NC-free findings (§3) | 3–4 days | no OSM/OpenTopoMap/Esri/Nominatim/Open-Meteo requests in devtools |
 | 2 | Domain on Cloudflare, Pages + R2 + Worker, cookie check, free preview (§4, §8) | 3–5 days | paid COG returns 401 without cookie, 206 with |
 | 3 | Subscriptions, codes, webhook → KV, magic-link login, portal, account row (§1, §4c) | 4–5 days | test mode: subscribe, log in on a second device by email, cancel → access gone within a day; a 100 % code works without a card |
 | 4 | ToS, privacy, Stripe Tax, withdrawal checkbox (§5) | 1–2 days | pages live, checkout compliant |
@@ -370,13 +422,13 @@ Made:
 - **Monthly + yearly subscriptions**, off-season discount, limited early-bird codes (§1).
 - **Passwordless login by email**, Stripe as the record of who has paid (§4c).
 - **Sweden in the paid tier** at launch, labelled as the pilot area (§7).
-- **Global basemap provider**, not MML, because of the multi-country plan (§3a).
+- **Global basemap provider**, not MML, because of the multi-country plan (§3b).
 - **Own company handles VAT**; Stripe Tax for per-country rates (§5).
 
 Still open:
 
 1. **Prices**, and the monthly/yearly ratio. Anchor against what a day's fuel and a wasted drive
    cost, not against app-store prices.
-2. **Map provider** — MapTiler or Stadia; compare their commercial plans on tile volume.
+2. **Map provider** — recommended: MapTiler Flex via the Leaflet plugin, after the prototype in §3b.
 3. **Domain** — `shroomify.com` or similar, after a name/trademark search (§8).
 4. **Early-bird size** — how many codes, how many free months.
