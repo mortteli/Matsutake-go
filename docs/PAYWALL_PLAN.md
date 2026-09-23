@@ -386,6 +386,23 @@ it is not needed — Cloudflare Pages hosts the app. If it is the domain registr
 fine; a `.com` usually renews for around €10–15 a year, and Cloudflare Registrar sells at cost if
 you would rather keep everything in one place. Check the **renewal** price, not the first-year one.
 
+**Why Cloudflare and not Vercel.** Vercel would work at launch size; it loses on the one cost that
+grows with this app, which is bytes of raster sent out. Prices from both pricing pages, 2026-09-23:
+
+| | Cloudflare (Pages + Workers + R2) | Vercel Pro |
+|---|---|---|
+| Base | Workers paid ~$5/month | $20/month per seat (Hobby is non-commercial only) |
+| Sending data out | **R2 egress free**; Pages bandwidth free | 1 TB/month included, then from $0.15/GB; Blob transfer 10 GB included |
+| Requests | 10 M Worker requests included | 10 M edge requests included, then $2/M |
+| Storage | R2 $0.015/GB-month | Blob $0.023/GB-month |
+
+At SCALING.md's estimated 3–8 MB a session, 10 000 sessions a month is ~50 GB and both are cheap.
+At the 1000-concurrent tier's ~20 TB a month, R2 is still ~€0 for egress while Vercel is roughly
+$2 900 in transfer alone. Vercel's strengths — Next.js builds, preview deployments, serverless
+functions — go unused by a static vanilla-JS app. The price of Cloudflare is that the domain's DNS
+has to live there. A hybrid (app on Vercel, rasters on R2 at `data.shroomify.com`) is possible but
+brings back cross-origin cookies and CORS on every range read, which §4a exists to avoid.
+
 **Running costs, early on.** Every paid range read is a Worker request, and panning makes dozens.
 The Workers free tier (100 000 requests a day) will run out with a few hundred active users; the
 Workers paid plan (about $5 a month, 10 million requests included) is the realistic baseline.
