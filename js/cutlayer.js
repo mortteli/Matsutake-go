@@ -1,4 +1,4 @@
-import { boundsToTM35, toTM35 } from "./geo.js";
+import { toTM35 } from "./geo.js";
 import { map } from "./maplayer.js";
 import { MK_MINZOOM, mkCellsOf, mkFeatures } from "./metsakeskus.js";
 import { repaintProb } from "./problayer.js";
