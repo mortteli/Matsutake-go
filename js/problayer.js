@@ -22,8 +22,10 @@ import { toast } from "./ui.js";
    own threshold through its own quantiles, so "best 2 %" is the best 2 % of Finnish forest land
    in Finland and of Swedish forest land in Sweden — which is what a picker means by it on either
    side of the border. */
+// `failed`: the model could not be loaded this visit. Kept apart from state.prob.on, which is the
+// user's choice and is saved — one bad connection must not switch the model map off for good.
 export const prob = { meta: null, metaFor: null, builtFor: null, regions: [],
-                      rasters: [], cut: [], layers: [], loading: null };
+                      rasters: [], cut: [], layers: [], loading: null, failed: false };
 
 // The flat views the rest of the app reads: every region's rasters, cut bands and layers in one
 // list each. Kept in step with the regions by hand rather than computed on access, because
@@ -343,7 +345,7 @@ export function sampleExactly(layer) {
 // them to disagree on screen. So only one is ever on the map: the model, once it has something
 // to say for the current species, otherwise the rule mask.
 export function syncRuleLayer() {
-  const showingProb = state.prob.on && !!sp().model;
+  const showingProb = state.prob.on && !prob.failed && !!sp().model;
   if (showingProb) { if (map.hasLayer(spots)) map.removeLayer(spots); }
   else if (!map.hasLayer(spots)) spots.addTo(map);
   document.getElementById("legendRule").hidden = showingProb;
@@ -369,6 +371,7 @@ const attributionFor = r => r.meta.attribution ||
 
 export async function showProb() {
   const species = sp();
+  prob.failed = false;
   try {
     const meta = await loadProbMeta(species);
     if (!meta) return;
@@ -404,7 +407,7 @@ export async function showProb() {
     updateProbLegend();
     syncRuleLayer();
   } catch (e) {
-    state.prob.on = false; save(); renderProb();
+    prob.failed = true; renderProb();
     toast("Todennäköisyyskarttaa ei voitu ladata");
     syncRuleLayer();
   }
@@ -429,7 +432,7 @@ export function repaintProb() {
 
 export function updateProbLegend() {
   const el = document.getElementById("legendProb");
-  el.hidden = !state.prob.on || !prob.meta;
+  el.hidden = !state.prob.on || prob.failed || !prob.meta;
   const showCut = state.hideCut && prob.cut.length;
   document.getElementById("legendProbText").textContent =
     "malli: parhaat " + fmtPct(state.prob.pct) + " metsämaasta" + (showCut ? " · harmaa = hakattu" : "");
@@ -452,9 +455,9 @@ export function renderProb() {
     'sieni-ilmoituksesta on matsutakea, parhaassa 5 %:ssa joka kolmas. ' +
     'Sääntökartta piilotetaan mallin ollessa päällä.</p>';
   const on = host.querySelector("#probOn"), rng = host.querySelector("#probPct"), val = host.querySelector("#probPctVal");
-  on.checked = state.prob.on; rng.value = probStopIndex(state.prob.pct); val.textContent = fmtPct(state.prob.pct);
+  on.checked = state.prob.on && !prob.failed; rng.value = probStopIndex(state.prob.pct); val.textContent = fmtPct(state.prob.pct);
   on.addEventListener("change", () => {
-    state.prob.on = on.checked; save();
+    state.prob.on = on.checked; prob.failed = false; save();
     if (on.checked) showProb(); else hideProb(false);
   });
   let t = null;

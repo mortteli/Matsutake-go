@@ -4,7 +4,11 @@ import { SPECIES } from "./species.js";
 export const STORE_KEY = "matsutakego.v2";
 // `hideCut` is global rather than per-species on purpose: all five need standing forest, and
 // ukonsieni's own text already says a bare clear-cut is out.
-export const state = { species: SPECIES[0].key, cfg: {}, opacity: 0.75, hideCut: true, prob: { on: true, pct: 2 }, findings: { on: true, filter: "kaikki" } };
+// The probability map is on by default. `probV` marks a stored `prob.on` as chosen under that
+// default: a value saved before it (or by an old build that switched the layer off for good after
+// one failed load) is ignored once, so everyone starts from the model map again.
+export const PROB_DEFAULT_V = 2;
+export const state = { species: SPECIES[0].key, cfg: {}, opacity: 0.75, hideCut: true, prob: { on: true, pct: 2 }, probV: PROB_DEFAULT_V, findings: { on: true, filter: "kaikki" } };
 SPECIES.forEach(s => { state.cfg[s.key] = Object.assign({}, s.defaults); });
 
 export function sp()  { return SPECIES.find(s => s.key === state.species) || SPECIES[0]; }
@@ -18,7 +22,10 @@ export function load() {
     if (j.species && SPECIES.some(s => s.key === j.species)) state.species = j.species;
     if (typeof j.opacity === "number") state.opacity = j.opacity;
     if (typeof j.hideCut === "boolean") state.hideCut = j.hideCut;
-    if (j.prob) { state.prob.on = !!j.prob.on; if (typeof j.prob.pct === "number") state.prob.pct = j.prob.pct; }
+    if (j.prob) {
+      if (j.probV === PROB_DEFAULT_V) state.prob.on = !!j.prob.on;
+      if (typeof j.prob.pct === "number") state.prob.pct = j.prob.pct;
+    }
     if (j.findings) {
       state.findings.on = !!j.findings.on;
       if (["kaikki", "paikannetut", "parhaat"].includes(j.findings.filter))

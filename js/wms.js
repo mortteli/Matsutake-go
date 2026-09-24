@@ -121,30 +121,35 @@ export function compositeMask(groups, bbox, w, h, cut, opt) {
     octx.drawImage(unions[0], 0, 0);
     octx.globalCompositeOperation = "destination-in";
     for (let i = 1; i < unions.length; i++) octx.drawImage(unions[i], 0, 0);
-    // AND NOT the stands Metsäkeskus says have been cut since the inventory. Vertices are
-    // projected one by one, so nothing is resampled and the 16 m grid stays honest; "evenodd"
-    // keeps polygon holes as holes.
-    if (cut && cut.length) {
-      const sx = w / (bbox[2] - bbox[0]), sy = h / (bbox[3] - bbox[1]);
-      octx.globalCompositeOperation = "destination-out";
-      octx.fillStyle = "#000";
-      octx.beginPath();
-      // A fetch covers a 10 km cell but a tile is a fraction of it, so most of what came back
-      // cannot touch this tile. Reject those on a cached bounding box first — otherwise every
-      // tile walks all ~800 polygons of its cell, vertex by vertex.
-      cut.forEach(f => {
-        const fb = featureBox(f);
-        if (fb[2] < bbox[0] || fb[0] > bbox[2] || fb[3] < bbox[1] || fb[1] > bbox[3]) return;
-        ringsOf(f.geometry).forEach(ring => {
-          ring.forEach((pt, i) => {
-            const px = (lonTo3857(pt[0]) - bbox[0]) * sx, py = (bbox[3] - latTo3857(pt[1])) * sy;
-            if (i) octx.lineTo(px, py); else octx.moveTo(px, py);
-          });
-          octx.closePath();
-        });
-      });
-      octx.fill("evenodd");
-    }
+    subtractCut(octx, cut, bbox, w, h);
     return off;
   });
+}
+
+/* AND NOT the stands Metsäkeskus says have been cut since the inventory, drawn into a mask's
+   context. Vertices are projected one by one, so nothing is resampled and the 16 m grid stays
+   honest; "evenodd" keeps polygon holes as holes. Separate from compositeMask so a tile that was
+   drawn before its harvest data arrived can be corrected from the mask it already has, without
+   asking Luke for the same images again. */
+export function subtractCut(octx, cut, bbox, w, h) {
+  if (!cut || !cut.length) return;
+  const sx = w / (bbox[2] - bbox[0]), sy = h / (bbox[3] - bbox[1]);
+  octx.globalCompositeOperation = "destination-out";
+  octx.fillStyle = "#000";
+  octx.beginPath();
+  // A fetch covers a 10 km cell but a tile is a fraction of it, so most of what came back
+  // cannot touch this tile. Reject those on a cached bounding box first — otherwise every
+  // tile walks all ~800 polygons of its cell, vertex by vertex.
+  cut.forEach(f => {
+    const fb = featureBox(f);
+    if (fb[2] < bbox[0] || fb[0] > bbox[2] || fb[3] < bbox[1] || fb[1] > bbox[3]) return;
+    ringsOf(f.geometry).forEach(ring => {
+      ring.forEach((pt, i) => {
+        const px = (lonTo3857(pt[0]) - bbox[0]) * sx, py = (bbox[3] - latTo3857(pt[1])) * sy;
+        if (i) octx.lineTo(px, py); else octx.moveTo(px, py);
+      });
+      octx.closePath();
+    });
+  });
+  octx.fill("evenodd");
 }
