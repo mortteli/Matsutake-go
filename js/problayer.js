@@ -347,6 +347,7 @@ export function syncRuleLayer() {
   if (showingProb) { if (map.hasLayer(spots)) map.removeLayer(spots); }
   else if (!map.hasLayer(spots)) spots.addTo(map);
   document.getElementById("legendRule").hidden = showingProb;
+  document.getElementById("regularFilterSettings").hidden = showingProb;
 }
 
 // geotiff.js fetches inside a worker, where relative URLs cannot be resolved
