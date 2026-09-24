@@ -1,5 +1,4 @@
 import { MVMI_EFFECTIVE } from "./constants.js";
-import { map, spots } from "./maplayer.js";
 import { gate } from "./wms.js";
 
 /* ================= Metsäkeskus: the forest that is no longer there =================
@@ -84,13 +83,18 @@ export function mkFresh(key) {
 }
 
 /* Tiles are drawn before their harvest cells arrive, so the layer has to be repainted when one
-   lands. Four cells arriving together must cost one repaint, not four. */
+   lands. Four cells arriving together must cost one repaint, not four — and it must be one
+   *tile's* repaint, not the whole layer's: SpotLayer registers a hook that repaints only the
+   tiles waiting on cut data, rather than tearing down and re-fetching every visible tile from
+   Luke, which is what used to make the whole layer blink out and back in while zooming. */
 export let cutRedrawTimer = null;
+let cutRedrawHook = null;
+export function onCutRedraw(fn) { cutRedrawHook = fn; }
 export function scheduleCutRedraw() {
   if (cutRedrawTimer) return;
   cutRedrawTimer = setTimeout(() => {
     cutRedrawTimer = null;
-    if (typeof spots !== "undefined" && map.hasLayer(spots)) spots.redraw();
+    if (cutRedrawHook) cutRedrawHook();
   }, 400);
 }
 

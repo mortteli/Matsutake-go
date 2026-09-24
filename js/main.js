@@ -1,3 +1,4 @@
+import "./cutlayer.js";
 import "./hillshade.js";
 import { map } from "./maplayer.js";
 import { initSearch } from "./search.js";
