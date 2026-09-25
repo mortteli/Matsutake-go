@@ -1,13 +1,13 @@
-import { toTM35 } from "./geo.js";
+import { boundsToTM35 } from "./geo.js";
 import { map } from "./maplayer.js";
-import { MK_MINZOOM, mkCellsOf, mkFeatures } from "./metsakeskus.js";
+import { MK_MINZOOM, MK_RETRY_MS, mkCellsOf, mkComplete, mkFeatures, mkViewFits, mkWatchView } from "./metsakeskus.js";
 import { repaintProb } from "./problayer.js";
 import { DEVCLASS_NAMES, fiDate } from "./rasterread.js";
 import { save, state } from "./state.js";
-import { refreshSpots } from "./ui.js";
+import { refreshSpots, toast } from "./ui.js";
 
 /* ---- "Hakkuut" overlay: the correction, drawn, so it can be argued with ---- */
-export let cutLayer = null, cutBusy = false;
+export let cutLayer = null;
 
 export function cutStyle(f) {
   return f.properties.DEVELOPMENTCLASS
@@ -23,40 +23,45 @@ export function cutPopupHTML(f) {
     : "<b>Hakkuuaikomus</b><br>uudistushakkuu" + (p.AREA ? ", " + String(p.AREA).replace(".", ",") + " ha" : "") +
       (fiDate(p.DECLARATIONARRIVALDATE) ? "<br><small>ilmoitettu " + fiDate(p.DECLARATIONARRIVALDATE) + "</small>" : "");
 }
-// EPSG:3067 box covering a LatLngBounds. TM35FIN is rotated against the map's projection, so
-// all four corners are projected and the extremes taken.
-export function boundsToTM35(b) {
-  let xmin = Infinity, ymin = Infinity, xmax = -Infinity, ymax = -Infinity;
-  [[b.getSouth(), b.getWest()], [b.getSouth(), b.getEast()],
-   [b.getNorth(), b.getWest()], [b.getNorth(), b.getEast()]].forEach(ll => {
-    const p = toTM35(ll[0], ll[1]);
-    xmin = Math.min(xmin, p.x); xmax = Math.max(xmax, p.x);
-    ymin = Math.min(ymin, p.y); ymax = Math.max(ymax, p.y);
-  });
-  return { xmin: xmin, ymin: ymin, xmax: xmax, ymax: ymax };
-}
-
 export let cutCells = null;           // which cells the drawn overlay is built from
+let cutLoading = null, cutGen = 0, cutRetry = null, cutHinted = false;
 export async function cutRefresh() {
-  if (!cutLayer || !map.hasLayer(cutLayer) || cutBusy) return;
-  if (map.getZoom() < MK_MINZOOM) { cutLayer.clearLayers(); cutCells = null; return; }
+  if (!cutLayer || !map.hasLayer(cutLayer)) return;
   const bb = boundsToTM35(map.getBounds());
+  if (map.getZoom() < MK_MINZOOM || !mkViewFits(bb)) {
+    cutGen++; cutLoading = null;
+    cutLayer.clearLayers(); cutCells = null;
+    if (!cutHinted && map.getZoom() >= MK_MINZOOM) {
+      cutHinted = true;
+      toast("Lähennä vielä vähän — hakkuut haetaan Metsäkeskukselta pienemmältä alueelta 🪵");
+    }
+    return;
+  }
   // Panning inside the same 10 km cells changes nothing about which polygons apply, and
   // rebuilding them was the single most expensive thing this layer did: clearLayers() plus
   // addData() on every moveend meant tearing down and recreating ~1 200 polygons per pan.
   const cells = mkCellsOf(bb).map(c => c.join(",")).join(";");
-  if (cells === cutCells) return;
-  cutBusy = true;
+  if (cells === cutCells || cells === cutLoading) return;
+  // A newer view supersedes a load still under way. This used to be a busy flag that dropped
+  // the move instead, so zooming in during a slow load left the overlay built for the view the
+  // user had already left, or empty, until the next pan.
+  const gen = ++cutGen;
+  cutLoading = cells;
   try {
     // declarations first so the stand polygons draw over them where both apply
     const lists = await Promise.all([mkFeatures("mki", bb), mkFeatures("stand", bb)]);
-    if (map.hasLayer(cutLayer)) {
-      cutLayer.clearLayers();
-      cutLayer.addData({ type: "FeatureCollection", features: lists[0].concat(lists[1]) });
-      cutCells = cells;        // only on success, so a failed fetch is retried on the next move
+    if (gen !== cutGen || !map.hasLayer(cutLayer)) return;
+    cutLayer.clearLayers();
+    cutLayer.addData({ type: "FeatureCollection", features: lists[0].concat(lists[1]) });
+    // A failed cell comes back as [] like an empty one. Remember the view as done only when
+    // every cell really arrived, and otherwise try again once the failure cool-off has passed.
+    if (mkComplete("mki", bb) && mkComplete("stand", bb)) cutCells = cells;
+    else {
+      clearTimeout(cutRetry);
+      cutRetry = setTimeout(cutRefresh, MK_RETRY_MS + 1000);
     }
   } catch (e) { /* Metsäkeskus unreachable: the overlay just stays as it was */ }
-  finally { cutBusy = false; }
+  finally { if (gen === cutGen) cutLoading = null; }
 }
 document.getElementById("chkCutLayer").addEventListener("change", e => {
   if (e.target.checked) {
@@ -75,6 +80,7 @@ document.getElementById("chkCutLayer").addEventListener("change", e => {
   } else if (cutLayer) map.removeLayer(cutLayer);
 });
 map.on("moveend", cutRefresh);
+mkWatchView(() => boundsToTM35(map.getBounds()));
 export const chkHideCut = document.getElementById("chkHideCut");
 chkHideCut.checked = state.hideCut;
 chkHideCut.addEventListener("change", () => {

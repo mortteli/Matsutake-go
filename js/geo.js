@@ -110,3 +110,15 @@ export const projectionFor = crs => PROJECTIONS[crs] || null;
 export const toTM35 = (lat, lon) => TM35FIN.forward(lat, lon);
 export const fromTM35 = (x, y) => TM35FIN.inverse(x, y);
 export const bboxToTM35 = bbox => TM35FIN.box3857(bbox);
+// EPSG:3067 box covering a LatLngBounds. TM35FIN is rotated against the map's projection, so
+// all four corners are projected and the extremes taken.
+export function boundsToTM35(b) {
+  let xmin = Infinity, ymin = Infinity, xmax = -Infinity, ymax = -Infinity;
+  [[b.getSouth(), b.getWest()], [b.getSouth(), b.getEast()],
+   [b.getNorth(), b.getWest()], [b.getNorth(), b.getEast()]].forEach(ll => {
+    const p = toTM35(ll[0], ll[1]);
+    xmin = Math.min(xmin, p.x); xmax = Math.max(xmax, p.x);
+    ymin = Math.min(ymin, p.y); ymax = Math.max(ymax, p.y);
+  });
+  return { xmin: xmin, ymin: ymin, xmax: xmax, ymax: ymax };
+}

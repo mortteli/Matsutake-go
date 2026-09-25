@@ -9,7 +9,7 @@ file, named so they can be checked against it.
 | Participant | Host | What is asked for |
 |---|---|---|
 | **Luke** | `kartta.luke.fi/geoserver/MVMI/wms` | `GetMap` PNG, one per condition, styled server-side with `SLD_BODY` so the answer is a 1-bit mask. Shared queue `lukeGate`, **5** in flight (`LUKE_PAR`, one under GeoServer's `x-concurrent-limit-user: 6`). |
-| **MK** | `avoin.metsakeskus.fi/rajapinnat/v1/ows` | WFS `GetFeature` GeoJSON, `v1:stand` and `v1:forestusedeclaration`. Shared queue `mkGate`, **4** in flight (`MK_PAR`), 9 s timeout, only at zoom ≥ **11** (`MK_MINZOOM`). |
+| **MK** | `avoin.metsakeskus.fi/rajapinnat/v1/ows` | WFS `GetFeature` GeoJSON, `v1:stand` and `v1:forestusedeclaration`. Shared queue `mkGate`, **4** in flight (`MK_PAR`), 20 s to first byte, only at zoom ≥ **11** (`MK_MINZOOM`) and only when the view spans ≤ **12** cells (`MK_MAX_VIEW_CELLS`). |
 | **Static** | same origin (GitHub Pages) | `prob_meta.json`, `terrain_meta.json`, the vendored georaster scripts, and HTTP **range** requests into the 9+9 GeoTIFF parts under `data/matsutake/`. |
 | **Nominatim** | `nominatim.openstreetmap.org` | `/search` for the box, `/reverse` for the names in "lähellä sinua". One request a second, never per keystroke. |
 | **Open-Meteo** | `api.open-meteo.com/v1/elevation` | Slope, **fallback only** — used when no baked terrain layer is published. |
@@ -66,14 +66,14 @@ sequenceDiagram
     App->>LQ: 5 GetMap jobs, one SLD_BODY mask per condition
     LQ->>L: GetMap kasvupaikka, paatyyppi, ika, manty, kuusi
     L-->>App: 5 transparent PNGs, AND-composited on canvas
-    alt zoom 11 or deeper, and hideCut on
+    alt zoom 11 or deeper, view ≤ 12 cells, and hideCut on
       App->>App: mkFeaturesNow stand — cached cells only, never awaited
       App->>MQ: request missing 10 km cells in background
       MQ->>MK: GetFeature v1 stand, BBOX 10 km, propertyName trimmed
       MK-->>App: about 1.47 MB GeoJSON per cell
       App->>App: scheduleCutRedraw, debounced 400 ms
-      App->>LQ: redraw re-issues the 5 masks per visible tile
-    else shallower than zoom 11
+      App->>App: re-cut only the tiles that waited, from their kept masks — no Luke request
+    else shallower than zoom 11, or view wider than 12 cells
       Note over App,MK: no Metsäkeskus request at all
     end
   end
@@ -85,12 +85,12 @@ sequenceDiagram
   end
 
   Note over App,LQ: tiles panned off are marked _dead and dropped<br/>at the head of the queue — DROPPED, no request sent
-  Note over App,MK: 12 cells cached per kind, LRU · a failed cell<br/>is retried at most once per 30 s
+  Note over App,MK: 36 cells cached, LRU, arrived cells only · queued cells<br/>off screen are dropped · a failed cell is retried at most once per 30 s
 ```
 
 **Costs:** 5 Luke requests per new tile. 1 WFS request per newly entered 10 km cell (≈ 1.47 MB),
-capped at 12 cells per kind. Zero Metsäkeskus traffic below zoom 11. A landing cell costs one extra
-debounced redraw of the visible tiles.
+at most 12 cells per kind per view. Zero Metsäkeskus traffic below zoom 11 or on a wider view. A
+landing cell costs one debounced re-cut of the tiles that were drawn without it, with no new requests.
 
 ---
 

@@ -1,5 +1,5 @@
 import { MVMI_EFFECTIVE } from "./constants.js";
-import { gate } from "./wms.js";
+import { DROPPED, gate } from "./wms.js";
 
 /* ================= Metsäkeskus: the forest that is no longer there =================
    Luke's MVMI is a snapshot. A stand clear-cut after MVMI_EFFECTIVE still reads as whatever it
@@ -45,9 +45,19 @@ export const MK_MAX = 4000;           // per cell; ~300 declarations / ~600 youn
    cells asks for thousands of cells for one tile, and the map builds dozens of tiles at a time.
    The same constant gates the drawn "Hakkuut" overlay, which has always had this floor. */
 export const MK_MINZOOM = 11;
+/* The zoom floor alone is not a budget. Around 61° N a z11 screen on a desktop is some 40 km
+   across and needs twenty-odd cells per dataset, 1.5 MB each: tens of megabytes and forty
+   requests for one look at the map, which is not a fair use of an open API. So a view that
+   spans more cells than this asks Metsäkeskus nothing, and the correction takes over
+   once the user zooms in far enough for it to be worth fetching. */
+export const MK_MAX_VIEW_CELLS = 12;
+export const mkViewFits = bb => mkCellsOf(bb).length <= MK_MAX_VIEW_CELLS;
 export const MK_PAR = 4;
 export const mkGate = gate(MK_PAR);   // shared by cell fetches and point queries, which rank ahead
-export const MK_TIMEOUT_MS = 9000;
+// How long to wait for the server to start answering. It bounds the wait for the response to
+// start, not the whole download: a 1.5 MB cell on a phone connection can take longer than this
+// to arrive, and aborting it halfway threw away the bytes and asked again 30 s later.
+export const MK_TIMEOUT_MS = 20000;
 // A 10 km cell of stands is 811 features and 2.0 MB if the server is allowed to send all 40 of
 // its columns, of which this app reads four. `propertyName` cuts that to 1.47 MB, and the same
 // trick takes declarations from 0.90 to about 0.55 MB. Anything added to a popup or to
@@ -63,10 +73,14 @@ export const MK_KIND = {
 
 /* Cells are cached, but not forever. Each holds a couple of megabytes of parsed GeoJSON, and
    featureBox() pins a bounding box onto every feature, so nothing in a cached cell can be
-   collected. Panning across the country used to retain every cell ever visited. The cap is a
-   working set of roughly 30 x 30 km per kind; `mkDone` mirrors the resolved value so tiles can
-   read what has already arrived without awaiting a promise (see SpotLayer.createTile). */
-export const MK_CACHE_CELLS = 12;
+   collected. Panning across the country used to retain every cell ever visited. `mkDone`
+   mirrors the resolved value so tiles can read what has already arrived without awaiting a
+   promise (see SpotLayer.createTile).
+   The cap has to hold at least one full view of both kinds with room to spare. It used to be 12
+   entries while a z11–z13 view (plus Leaflet's buffer ring of tiles) needed 20 or more, so cells
+   were evicted as they arrived, the tiles still waiting for them asked again, and those requests
+   evicted others: the same cells were downloaded over and over and the tiles never settled. */
+export const MK_CACHE_CELLS = 2 * MK_MAX_VIEW_CELLS + 12;
 export const MK_RETRY_MS = 30000;     // cool-off after a failed cell, so an outage cannot become a loop
 export const mkCache = new Map();     // "kind:gx:gy" -> Promise<Feature[]>
 export const mkDone = new Map();      // same key -> Feature[], resolved only
@@ -98,12 +112,29 @@ export function scheduleCutRedraw() {
   }, 400);
 }
 
-export function mkTouch(key) {        // Map preserves insertion order: re-insert to mark as recently used
+/* Which cells are still worth downloading. Queued cell requests are checked against the current
+   view (plus a ring of one cell) when their turn comes, and dropped if the user has zoomed or
+   panned away — otherwise zooming in from z12 to z15 sat behind the whole z12 batch before the
+   cells actually on screen were even asked for. The map registers the view; without one every
+   cell counts as wanted. */
+let mkView = null;
+export function mkWatchView(fn) { mkView = fn; }
+function mkWanted(gx, gy) {
+  const bb = mkView && mkView();
+  if (!bb) return true;
+  return gx >= Math.floor(bb.xmin / MK_CELL_M) - 1 && gx <= Math.floor(bb.xmax / MK_CELL_M) + 1 &&
+         gy >= Math.floor(bb.ymin / MK_CELL_M) - 1 && gy <= Math.floor(bb.ymax / MK_CELL_M) + 1;
+}
+
+// Map preserves insertion order: re-insert to mark as recently used. Only cells that have
+// arrived are evicted; dropping one still in flight would discard its download on arrival.
+export function mkTouch(key) {
   if (mkCache.has(key)) { const v = mkCache.get(key); mkCache.delete(key); mkCache.set(key, v); }
-  while (mkCache.size > MK_CACHE_CELLS) {
-    const oldest = mkCache.keys().next().value;
-    mkCache.delete(oldest);
-    mkDone.delete(oldest);
+  let over = mkCache.size - MK_CACHE_CELLS;
+  for (const k of mkCache.keys()) {
+    if (over <= 0) break;
+    if (!mkDone.has(k)) continue;
+    mkCache.delete(k); mkDone.delete(k); over--;
   }
 }
 
@@ -119,7 +150,7 @@ export function mkGet(kind, cql, count, opt) {
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), MK_TIMEOUT_MS);
     return fetch(url, { signal: ctl.signal })
-      .then(r => r.ok ? r.json() : Promise.reject(new Error("metsakeskus " + r.status)))
+      .then(r => { clearTimeout(timer); return r.ok ? r.json() : Promise.reject(new Error("metsakeskus " + r.status)); })
       .then(j => j.features || [])
       .finally(() => clearTimeout(timer));
   }, opt);
@@ -137,14 +168,18 @@ export function mkCell(kind, gx, gy) {
   if (hit) { mkTouch(key); return hit; }
   if (!mkFresh(key)) return Promise.resolve([]);
   const x0 = gx * MK_CELL_M, y0 = gy * MK_CELL_M;
-  const p = mkGet(kind, mkBBox(x0, y0, x0 + MK_CELL_M, y0 + MK_CELL_M) + MK_KIND[kind].filter)
+  const p = mkGet(kind, mkBBox(x0, y0, x0 + MK_CELL_M, y0 + MK_CELL_M) + MK_KIND[kind].filter,
+                  0, { alive: () => mkWanted(gx, gy) })
     .then(feats => {
-      if (mkCache.has(key)) mkDone.set(key, feats);
+      if (mkCache.get(key) === p) { mkDone.set(key, feats); mkTouch(key); }
       if (kind === "stand") scheduleCutRedraw();   // tiles drawn without it are now out of date
       return feats;
     })
-    .catch(() => {
-      mkCache.delete(key); mkDone.delete(key); mkFailed.set(key, Date.now());
+    .catch(err => {
+      if (mkCache.get(key) === p) { mkCache.delete(key); mkDone.delete(key); }
+      // dropped from the queue is not a failure: the cell may be wanted again a moment later
+      if (err !== DROPPED) mkFailed.set(key, Date.now());
+      if (kind === "stand") scheduleCutRedraw();   // tiles waiting on it paint with what there is
       return [];
     });
   mkCache.set(key, p);
@@ -164,15 +199,24 @@ export function mkFeatures(kind, bb) {
   return Promise.all(mkCellsOf(bb).map(j => mkCell(kind, j[0], j[1])))
     .then(lists => [].concat.apply([], lists));
 }
+// Did every cell of `bb` arrive? A failed cell resolves to [] like an empty one, so a caller that
+// wants to remember "this view is done" has to ask.
+export function mkComplete(kind, bb) {
+  return mkCellsOf(bb).every(([gx, gy]) => mkDone.has(kind + ":" + gx + ":" + gy));
+}
 // What is already in hand for `bb`, without awaiting anything. Missing cells are requested in
 // the background and reported as `pending`, so the caller can draw now and come back later.
-export function mkFeaturesNow(kind, bb) {
+// With `fetch` false nothing new is requested and only cells already in flight count as
+// pending — a repaint must never start downloads of its own, or a cell evicted between request
+// and repaint turns into a loop of repaint, request, evict.
+export function mkFeaturesNow(kind, bb, fetch = true) {
   const features = [];
   let pending = false;
   for (const [gx, gy] of mkCellsOf(bb)) {
     const key = kind + ":" + gx + ":" + gy;
     if (mkDone.has(key)) { mkTouch(key); features.push.apply(features, mkDone.get(key)); }
-    else if (mkFresh(key)) { pending = true; mkCell(kind, gx, gy); }
+    else if (mkCache.has(key)) pending = true;
+    else if (fetch && mkFresh(key)) { pending = true; mkCell(kind, gx, gy); }
   }
   return { features: features, pending: pending };
 }
