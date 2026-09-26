@@ -202,8 +202,9 @@ at this app's panning rate — inside every free tier above with a wide margin.
 
 **Year one: Esri Location Platform for base + satellite + search, MML as the extra Finnish layer.**
 Zero cost, commercially licensed, and it already covers Sweden, Japan and Australia. Move to
-MapTiler Flex when traffic makes per-tile billing cost more than $30 a month — at ~200 tiles a
-session that is around 10 000 Esri sessions a month beyond the free 2M tiles.
+MapTiler Flex when per-tile billing passes its $30 a month: at ~200 tiles a session, Esri's free 2M
+tiles last ~10 000 sessions, each one after that costs ~$0.03, so the crossover is ~11 000 sessions
+a month.
 
 To make that move a one-line change, keep every provider URL, key and attribution in one place
 (`js/maplayer.js` already holds all three basemaps) and read the key from config, not scattered
