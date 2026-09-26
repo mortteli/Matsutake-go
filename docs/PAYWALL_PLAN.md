@@ -185,6 +185,32 @@ company. Two things to prototype before committing:
 The API key is visible in the browser, as every tile key is: restrict it by HTTP referrer to the
 production domain in MapTiler's dashboard.
 
+#### Mapbox, and the first year on free tiers
+
+MapTiler's and Stadia's free tiers both forbid commercial use, so neither covers a paid app at any
+volume. Two big providers do allow commercial use inside their free tiers (checked 2026-09-26):
+
+| | Free per month | After that | Commercial on free tier | Notes |
+|---|---|---|---|---|
+| **Esri ArcGIS Location Platform** | 2 000 000 basemap tiles (incl. World Imagery), 20 000 geocodes | $0.15 / 1 000 tiles, $0.50 / 1 000 geocodes | ✅ *"deploy unlimited commercial public and private applications"* | The **legal** version of the satellite layer the app already uses: same imagery, new URL with a token (`ibasemaps-api.arcgis.com/...?token=`). Has topographic styles too |
+| **Mapbox** (pay-as-you-go) | 200 000 Static Tiles (styled raster, works in Leaflet), 750 000 Raster Tiles (satellite), 100 000 geocodes | $0.50 / $0.25 per 1 000 tiles, $0.75 / 1 000 geocodes | ✅ a consumer app is not among the uses needing its Commercial Application License (BI/analytics, real estate, vehicles) | Card required to open the account; no hard spending cap |
+| **MML** (Finland only) | unlimited within fair use, free API key | — | ✅ CC BY 4.0 | Maastokartta, orthophotos and geocoding; best cartography for Finland |
+| **Protomaps on our own R2** | a PMTiles file of OSM for the regions we cover | R2 costs only | ✅ ODbL attribution | Vector via `protomaps-leaflet`; no satellite, no geocoding; most work |
+
+Traffic for the owner and a handful of friends is a few hundred sessions a month, ~100 000 tiles
+at this app's panning rate — inside every free tier above with a wide margin.
+
+**Year one: Esri Location Platform for base + satellite + search, MML as the extra Finnish layer.**
+Zero cost, commercially licensed, and it already covers Sweden, Japan and Australia. Move to
+MapTiler Flex when traffic makes per-tile billing cost more than $30 a month — at ~200 tiles a
+session that is around 10 000 Esri sessions a month beyond the free 2M tiles.
+
+To make that move a one-line change, keep every provider URL, key and attribution in one place
+(`js/maplayer.js` already holds all three basemaps) and read the key from config, not scattered
+through the code. Restrict each key by HTTP referrer to the production domain, and set a budget
+alert where the provider offers one — a free tier with no spending cap is a bill waiting for a
+leaked key.
+
 MML Maastokartta (free API key, CC BY 4.0) can stay as an optional **extra** layer for Finland —
 it is better cartography there — but not as the base the app depends on.
 
@@ -446,6 +472,6 @@ Still open:
 
 1. **Prices**, and the monthly/yearly ratio. Anchor against what a day's fuel and a wasted drive
    cost, not against app-store prices.
-2. **Map provider** — recommended: MapTiler Flex via the Leaflet plugin, after the prototype in §3b.
+2. **Map provider** — recommended: Esri Location Platform free tier + MML for year one, MapTiler Flex via the Leaflet plugin once traffic grows (§3b).
 3. **Domain** — `shroomify.com` or similar, after a name/trademark search (§8).
 4. **Early-bird size** — how many codes, how many free months.
